@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.7.0_2025-02-18'
+__version__ = '0.8.0_2025-04-11'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@gmail.com'
 __status__ = 'Testing'
@@ -10,11 +10,14 @@ __description__ = 'Copy to import folder and generate trigger file'
 __distribution__ = 'Test_THI'	# for testrunns
 
 #__destination__ = '//192.168.128.150/UrkSp/Import/LKA71/SlowCopy_Test_THI'	# path for testruns
-__destination__ = 'P:/test_import/'	# path for testruns
+#__destination__ = 'P:/test_import/'	# path for testruns
+__destination__ = 'C:/Users/THI/Documents/test_import/'	# path for testruns
 #__logging__ = '//192.168.128.150/UrkSp/Import/LKA71/SlowCopy_Test_THI/_logs'	# path for testruns
-__logging__ = 'P:/test_logs/'	# path for testruns
+#__logging__ = 'P:/test_logs/'	# path for testruns
+__logging__ = 'C:/Users/THI/Documents/test_logs/'	# path for testruns
 #__update__ = '//192.168.128.150/UrkSp/Import/_dist'	# look for updates
-__update__ = 'P:/SlowCopy/dist/'	# path for testruns
+#__update__ = 'P:/SlowCopy/dist/'	# path for testruns
+__update__ = 'C:/Users/THI/SlowCopy/dist/'	# path for testruns
 
 ### standard libs ###
 import logging
@@ -39,27 +42,36 @@ from tkinter.messagebox import askyesno, showerror
 from tkinter.filedialog import askdirectory
 from idlelib.tooltip import Hovertip
 
-class RoboCopy(Popen):
-	'''Use Popen to run tools on Windows'''
+class RoboCopy:
+	'''Wrapper for RoboCopy'''
 
 	def __init__(self, src, dst):
 		'''Create robocopy process'''
-		self.startupinfo = STARTUPINFO()
-		self.startupinfo.dwFlags |= STARTF_USESHOWWINDOW
-		super().__init__(['Robocopy.exe', src, dst, '/e', '/compress', '/fp', '/ns', '/njh', '/njs', '/nc', '/unicode'],
+		self._startupinfo = STARTUPINFO()
+		self._startupinfo.dwFlags |= STARTF_USESHOWWINDOW
+
+		self._copy_args = ['/e', '/fp', '/ns', '/njh', '/njs', '/nc', '/unicode', '/compress', '/badargument']
+
+
+
+	def _run(self, args):
+		'''Use Popen to run RoboCopy'''
+		proc = Popen(['Robocopy.exe'].extend(args),
 			stdout = PIPE,
 			stderr = STDOUT,
 			encoding = 'utf-8',
 			errors = 'ignore',
 			universal_newlines = True,
-			startupinfo = self.startupinfo
+			startupinfo = self._startupinfo
 		)
-
-	def run(self):
-		'''Run process'''
-		for line in self.stdout:
+		for line in proc.stdout:
 			if stripped := line.strip():
 				yield stripped
+		self.returncode = proc.wait()
+
+	def copy(self, src, dst):
+		'''Open process to copy'''
+		self._run([src, dst].extend(self._copy_args))
 
 class HashThread(Thread):
 	'''Calculate hashes'''
@@ -259,7 +271,7 @@ class Copy:
 		try:
 			self.dst_path.mkdir(exist_ok=True)
 		except Exception as ex:
-			echo(f'Kann das Zielverzeichnis {dst_path} nicht erstellen:\n{ex}')
+			echo(f'Kann das Zielverzeichnis {self.dst_path} nicht erstellen:\n{ex}')
 			raise OSError(ex)
 		log_path = self.LOG_PATH / self.root_path.name
 		try:
@@ -312,8 +324,8 @@ class Copy:
 			else:
 				self.echo(line)
 		returncode = proc.wait()
-		if returncode > 3:
-			msg = f'Robocopy.exe hatte ein Problem beim kopieren von Dateien aus {self.root_path} nach {self.dst_path}, Rückgabewert: {returncode}'
+		if copy.returncode > 3:
+			msg = f'Robocopy.exe hatte ein Problem beim kopieren von Dateien aus {self.root_path} nach {self.dst_path}, Rückgabewert: {copy.returncode}'
 			logging.error(msg)
 			raise ChildProcessError(ex)
 		msg = 'Robocopy.exe ist fertig, starte Überprüfung anhand Dateigröße'
