@@ -10,14 +10,14 @@ __description__ = 'Copy to import folder and generate trigger file'
 __distribution__ = 'Test_THI'	# for testrunns
 
 #__destination__ = '//192.168.128.150/UrkSp/Import/LKA71/SlowCopy_Test_THI'	# path for testruns
-#__destination__ = 'P:/test_import/'	# path for testruns
-__destination__ = 'C:/Users/THI/Documents/test_import/'	# path for testruns
+__destination__ = 'P:/test_import/'	# path for testruns
+#__destination__ = 'C:/Users/THI/Documents/test_import/'	# path for testruns
 #__logging__ = '//192.168.128.150/UrkSp/Import/LKA71/SlowCopy_Test_THI/_logs'	# path for testruns
-#__logging__ = 'P:/test_logs/'	# path for testruns
-__logging__ = 'C:/Users/THI/Documents/test_logs/'	# path for testruns
+__logging__ = 'P:/test_logs/'	# path for testruns
+#__logging__ = 'C:/Users/THI/Documents/test_logs/'	# path for testruns
 #__update__ = '//192.168.128.150/UrkSp/Import/_dist'	# look for updates
-#__update__ = 'P:/SlowCopy/dist/'	# path for testruns
-__update__ = 'C:/Users/THI/SlowCopy/dist/'	# path for testruns
+__update__ = 'P:/SlowCopy/dist/'	# path for testruns
+#__update__ = 'C:/Users/THI/SlowCopy/dist/'	# path for testruns
 
 ### standard libs ###
 import logging
@@ -34,29 +34,39 @@ from multiprocessing import Pool, cpu_count
 from time import strftime, sleep, perf_counter
 from datetime import timedelta
 ### tk libs ###
-from tkinter import Tk, PhotoImage
+from tkinter import Tk, PhotoImage, BooleanVar
 from tkinter.font import nametofont
-from tkinter.ttk import Frame, Label, Button
+from tkinter.ttk import Frame, Label, Button, Checkbutton
 from tkinter.scrolledtext import ScrolledText
 from tkinter.messagebox import askyesno, showerror
 from tkinter.filedialog import askdirectory
 from idlelib.tooltip import Hovertip
+from tkinter import StringVar
+#from tkinter import Checkbutton
 
 class RoboCopy:
 	'''Wrapper for RoboCopy'''
 
-	def __init__(self, src, dst):
+	EXE = 'Robocopy.exe'
+
+	def __init__(self):
 		'''Create robocopy process'''
 		self._startupinfo = STARTUPINFO()
 		self._startupinfo.dwFlags |= STARTF_USESHOWWINDOW
+		self._copy_args = ['/e', '/fp', '/ns', '/njh', '/njs', '/nc']
+		try:
+			for line in self._yield(['/?']):
+				if line.lstrip().lower().startswith('/unicode'):
+					self._copy_args.append('/unicode')
+				elif line.lower().startswith('/compress'):
+					self._copy_args.append('/compress')
+		except Exception as ex:
+			raise RuntimeError(f'Unable to execute "{self.EXE} /?":\n{ex}')
 
-		self._copy_args = ['/e', '/fp', '/ns', '/njh', '/njs', '/nc', '/unicode', '/compress', '/badargument']
-
-
-
-	def _run(self, args):
+	def _popen(self, args):
 		'''Use Popen to run RoboCopy'''
-		proc = Popen(['Robocopy.exe'].extend(args),
+		self._cmd = [self.EXE] + args
+		return Popen(self._cmd,
 			stdout = PIPE,
 			stderr = STDOUT,
 			encoding = 'utf-8',
@@ -64,14 +74,34 @@ class RoboCopy:
 			universal_newlines = True,
 			startupinfo = self._startupinfo
 		)
+
+	def _yield(self, args):
+		'''Execute RoboCopy and yield output'''
+		proc = self._popen(args)
 		for line in proc.stdout:
 			if stripped := line.strip():
 				yield stripped
 		self.returncode = proc.wait()
 
-	def copy(self, src, dst):
-		'''Open process to copy'''
-		self._run([src, dst].extend(self._copy_args))
+	def _run(self, args):
+		'''Run RoboCopy and return process when finished'''
+		proc = self._popen(args)
+		self.returncode = proc.wait()
+		return proc
+
+	def copy_dir(self, src, dst):
+		'''Copy recursivly a directory'''
+		return self._yield([src, dst] + self._copy_args)
+
+	def copy_file(self, src, dst):
+		'''Copy one file into destination directory'''
+		proc = self._run([src.parent, dst, src.name])
+		self.returncode = proc.wait()
+		return proc
+
+	def __repr__(self):
+		'''Return command line as string'''
+		return ' '.join(f'{item}' for item in self._cmd)
 
 class HashThread(Thread):
 	'''Calculate hashes'''
@@ -161,7 +191,7 @@ class Copy:
 	def bad_destination(root_path):
 		'''Check if destination is clean'''
 		if (Copy.DST_PATH / root_path.name / Copy.TSV_NAME).is_file():
-			return f'{root_path} befindet sich bereits im Ziel- bzw. Importverzeichnis'
+			return f'{root_path} befindet sich bereits im Ziel- bzw. Importverzeichnis und wird weiterverarbeitet'
 
 	@staticmethod
 	def bad_source(root_path):
@@ -221,9 +251,10 @@ class Copy:
 			return format_b.format(b=size)
 		return format_k.format(iec=iec, si=si, b=size)
 
-	def __init__(self, root_path, echo=print, check_paths=True):
+	def __init__(self, root_path, log_dir=None, trigger=True, robocopy=None, echo=print, check_paths=True):
 		'''Generate object to copy and to zip'''
 		self.root_path = root_path.resolve()
+		robocopy = robocopy if robocopy else RoboCopy()
 		self.echo = echo
 		if ex := self.bad_destination(self.root_path):
 			raise ValueError(ex)
@@ -273,23 +304,36 @@ class Copy:
 		except Exception as ex:
 			echo(f'Kann das Zielverzeichnis {self.dst_path} nicht erstellen:\n{ex}')
 			raise OSError(ex)
-		log_path = self.LOG_PATH / self.root_path.name
+		remote_log_path = self.LOG_PATH / self.root_path.name
 		try:
-			log_path.mkdir(exist_ok=True)
+			remote_log_path.mkdir(exist_ok=True)
 		except Exception as ex:
-			echo(f'Kann das Log-Verzeichnis {log_path} nicht erstellen:\n{ex}')
+			echo(f'Kann das Log-Verzeichnis {remote_log_path} nicht erstellen:\n{ex}')
 			raise OSError(ex)
-		start_time = perf_counter()
+		if log_dir:
+			local_log_path = Path(log_dir) / self.root_path.name
+			try:
+				local_log_path.mkdir(exist_ok=True)
+			except Exception as ex:
+				echo(f'Kann das lokale Log-Verzeichnis {local_log_path} nicht erstellen:\n{ex}')
+				raise OSError(ex)
+		log_name = f'{strftime('%y%m%d-%H%M')}-{self.LOG_NAME}'
+		log_path = local_log_path / log_name if log_dir else remote_log_path / log_name
+
+
+
+
 		try:
 			logging.basicConfig(	# start logging
 				level = self.LOGLEVEL,
-				filename = log_path / f'{strftime('%y%m%d-%H%M')}-{self.LOG_NAME}',
+				filename = log_path,
 				format = '%(asctime)s %(levelname)s: %(message)s',
 				datefmt = '%Y-%m-%d %H:%M:%S'
 			)
 		except Exception as ex:
-			echo(f'Kann das Loggen nicht starten:\n{ex}')
+			echo(f'Kann das Loggen in die Datei {log_path} nicht starten:\n{ex}')
 			raise RuntimeError(ex)
+		start_time = perf_counter()
 		msg = f'Lese Verzeichnisstruktur von {self.root_path}'
 		logging.info(msg)
 		echo(msg)
@@ -317,18 +361,16 @@ class Copy:
 			msg = f'Konnte Thread, der Hash-Werte bilden soll, nicht starten:\n{ex}'
 			logging.error(msg)
 			echo(f'FEHLER: {msg}')
-		proc = RoboCopy(self.root_path, self.dst_path)
-		for line in proc.run():
+		for line in robocopy.copy_dir(self.root_path, self.dst_path):
 			if line.endswith('%'):
 				self.echo(line, end='\r')
 			else:
 				self.echo(line)
-		returncode = proc.wait()
-		if copy.returncode > 3:
-			msg = f'Robocopy.exe hatte ein Problem beim kopieren von Dateien aus {self.root_path} nach {self.dst_path}, Rückgabewert: {copy.returncode}'
+		if robocopy.returncode > 5:
+			msg = f'"{robocopy}" hatte ein Problem, Rückgabewert: {robocopy.returncode}'
 			logging.error(msg)
 			raise ChildProcessError(ex)
-		msg = 'Robocopy.exe ist fertig, starte Überprüfung anhand Dateigröße'
+		msg = f'"{robocopy}" wurde beendet, starte Überprüfung anhand Dateigröße'
 		logging.info(msg)
 		echo(msg)
 		errors = 0
@@ -369,7 +411,7 @@ class Copy:
 		tsv = 'Pfad\tMD5-Hash'
 		for path, md5 in hash_thread.get_hashes():
 			tsv += f'\n{path.relative_to(self.root_path.parent)}\t{md5}'
-		log_tsv_path = log_path / f'{strftime('%y%m%d-%H%M')}-{self.TSV_NAME}'
+		log_tsv_path = remote_log_path / f'{strftime('%y%m%d-%H%M')}-{self.TSV_NAME}'
 		try:
 			log_tsv_path.write_text(tsv, encoding='utf-8')
 		except Exception as ex:
@@ -386,20 +428,27 @@ class Copy:
 			msg = f'Bei {mismatches} Datei(en) stimmt die Größe der Zieldatei nicht mit der Ausgangsdatei überein'
 			logging.error(msg)
 			raise RuntimeError(msg)
-		dst_tsv_path = self.dst_path / self.TSV_NAME
-		try:
-			dst_tsv_path.write_text(tsv, encoding='utf-8')
-		except Exception as ex:
-			msg = f'Konnte {dst_tsv_path} nicht erzeugen:\n{ex}'
-			logging.error(msg)
-			echo(msg)
-			raise OSError(ex)
+		if trigger:
+			dst_tsv_path = self.dst_path / self.TSV_NAME
+			try:
+				dst_tsv_path.write_text(tsv, encoding='utf-8')
+			except Exception as ex:
+				msg = f'Konnte {dst_tsv_path} nicht erzeugen:\n{ex}'
+				logging.error(msg)
+				echo(msg)
+				raise OSError(eCopyx)
 		end_time = perf_counter()
 		delta = end_time - start_time
 		msg = f'Fertig - das Kopieren dauerte {timedelta(seconds=delta)} (Stunden, Minuten, Sekunden)'
 		logging.info(msg)
 		echo(msg)
 		logging.shutdown()
+		if log_dir:
+			robocopy.copy_file(log_path, remote_log_path)
+			if robocopy.returncode > 5:
+				msg = f'Die Log-Datei {log_path} konnte nicht nach {remote_log_path} kopiert werden'
+				logging.error(msg)
+				raise ChildProcessError(ex)
 
 class Worker(Thread):
 	'''Thread that does the work while Tk is running the GUI'''
@@ -412,9 +461,16 @@ class Worker(Thread):
 
 	def run(self):
 		'''Run thread'''
+		robocopy = RoboCopy()
 		for source_path in self.gui.source_paths:
 			try:
-				copy = Copy(source_path, echo=self.gui.echo, check_paths=self.gui.check_paths)
+				copy = Copy(source_path,
+					trigger = self.gui.generate_trigger.get(),
+					log_dir = self.gui.log_dir,
+					robocopy = robocopy,
+					echo = self.gui.echo,
+					check_paths = self.gui.check_paths
+				)
 			except Exception as ex:
 				self.gui.echo(f'FEHLER: {ex}')
 				self.errors = True
@@ -460,6 +516,23 @@ class Gui(Tk):
 		self.source_button = Button(frame, text='Quellverzeichnis', command=self._select_dir)
 		self.source_button.pack(padx=self.padding, pady=self.padding, fill='x', expand=True)
 		Hovertip(self.source_button, 'Füge das zu kopierende Verzeichnis hinzu (POLIKS-Vorgangsnummer).')
+		Label(frame, text='Optionen:').pack(
+			padx=self.padding, pady=(self.padding*8, self.padding), fill='x', expand=True)
+		self.generate_trigger = BooleanVar(value=True)
+		self.trigger_button = Checkbutton(frame, text='Weiterverarbeitung', variable=self.generate_trigger)
+		self.trigger_button.pack(padx=self.padding, pady=self.padding, fill='x', expand=True)
+		Hovertip(self.trigger_button, '''Angehakt wird die Weiterverarbeitung ausgelöst bzw.
+eine "fertig.txt"-Datei im Importverzeichnis erstellt.
+Wird der Haken entfernt, könne weitere Daten unter der
+betreffenden POLIKS-Nummer hochgeladen werden.''')
+		self.write_log = BooleanVar(value=False)
+		self.log_dir = None
+		self.log_button = Checkbutton(frame, text='Schreibe Log', variable=self.write_log, command = self._select_log)
+		self.log_button.pack(padx=self.padding, pady=self.padding, fill='x', expand=True)
+		Hovertip(self.log_button, '''Angehakt werden lokale Protokolldateien erzeugt. Hierfür
+muss ein Verzeichnis ausgewählt werden. In diesem werden dann
+Unterverzeichnisse mit dem Namen der betreffenden
+POLIKS-Nummer angelegt, falls noch nicht vorhanden.''')
 		self.source_text = ScrolledText(self, font=(self.font_family, self.font_size),
 			padx = self.padding, pady = self.padding)
 		self.source_text.grid(row=1, column=1, sticky='news',
@@ -559,6 +632,19 @@ class Gui(Tk):
 		if directory:
 			self._add_dir(directory)
 
+	def _select_log(self):
+		'''Select root directory for log-files'''
+		if self.write_log.get():
+			log_dir = askdirectory(title='Wähle das Verzeichnis für Protokolle aus')
+			if log_dir:
+				log_dir = Path(log_dir)
+				if log_dir.is_dir():
+					self.log_dir = log_dir
+			else:
+				self.write_log.set(False)
+		else:
+			self.log_dir = None
+
 	def echo(self, *arg, end=None):
 		'''Write message to info field (ScrolledText)'''
 		msg = ' '.join(arg)
@@ -646,14 +732,18 @@ class Gui(Tk):
 		self.destroy()
 
 if __name__ == '__main__':  # start here when run as application
-	argparser = ArgumentParser(prog=f'SlowCopy Version {__version__}', description='Copy into MSD network')  
+	argparser = ArgumentParser(prog=f'SlowCopy Version {__version__}', description='Copy into MSD network')
 	argparser.add_argument('-g', '--gui', action='store_true',
 		help='Use GUI with given root directory as command line parameters.')
+	argparser.add_argument('-l', '--log', type=Path,
+		help='Directory to store local logs. No local logs if not given.')
+	argparser.add_argument('-n', '--notrigger', action='store_false',
+		help='Do not triggedr further process to handle/move uploaded data.')
 	argparser.add_argument('source', nargs='?', help='Source directory', metavar='DIRECTORY')
 	args = argparser.parse_args()
 	root_path = Path(args.source.strip().strip('"')).absolute() if args.source else None
 	if root_path and not args.gui and Path(__executable__).name == 'python.exe':	# run in terminal
-		copy = Copy(root_path)
+		copy = Copy(root_path, log_dir=args.log, trigger=args.notrigger)
 	else:	# open gui if no argument is given
 		Gui(root_path, '''iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAMAAABg3Am1AAACEFBMVEUAAAH7AfwVFf8WFv4XF/0Y
 GPwZGfwaGvsaGvwbG/scHPodHfkeHvkfH/kgIPggIPkhIfciIvYjI/UkJPUlJfQnJ/IoKPEpKfAq
