@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.8.0_2025-04-11'
+__version__ = '0.8.0_2025-04-13'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@gmail.com'
 __status__ = 'Testing'
@@ -319,10 +319,6 @@ class Copy:
 				raise OSError(ex)
 		log_name = f'{strftime('%y%m%d-%H%M')}-{self.LOG_NAME}'
 		log_path = local_log_path / log_name if log_dir else remote_log_path / log_name
-
-
-
-
 		try:
 			logging.basicConfig(	# start logging
 				level = self.LOGLEVEL,
