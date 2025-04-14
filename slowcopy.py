@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.8.0_2025-04-13'
+__version__ = '0.8.0_2025-04-14'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@gmail.com'
 __status__ = 'Testing'
@@ -10,14 +10,14 @@ __description__ = 'Copy to import folder and generate trigger file'
 __distribution__ = 'Test_THI'	# for testrunns
 
 #__destination__ = '//192.168.128.150/UrkSp/Import/LKA71/SlowCopy_Test_THI'	# path for testruns
-__destination__ = 'P:/test_import/'	# path for testruns
-#__destination__ = 'C:/Users/THI/Documents/test_import/'	# path for testruns
+#__destination__ = 'P:/test_import/'	# path for testruns
+__destination__ = 'C:/Users/THI/Documents/test_import/'	# path for testruns
 #__logging__ = '//192.168.128.150/UrkSp/Import/LKA71/SlowCopy_Test_THI/_logs'	# path for testruns
-__logging__ = 'P:/test_logs/'	# path for testruns
-#__logging__ = 'C:/Users/THI/Documents/test_logs/'	# path for testruns
+#__logging__ = 'P:/test_logs/'	# path for testruns
+__logging__ = 'C:/Users/THI/Documents/test_logs/'	# path for testruns
 #__update__ = '//192.168.128.150/UrkSp/Import/_dist'	# look for updates
-__update__ = 'P:/SlowCopy/dist/'	# path for testruns
-#__update__ = 'C:/Users/THI/SlowCopy/dist/'	# path for testruns
+#__update__ = 'P:/SlowCopy/dist/'	# path for testruns
+__update__ = 'C:/Users/THI/SlowCopy/dist/'	# path for testruns
 
 ### standard libs ###
 import logging
@@ -39,10 +39,9 @@ from tkinter.font import nametofont
 from tkinter.ttk import Frame, Label, Button, Checkbutton
 from tkinter.scrolledtext import ScrolledText
 from tkinter.messagebox import askyesno, showerror
-from tkinter.filedialog import askdirectory
+from tkinter.filedialog import askdirectory, asksaveasfilename
 from idlelib.tooltip import Hovertip
 from tkinter import StringVar
-#from tkinter import Checkbutton
 
 class RoboCopy:
 	'''Wrapper for RoboCopy'''
@@ -251,7 +250,7 @@ class Copy:
 			return format_b.format(b=size)
 		return format_k.format(iec=iec, si=si, b=size)
 
-	def __init__(self, root_path, log_dir=None, trigger=True, robocopy=None, echo=print, check_paths=True):
+	def __init__(self, root_path, trigger=True, robocopy=None, echo=print, check_paths=True):
 		'''Generate object to copy and to zip'''
 		self.root_path = root_path.resolve()
 		robocopy = robocopy if robocopy else RoboCopy()
@@ -270,9 +269,7 @@ class Copy:
 					except Exception as ex:
 						echo(f'Konnte Datei {path} nicht löschen:\n{ex}')
 						raise OSError(ex)
-					msg = 'Die Datei {path} wurde auf Wunsch des Anwenders gelöscht'
-					logging.info(msg)
-					echo(msg)
+					echo(f'Die Datei {path} wurde auf Wunsch des Anwenders gelöscht')
 				else:
 					return
 			else:
@@ -289,9 +286,7 @@ class Copy:
 						except Exception as ex:
 							echo(f'Konnte Verzeichnis {path} nicht löschen:\n{ex}')
 							raise OSError(ex)
-						msg = 'Das Verzeichnis {path} wurde auf Wunsch des Anwenders gelöscht'
-						logging.info(msg)
-						echo(msg)
+						echo(f'Das Verzeichnis {path} wurde auf Wunsch des Anwenders gelöscht')
 					elif answer == 'kopieren':
 						continue
 					else:
@@ -304,25 +299,17 @@ class Copy:
 		except Exception as ex:
 			echo(f'Kann das Zielverzeichnis {self.dst_path} nicht erstellen:\n{ex}')
 			raise OSError(ex)
-		remote_log_path = self.LOG_PATH / self.root_path.name
+		log_dir_path = self.LOG_PATH / self.root_path.name
 		try:
-			remote_log_path.mkdir(exist_ok=True)
+			log_dir_path.mkdir(exist_ok=True)
 		except Exception as ex:
-			echo(f'Kann das Log-Verzeichnis {remote_log_path} nicht erstellen:\n{ex}')
+			echo(f'Kann das Log-Verzeichnis {log_dir_path} nicht erstellen:\n{ex}')
 			raise OSError(ex)
-		if log_dir:
-			local_log_path = Path(log_dir) / self.root_path.name
-			try:
-				local_log_path.mkdir(exist_ok=True)
-			except Exception as ex:
-				echo(f'Kann das lokale Log-Verzeichnis {local_log_path} nicht erstellen:\n{ex}')
-				raise OSError(ex)
-		log_name = f'{strftime('%y%m%d-%H%M')}-{self.LOG_NAME}'
-		log_path = local_log_path / log_name if log_dir else remote_log_path / log_name
+		self.log_path = log_dir_path / f'{strftime('%y%m%d-%H%M')}-{self.LOG_NAME}'
 		try:
 			logging.basicConfig(	# start logging
 				level = self.LOGLEVEL,
-				filename = log_path,
+				filename = self.log_path,
 				format = '%(asctime)s %(levelname)s: %(message)s',
 				datefmt = '%Y-%m-%d %H:%M:%S'
 			)
@@ -407,7 +394,7 @@ class Copy:
 		tsv = 'Pfad\tMD5-Hash'
 		for path, md5 in hash_thread.get_hashes():
 			tsv += f'\n{path.relative_to(self.root_path.parent)}\t{md5}'
-		log_tsv_path = remote_log_path / f'{strftime('%y%m%d-%H%M')}-{self.TSV_NAME}'
+		log_tsv_path = log_dir_path / f'{strftime('%y%m%d-%H%M')}-{self.TSV_NAME}'
 		try:
 			log_tsv_path.write_text(tsv, encoding='utf-8')
 		except Exception as ex:
@@ -432,19 +419,13 @@ class Copy:
 				msg = f'Konnte {dst_tsv_path} nicht erzeugen:\n{ex}'
 				logging.error(msg)
 				echo(msg)
-				raise OSError(eCopyx)
+				raise OSError(ex)
 		end_time = perf_counter()
 		delta = end_time - start_time
 		msg = f'Fertig - das Kopieren dauerte {timedelta(seconds=delta)} (Stunden, Minuten, Sekunden)'
 		logging.info(msg)
 		echo(msg)
 		logging.shutdown()
-		if log_dir:
-			robocopy.copy_file(log_path, remote_log_path)
-			if robocopy.returncode > 5:
-				msg = f'Die Log-Datei {log_path} konnte nicht nach {remote_log_path} kopiert werden'
-				logging.error(msg)
-				raise ChildProcessError(ex)
 
 class Worker(Thread):
 	'''Thread that does the work while Tk is running the GUI'''
@@ -454,6 +435,7 @@ class Worker(Thread):
 		super().__init__()
 		self.gui = gui
 		self.errors = False
+		self.log = ''
 
 	def run(self):
 		'''Run thread'''
@@ -462,15 +444,16 @@ class Worker(Thread):
 			try:
 				copy = Copy(source_path,
 					trigger = self.gui.generate_trigger.get(),
-					log_dir = self.gui.log_dir,
 					robocopy = robocopy,
 					echo = self.gui.echo,
 					check_paths = self.gui.check_paths
 				)
+				if self.gui.write_log:
+					self.log += f'### POLIKS-NR/Verzeichnis: {source_path.name} ###\nProtokoll:\n{copy.log_path.read_text()}'
 			except Exception as ex:
 				self.gui.echo(f'FEHLER: {ex}')
 				self.errors = True
-		self.gui.finished(self.errors)
+		self.gui.finished(self.errors, self.log)
 
 class Gui(Tk):
 	'''GUI look and feel'''
@@ -522,13 +505,11 @@ eine "fertig.txt"-Datei im Importverzeichnis erstellt.
 Wird der Haken entfernt, könne weitere Daten unter der
 betreffenden POLIKS-Nummer hochgeladen werden.''')
 		self.write_log = BooleanVar(value=False)
-		self.log_dir = None
-		self.log_button = Checkbutton(frame, text='Schreibe Log', variable=self.write_log, command = self._select_log)
+		self.log_button = Checkbutton(frame, text='Schreibe Log', variable=self.write_log)
 		self.log_button.pack(padx=self.padding, pady=self.padding, fill='x', expand=True)
-		Hovertip(self.log_button, '''Angehakt werden lokale Protokolldateien erzeugt. Hierfür
-muss ein Verzeichnis ausgewählt werden. In diesem werden dann
-Unterverzeichnisse mit dem Namen der betreffenden
-POLIKS-Nummer angelegt, falls noch nicht vorhanden.''')
+		Hovertip(self.log_button, '''Angehakt wird eine Protokolldateien erzeugt.
+Hierfür wird nach abgeschlossenem
+Kopiervorgang ein Dialog geöffnet.''')
 		self.source_text = ScrolledText(self, font=(self.font_family, self.font_size),
 			padx = self.padding, pady = self.padding)
 		self.source_text.grid(row=1, column=1, sticky='news',
@@ -628,19 +609,6 @@ POLIKS-Nummer angelegt, falls noch nicht vorhanden.''')
 		if directory:
 			self._add_dir(directory)
 
-	def _select_log(self):
-		'''Select root directory for log-files'''
-		if self.write_log.get():
-			log_dir = askdirectory(title='Wähle das Verzeichnis für Protokolle aus')
-			if log_dir:
-				log_dir = Path(log_dir)
-				if log_dir.is_dir():
-					self.log_dir = log_dir
-			else:
-				self.write_log.set(False)
-		else:
-			self.log_dir = None
-
 	def echo(self, *arg, end=None):
 		'''Write message to info field (ScrolledText)'''
 		msg = ' '.join(arg)
@@ -700,14 +668,8 @@ POLIKS-Nummer angelegt, falls noch nicht vorhanden.''')
 			self._warning_state = 'disabled'
 		self.after(500, self._warning)
 
-	def finished(self, errors):
+	def finished(self, errors, log):
 		'''Run this when Worker has finished'''
-		self.source_text.configure(state='normal')
-		self.source_text.delete('1.0', 'end')
-		self.source_button.configure(state='normal')
-		self.exec_button.configure(state='normal')
-		self.quit_button.configure(state='normal')
-		self.worker = None
 		if errors:
 			self.info_text.configure(foreground=self.RED_FG, background=self.RED_BG)
 			self._warning_state = 'enable'
@@ -717,6 +679,16 @@ POLIKS-Nummer angelegt, falls noch nicht vorhanden.''')
 			)
 		else:
 			self.info_text.configure(foreground=self.GREEN_FG, background=self.GREEN_BG)
+		if self.write_log.get() and log:
+			file_name = asksaveasfilename(title='Protokolldatei', defaultextension='.txt')
+			if file_name:
+				Path(file_name).write_text(log)
+		self.source_text.configure(state='normal')
+		self.source_text.delete('1.0', 'end')
+		self.source_button.configure(state='normal')
+		self.exec_button.configure(state='normal')
+		self.quit_button.configure(state='normal')
+		self.worker = None
 
 	def _quit_app(self):
 		'''Quit app, ask when copy processs is running'''
@@ -732,7 +704,7 @@ if __name__ == '__main__':  # start here when run as application
 	argparser.add_argument('-g', '--gui', action='store_true',
 		help='Use GUI with given root directory as command line parameters.')
 	argparser.add_argument('-l', '--log', type=Path,
-		help='Directory to store local logs. No local logs if not given.')
+		help='File to store log. No local log if not given.')
 	argparser.add_argument('-n', '--notrigger', action='store_false',
 		help='Do not triggedr further process to handle/move uploaded data.')
 	argparser.add_argument('source', nargs='?', help='Source directory', metavar='DIRECTORY')
@@ -740,6 +712,8 @@ if __name__ == '__main__':  # start here when run as application
 	root_path = Path(args.source.strip().strip('"')).absolute() if args.source else None
 	if root_path and not args.gui and Path(__executable__).name == 'python.exe':	# run in terminal
 		copy = Copy(root_path, log_dir=args.log, trigger=args.notrigger)
+		if args.log:
+			log.write_text(copy.log_path.read_text(encoding='utf-8'), encoding='utf-8')
 	else:	# open gui if no argument is given
 		Gui(root_path, '''iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAMAAABg3Am1AAACEFBMVEUAAAH7AfwVFf8WFv4XF/0Y
 GPwZGfwaGvsaGvwbG/scHPodHfkeHvkfH/kgIPggIPkhIfciIvYjI/UkJPUlJfQnJ/IoKPEpKfAq

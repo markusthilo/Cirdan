@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.8.0.2025-04-13'
+__version__ = '0.8.0.2025-04-14'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@gmail.com'
 __status__ = 'Testing'
@@ -13,42 +13,41 @@ UPDATE_PATH = '//192.168.128.150/UrkSp/Import/_dist'
 
 BUILDS = (
 	# user (for label),	target path in import directory,	path to log directory
-	#('LKA 711',			f'{COPYTARGET_BASEPATH}/LKA 711',	f'{COPYTARGET_BASEPATH}/_logs/LKA 711'),
-	#('LKA 712',			f'{COPYTARGET_BASEPATH}/LKA 712',	f'{COPYTARGET_BASEPATH}/_logs/LKA 712'),
-	#('LKA 713',			f'{COPYTARGET_BASEPATH}/LKA 713',	f'{COPYTARGET_BASEPATH}/_logs/LKA 713'),
-	#('LKA 714',			f'{COPYTARGET_BASEPATH}/LKA 714',	f'{COPYTARGET_BASEPATH}/_logs/LKA 714'),
-	#('LKA 724',			f'{COPYTARGET_BASEPATH}/LKA 724',	f'{COPYTARGET_BASEPATH}/_logs/LKA 724'),
-	#('DIR 3 IuK',		f'{COPYTARGET_BASEPATH}/DIR 3',		f'{COPYTARGET_BASEPATH}/_logs/DIR 3'),
-	#('DIR 4 IuK',		f'{COPYTARGET_BASEPATH}/DIR 4',		f'{COPYTARGET_BASEPATH}/_logs/DIR 4'),
-	#('DIR 5 IuK',		f'{COPYTARGET_BASEPATH}/DIR 5',		f'{COPYTARGET_BASEPATH}/_logs/DIR 5'),
-	#('LKA 1 IuK',		f'{COPYTARGET_BASEPATH}/LKA 1',		f'{COPYTARGET_BASEPATH}/_logs/LKA 1'),
-	#('LKA 2 IuK',		f'{COPYTARGET_BASEPATH}/LKA 2',		f'{COPYTARGET_BASEPATH}/_logs/LKA 2'),
-	#('LKA 3 IuK',		f'{COPYTARGET_BASEPATH}/LKA 3',		f'{COPYTARGET_BASEPATH}/_logs/LKA 3'),
-	#('LKA 4 IuK',		f'{COPYTARGET_BASEPATH}/LKA 4',		f'{COPYTARGET_BASEPATH}/_logs/LKA 4'),
-	#('LKA 5 IuK',		f'{COPYTARGET_BASEPATH}/LKA 5',		f'{COPYTARGET_BASEPATH}/_logs/LKA 5'),
-	#('LKA 8 IuK',		f'{COPYTARGET_BASEPATH}/LKA 8',		f'{COPYTARGET_BASEPATH}/_logs/LKA 8'),
-	#('LKA KoSt ST 2',		f'{COPYTARGET_BASEPATH}/LKA KoSt ST 2',		f'{COPYTARGET_BASEPATH}/_logs/LKA KoSt ST 2'),
+	('LKA 711',			f'{COPYTARGET_BASEPATH}/LKA 711',	f'{COPYTARGET_BASEPATH}/_logs/LKA 711'),
+	('LKA 712',			f'{COPYTARGET_BASEPATH}/LKA 712',	f'{COPYTARGET_BASEPATH}/_logs/LKA 712'),
+	('LKA 713',			f'{COPYTARGET_BASEPATH}/LKA 713',	f'{COPYTARGET_BASEPATH}/_logs/LKA 713'),
+	('LKA 714',			f'{COPYTARGET_BASEPATH}/LKA 714',	f'{COPYTARGET_BASEPATH}/_logs/LKA 714'),
+	('LKA 724',			f'{COPYTARGET_BASEPATH}/LKA 724',	f'{COPYTARGET_BASEPATH}/_logs/LKA 724'),
+	('DIR 3 IuK',		f'{COPYTARGET_BASEPATH}/DIR 3',		f'{COPYTARGET_BASEPATH}/_logs/DIR 3'),
+	('DIR 4 IuK',		f'{COPYTARGET_BASEPATH}/DIR 4',		f'{COPYTARGET_BASEPATH}/_logs/DIR 4'),
+	('DIR 5 IuK',		f'{COPYTARGET_BASEPATH}/DIR 5',		f'{COPYTARGET_BASEPATH}/_logs/DIR 5'),
+	('LKA 1 IuK',		f'{COPYTARGET_BASEPATH}/LKA 1',		f'{COPYTARGET_BASEPATH}/_logs/LKA 1'),
+	('LKA 2 IuK',		f'{COPYTARGET_BASEPATH}/LKA 2',		f'{COPYTARGET_BASEPATH}/_logs/LKA 2'),
+	('LKA 3 IuK',		f'{COPYTARGET_BASEPATH}/LKA 3',		f'{COPYTARGET_BASEPATH}/_logs/LKA 3'),
+	('LKA 4 IuK',		f'{COPYTARGET_BASEPATH}/LKA 4',		f'{COPYTARGET_BASEPATH}/_logs/LKA 4'),
+	('LKA 5 IuK',		f'{COPYTARGET_BASEPATH}/LKA 5',		f'{COPYTARGET_BASEPATH}/_logs/LKA 5'),
+	('LKA 8 IuK',		f'{COPYTARGET_BASEPATH}/LKA 8',		f'{COPYTARGET_BASEPATH}/_logs/LKA 8'),
+	('LKA KoSt ST 2',		f'{COPYTARGET_BASEPATH}/LKA KoSt ST 2',		f'{COPYTARGET_BASEPATH}/_logs/LKA KoSt ST 2'),
 	#### for test version of executable ####
 	('Test THI',		'//192.168.128.150/UrkSp/Import/LKA71/SlowCopy_Test_THI',	'//192.168.128.150/UrkSp/Import/LKA71/SlowCopy_Test_THI/_logs')
 )
 
 from pathlib import Path
 from shutil import rmtree
-#import PyInstaller.__main__
-from subprocess import run
+import PyInstaller.__main__
 
 if __name__ == '__main__':	# start here
 	cwd_path = Path.cwd()
+	src_path = cwd_path / 'slowcopy.py'
 	dist_path = cwd_path / 'dist'
 	icon_path = cwd_path / 'appicon.ico'
 	build_path = cwd_path / 'build'
 	build_path.mkdir(exist_ok=True)
 	tmp_path = build_path / 'slowcopy_tmp.py'
-	slowcopy_version = __version__
 	for user, dst, log in BUILDS:
 		print(f'\nBulding executable for {user}\n')
 		with tmp_path.open(mode='w', encoding='utf-8') as f:
-			for line in cwd_path.joinpath('slowcopy.py').read_text(encoding='utf-8').split('\n'):
+			for line in src_path.read_text(encoding='utf-8').split('\n'):
 				if line.startswith('__distribution__ ='):
 					print(f"__distribution__ = '{user}'", file=f)
 				elif line.startswith('__destination__ ='):
@@ -62,26 +61,14 @@ if __name__ == '__main__':	# start here
 					if line.startswith('__version__ ='):
 						slowcopy_version = line.split('=')[1].strip().strip('"\'')
 		slowcopy_name = f"slowcopy-{user.lower().replace(' ', '')}_v{slowcopy_version}"
-		#PyInstaller.__main__.run([
-		#	'--onefile',
-		#	'--noconsole',
-		#	'--name', slowcopy_name,
-		#	'--icon', f'{icon_path}',
-		#	f'{tmp_path}'
-		#])
-		run([
-			'nuitka',
+		PyInstaller.__main__.run([
 			'--onefile',
-			'--windows-console-mode=disable',
-			f'--output-filename={slowcopy_name}',
-			'--enable-plugin=tk-inter',
-			f'--windows-icon-from-ico={icon_path}',
+			'--noconsole',
+			'--name', slowcopy_name,
+			'--icon', f'{icon_path}',
 			f'{tmp_path}'
 		])
-
-
-		#cwd_path.joinpath(f'{slowcopy_name}.spec').unlink(missing_ok=True)
-#	rmtree(build_path)
+		cwd_path.joinpath(f'{slowcopy_name}.spec').unlink(missing_ok=True)
+	rmtree(build_path)
 	dist_path.joinpath('version.txt').write_text(slowcopy_version, encoding='utf-8')
 	print(f'\nAll done, check {dist_path} for new build executables.\n')
-
