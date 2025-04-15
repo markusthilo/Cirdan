@@ -2,12 +2,11 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.8.0_2025-04-14'
+__version__ = '0.9.0_2025-04-14'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@gmail.com'
 __status__ = 'Testing'
 __description__ = 'Copy to import folder and generate trigger file'
-__distribution__ = 'Test_THI'	# for testrunns
 
 #__destination__ = '//192.168.128.150/UrkSp/Import/LKA71/SlowCopy_Test_THI'	# path for testruns
 #__destination__ = 'P:/test_import/'	# path for testruns
@@ -23,12 +22,12 @@ __update__ = 'C:/Users/THI/SlowCopy/dist/'	# path for testruns
 import logging
 from sys import executable as __executable__
 from pathlib import Path
+from json import load as jload
 from shutil import rmtree
 from argparse import ArgumentParser
 from re import search, sub
 from subprocess import Popen, PIPE, STDOUT, STARTUPINFO, STARTF_USESHOWWINDOW
 from threading import Thread
-from zipfile import ZipFile, ZIP_DEFLATED
 from hashlib import file_digest
 from multiprocessing import Pool, cpu_count
 from time import strftime, sleep, perf_counter
@@ -42,6 +41,44 @@ from tkinter.messagebox import askyesno, showerror
 from tkinter.filedialog import askdirectory, asksaveasfilename
 from idlelib.tooltip import Hovertip
 from tkinter import StringVar
+
+class Config:
+	'''Configuration from JSON file'''
+
+	FILENAME = 'config.json'
+
+	def __init__(self):
+		'''Read config file'''	
+		exe_path = Path(__executable__)
+		self.path = Path(__file__).parent / self.FILENAME if exe_path.name == 'python.exe' else exe_path.parent / self.FILENAME
+		with self.path.open() as fp:
+			for key, value in jload(fp)['config'].items():
+				self.__dict__[key] = value
+
+class Update:
+	'''Chech and download update if newer version is available'''
+
+	FILENAME = 'version.txt'
+
+	@staticmethod
+	def _int(string):
+		return int(sub(r'[^0-9]', '', string))
+
+	def __init__(self, dist_dir):
+		'''Check for newer version'''
+		self._dir_path = Path(dist_dir)
+		self.version = None
+		try:
+			new_version = self._dir_path.joinpath(self.FILENAME).read_text(encoding='utf-8')
+		except:
+			return
+		if self._int(new_version) > self._int(__version__):
+			self.version = new_version
+
+	def get_path(self, user):
+		'''Download new version if available'''
+		if self.version:
+			return self._dir_path / f"slowcopy-{user.lower().replace(' ', '')}_v{self.version}.zip"
 
 class RoboCopy:
 	'''Wrapper for RoboCopy'''
@@ -132,15 +169,10 @@ class Copy:
 
 	### hard coded configuration ###
 	LOGLEVEL = logging.INFO				# set log level
-	DISTRIBUTION = __distribution__		# name of the targeted user/department
-	DST_PATH = Path(__destination__)	# root directory to copy
-	LOG_PATH = Path(__logging__)		# directory to write logs that trigger surveillance
 	LOG_NAME = 'log.txt' 				# log file name
 	TSV_NAME = 'fertig.txt'				# file name for csv output textfile - file is generaten when all is done
-	UPDATE_PATH = Path(__update__)		# directory where updates can be found
-	UPDATE_NAME = 'version.txt'			# trigger filename for updates (textfile with version number)
 	MAX_PATH_LEN = 230					# throw error when paths have more chars
-	BLACKLIST_FILES = (				# prohibited at path depth 1
+	BLACKLIST_FILES = (					# prohibited at path depth 1
 		'fertig.txt',
 		'verarbeitet.txt',
 		'fehler.txt',
@@ -151,24 +183,6 @@ class Copy:
 		'Help': ('HTML5', 'LicenseUpgrade')	# */Help/HTML5* && */Help/LicenseUpgrade*
 	}
 	TOPDIR_REG = r'^[0-9]{6}-([0-9]{4}|[0-9]{6})-[iSZ0-9][0-9]{5}$'	# how the top dir has to look
-
-	@staticmethod
-	def check_update():
-		'''Check if there is a new version'''
-		def _int(string):
-			return int(sub(r'[^0-9]', '', string))	
-		try:
-			new_version = Copy.UPDATE_PATH.joinpath(Copy.UPDATE_NAME).read_text(encoding='utf-8')
-		except:
-			return
-		if _int(new_version) > _int(__version__):
-			return new_version
-
-	@staticmethod
-	def download_update(version, dir_path):
-		'''Download updatet version'''
-		filename = f"slowcopy-{Copy.DISTRIBUTION.lower().replace(' ', '')}_v{version}.exe"
-		dir_path.joinpath(filename).write_bytes(Copy.UPDATE_PATH.joinpath(filename).read_bytes())
 
 	@staticmethod
 	def bad_destination():
@@ -461,7 +475,6 @@ class Gui(Tk):
 	PAD = 4
 	X_FACTOR = 60
 	Y_FACTOR = 40
-	LABEL = f'Distribution {__distribution__}'
 	GREEN_FG = 'black'
 	GREEN_BG = 'pale green'
 	RED_FG = 'black'
@@ -700,6 +713,7 @@ Kopiervorgang ein Dialog geöffnet.''')
 		self.destroy()
 
 if __name__ == '__main__':  # start here when run as application
+	config = Config()
 	argparser = ArgumentParser(prog=f'SlowCopy Version {__version__}', description='Copy into MSD network')
 	argparser.add_argument('-g', '--gui', action='store_true',
 		help='Use GUI with given root directory as command line parameters.')
@@ -707,15 +721,23 @@ if __name__ == '__main__':  # start here when run as application
 		help='File to store log. No local log if not given.')
 	argparser.add_argument('-n', '--notrigger', action='store_false',
 		help='Do not triggedr further process to handle/move uploaded data.')
+	argparser.add_argument('-u', '--update', action='store_true',
+		help='Check for update / new SlowCopy version.')
 	argparser.add_argument('source', nargs='?', help='Source directory', metavar='DIRECTORY')
 	args = argparser.parse_args()
-	root_path = Path(args.source.strip().strip('"')).absolute() if args.source else None
-	if root_path and not args.gui and Path(__executable__).name == 'python.exe':	# run in terminal
-		copy = Copy(root_path, log_dir=args.log, trigger=args.notrigger)
-		if args.log:
-			log.write_text(copy.log_path.read_text(encoding='utf-8'), encoding='utf-8')
-	else:	# open gui if no argument is given
-		Gui(root_path, '''iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAMAAABg3Am1AAACEFBMVEUAAAH7AfwVFf8WFv4XF/0Y
+	if args.update and not args.gui:
+		if new_path := Update(config.update).get_path(config.user):
+			print(f'Es steht eine neue Version zur Verfügung:\n{new_path}')
+		else:
+			print('Es steht keine neuere Version zum Download bereit.')
+	else:
+		root_path = Path(args.source.strip().strip('"')).absolute() if args.source else None
+		if root_path and not args.gui and Path(__executable__).name == 'python.exe':	# run in terminal
+			copy = Copy(root_path, log_dir=args.log, trigger=args.notrigger)
+			if args.log:
+				log.write_text(copy.log_path.read_text(encoding='utf-8'), encoding='utf-8')
+		else:	# open gui if no argument is given
+			Gui(root_path, '''iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAMAAABg3Am1AAACEFBMVEUAAAH7AfwVFf8WFv4XF/0Y
 GPwZGfwaGvsaGvwbG/scHPodHfkeHvkfH/kgIPggIPkhIfciIvYjI/UkJPUlJfQnJ/IoKPEpKfAq
 KvArK+4rK+8sLO4tLewtLe0uLusuLuwvL+swMOoxMegxMekyMuczM+UzM+Y0NOQ0NOU1NeM1NeQ1
 NeU2NuE2NuI2NuM3N+A3N+E4ON85Od45Od86Otw6Ot07O9o7O9s8PNk8PNs9Pdg9Pdk+PtY+Ptc/
