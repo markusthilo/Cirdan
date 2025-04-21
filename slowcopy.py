@@ -42,6 +42,8 @@ from tkinter.filedialog import askdirectory, asksaveasfilename
 from idlelib.tooltip import Hovertip
 from tkinter import StringVar
 
+__parent_path__ = Path(__file__).parent if Path(__executable__).name == 'python.exe' else Path(__executable__).parent
+
 class Config:
 	'''Configuration from JSON file'''
 
@@ -50,7 +52,7 @@ class Config:
 	def __init__(self):
 		'''Read config file'''	
 		exe_path = Path(__executable__)
-		self.path = Path(__file__).parent / self.FILENAME if exe_path.name == 'python.exe' else exe_path.parent / self.FILENAME
+		self.path = __parent_path__ / self.FILENAME
 		with self.path.open() as fp:
 			for key, value in jload(fp)['config'].items():
 				self.__dict__[key] = value
@@ -480,7 +482,7 @@ class Gui(Tk):
 	RED_FG = 'black'
 	RED_BG = 'coral'
 
-	def __init__(self, dir_path, icon_base64):
+	def __init__(self, config, dir_path):
 		'''Open application window'''
 		super().__init__()
 		self.worker = None
@@ -488,7 +490,10 @@ class Gui(Tk):
 		self.rowconfigure(1, weight=1)
 		self.columnconfigure(1, weight=1)
 		self.rowconfigure(3, weight=1)
-		self.wm_iconphoto(True, PhotoImage(data=icon_base64))
+
+		self.iconphoto(True, PhotoImage(file=__parent_path__/'appicon.png'))
+
+		#self.wm_iconphoto(True, PhotoImage(data=icon_base64))
 		self.protocol('WM_DELETE_WINDOW', self._quit_app)
 		font = nametofont('TkTextFont').actual()
 		self.font_family = font['family']
@@ -571,7 +576,8 @@ Kopiervorgang ein Dialog geöffnet.''')
 			self._add_dir(dir_path)
 
 	def _add_dir(self, directory):
-		'''Add directory into field'''
+		'''Add directorself.appicon = PhotoImage(file=self.parent_path/'appicon.png')
+		self.iconphoto(True, self.appicon)y into field'''
 		if not directory:
 			return
 		dir_path = Path(directory).absolute()
@@ -737,22 +743,5 @@ if __name__ == '__main__':  # start here when run as application
 			if args.log:
 				log.write_text(copy.log_path.read_text(encoding='utf-8'), encoding='utf-8')
 		else:	# open gui if no argument is given
-			Gui(root_path, '''iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAMAAABg3Am1AAACEFBMVEUAAAH7AfwVFf8WFv4XF/0Y
-GPwZGfwaGvsaGvwbG/scHPodHfkeHvkfH/kgIPggIPkhIfciIvYjI/UkJPUlJfQnJ/IoKPEpKfAq
-KvArK+4rK+8sLO4tLewtLe0uLusuLuwvL+swMOoxMegxMekyMuczM+UzM+Y0NOQ0NOU1NeM1NeQ1
-NeU2NuE2NuI2NuM3N+A3N+E4ON85Od45Od86Otw6Ot07O9o7O9s8PNk8PNs9Pdg9Pdk+PtY+Ptc/
-P9RAQNJAQNNAQNRBQdBBQdFBQdJCQs5CQs9CQtBDQ81DQ85ERMpERMtERMxFRclFRcpGRsZGRsdH
-R8RHR8VHR8ZISMJISMNJScBJScFKSr1KSr5KSr9LS7tMTLhMTLlMTLpNTbdNTbhOTrROTrVPT7FP
-T7JPT7NQUK1QUK5QUK9QULBRUapRUatRUaxSUqZSUqdSUqhSUqlSUqpTU6RTU6ZUVKFUVKJUVKNV
-VZ1VVZ5VVZ9VVaFWVplWVppWVptWVpxXV5VXV5ZXV5dXV5hYWJFYWJJYWJNYWJRZWY5ZWY9ZWZBa
-WohaWolaWopaWotbW4RbW4ZbW4dcXH5cXH9cXIBcXIFcXIJcXINdXXldXXpdXXtdXXxdXX1eXnNe
-XnVeXnZeXndeXnhfX21fX25fX3BfX3FfX3JgYGVgYGZgYGdgYGlgYGpgYGtgYGxhYWFhYWJhYWRt
-OtjpAAAAAXRSTlMAQObYZgAAAWlJREFUSMftlc9LAkEUx4e3KrqXWAg6hUEh4T0shQgKRArpEEUb
-4pKS0TEMAulWrEF4yKOC5WFbD9/xX2xWwx/pLDtEdfF72n3f72fezJuFZWyhfxV+G1DMA4rYEIBC
-HpI8hgqax1gzdTa7zmR+2p3f91t+wod0oxIiaH40+7kA0KuXKnZ3YLmNm1Ktzb8yEsBeJ6GVK+HU
-k2HxaOQ5plpP59/jFEls6NoD8GyQtpY06BR+wCOR2e+/ljmcTYpUXP5mNQah+VcDVImKw3otRLsT
-IRnQ1Ek/63j1E9LuxiHIAJ7XiJYLPWCfojbkQx6N2jlfEqNJudij2EsQAGjldO8ghxR+CgYA9zHa
-RpHICgDYTXGxXYMyaMVotS18/uELXES3TCulURn8iChuWseJa1+g4H0YFEq7os9OaPBS8gEY2pVs
-OpO9dT3HqebSmYPLji8QQEyVYIoEY4qE6o5+cgD8xYF9mcXPV12fPIIrXx13KAAAAAAASUVORK5C
-YII=''').mainloop()	# give tk the icon as base64 and open main window
+			Gui(config, root_path).mainloop()	# open main window
 
