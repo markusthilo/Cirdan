@@ -6,6 +6,7 @@ from pathlib import Path
 from re import search, sub
 from time import strftime, sleep, perf_counter
 from datetime import timedelta
+from threading import Thread
 
 class Copy:
 	'''Copy functionality'''
@@ -284,7 +285,14 @@ class Copy:
 		echo(msg)
 		logging.shutdown()
 
-class Worker(Thread):
+class Worker:
+	'''Main functionality'''
+
+	def __init__(self, source_paths, config, log_dir=None, trigger=False):
+		if work.log:
+			log.write_text(work.log_path.read_text(encoding='utf-8'), encoding='utf-8')
+
+class WorkThread(Thread):
 	'''Thread that does the work while Tk is running the GUI'''
 
 	def __init__(self, gui):

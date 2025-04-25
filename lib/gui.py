@@ -2,16 +2,17 @@
 # -*- coding: utf-8 -*-
 
 from pathlib import Path
-from tkinter import Tk, PhotoImage, StringVar
+from tkinter import Tk, PhotoImage, StringVar, BooleanVar
 from tkinter.font import nametofont
-from tkinter.ttk import Frame, Label, Button, Checkbutton, OptionMenu
+from tkinter.ttk import Frame, Label, Entry, Button, Checkbutton, OptionMenu
 from tkinter.scrolledtext import ScrolledText
 from tkinter.messagebox import askyesno, showerror
 from tkinter.filedialog import askdirectory, asksaveasfilename
 from idlelib.tooltip import Hovertip
 
-class Gui(Tk):
-	'''GUI look and feel'''
+class GuiConfig:
+	'''GUI configuration'''
+
 
 	PAD = 4
 	X_FACTOR = 60
@@ -21,18 +22,27 @@ class Gui(Tk):
 	RED_FG = 'black'
 	RED_BG = 'coral'
 
-	def __init__(self, config, dir_path):
+	def __init__(self, user, source, target, log_dir, trigger, log):
+		self.user = user
+		self.source = source
+		self.target = target
+		self.log_dir = log_dir
+		self.trigger = trigger
+		self.log = log
+
+class Gui(Tk):
+	'''GUI look and feel'''
+
+
+	def __init__(self, source, config, icon_path, version, log_dir=None, trigger=True):
 		'''Open application window'''
 		super().__init__()
-		self.worker = None
-		self.title(f'SlowCopy v{__version__}')
+		self.work_thread = None
+		self.title(f'SlowCopy v{version}')
 		self.rowconfigure(1, weight=1)
 		self.columnconfigure(1, weight=1)
 		self.rowconfigure(3, weight=1)
-
-		self.iconphoto(True, PhotoImage(file=__parent_path__/'appicon.png'))
-
-		#self.wm_iconphoto(True, PhotoImage(data=icon_base64))
+		self.iconphoto(True, PhotoImage(file=icon_path))
 		self.protocol('WM_DELETE_WINDOW', self._quit_app)
 		font = nametofont('TkTextFont').actual()
 		self.font_family = font['family']
@@ -46,13 +56,12 @@ class Gui(Tk):
 		frame = Frame(self)
 		frame.grid(row=0, column=0, columnspan=2, sticky='news',
 			ipadx=self.padding, ipady=self.padding, padx=self.padding, pady=self.padding)
-		
 		self.user = StringVar(value=config.user)
-		Entry(parent, textvariable=self._variable, show=show, width=width).grid(
+		Entry(frame, textvariable=self.user).pack(padx=self.padding, pady=self.padding)
+		
 		
 
-
-		OptionMenu(container, variable, default=None, *values, **kwargs)
+		#OptionMenu(container, variable, default=None, *values, **kwargs)
 
 
 		Label(frame, text=f'Distribution {config.user}').pack(padx=self.padding, pady=self.padding)
@@ -103,6 +112,10 @@ Kopiervorgang ein Dialog geöffnet.''')
 		self.label_bg = self.info_label.cget('background')
 		self.quit_button = Button(frame, text='Verlassen', command=self._quit_app)
 		self.quit_button.pack(padx=self.padding, pady=self.padding, side='right')
+
+		return
+
+
 		update = Update(config.update)
 		if update.version and askyesno(
 			title = f'Eine neuere Version steht bereit ({update.version}!',
@@ -212,8 +225,8 @@ Kopiervorgang ein Dialog geöffnet.''')
 		self.source_text.configure(state='disabled')
 		self.exec_button.configure(state='disabled')
 		self._clear_info()
-		self.worker = Worker(self)
-		self.worker.start()
+		self.work_thread = WorkThread(self)
+		self.work_thread.start()
 
 	def _init_warning(self):
 		'''Init warning functionality'''
@@ -260,7 +273,7 @@ Kopiervorgang ein Dialog geöffnet.''')
 
 	def _quit_app(self):
 		'''Quit app, ask when copy processs is running'''
-		if self.worker and not askyesno(
+		if self.work_thread and not askyesno(
 			title='Kopiervorgang läuft!',
 			message='Wirklich die Anwendung verlassen und den Kopiervorgang abbrechen?'
 		):

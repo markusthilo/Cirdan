@@ -5,7 +5,6 @@ import logging
 from threading import Thread
 from hashlib import file_digest
 
-
 class HashThread(Thread):
 	'''Calculate hashes'''
 
