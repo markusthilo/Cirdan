@@ -1,0 +1,11 @@
+{
+    "appicon": "appicon.png",
+    "pad_factor": 1,
+    "x_factor": 60,
+    "y_factor": 40,
+    "user_width": 40,
+    "green_fg": "black",
+    "green_bg": "pale green",
+    "red_fg": "black",
+    "red_bg": "coral"
+}

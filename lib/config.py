@@ -10,7 +10,7 @@ class Config:
 		'''Read config file'''	
 		self._path = path
 		self._keys = list()
-		with self._path.open() as fp:
+		with self._path.open(encoding='utf-8') as fp:
 			for key, value in load(fp).items():
 				self.__dict__[key] = value
 				self._keys.append(key)
@@ -21,5 +21,5 @@ class Config:
 
 	def save(self):
 		'''Save config file'''
-		with self._path.open('w') as fp:
+		with self._path.open('w', encoding='utf-8') as fp:
 			dump({key: self.__dict__[key] for key in self._keys}, fp)

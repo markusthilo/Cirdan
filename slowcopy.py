@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.9.0_2025-04-25'
+__version__ = '0.9.0_2025-04-27'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilomarkus@gmail.com'
 __status__ = 'Testing'
@@ -16,7 +16,6 @@ from lib.worker import Worker
 from lib.gui import Gui
 
 __parent_path__ = Path(__file__).parent if Path(__executable__).name == 'python.exe' else Path(__executable__).parent
-__icon_path__ = __parent_path__ / 'appicon.png'
 
 if __name__ == '__main__':  # start here when run as application
 	argparser = ArgumentParser(prog=f'SlowCopy Version {__version__}', description='Copy into MSD network')
@@ -32,4 +31,4 @@ if __name__ == '__main__':  # start here when run as application
 	if args.source and not args.gui:	# run in terminal
 		work = Worker([args.source], config, log_dir=args.log, trigger=not args.notrigger)
 	else:	# open gui if no argument is given
-		Gui(args.source, config, __icon_path__, __version__, log_dir=args.log, trigger=not args.notrigger).mainloop()
+		Gui(args.source, config, __parent_path__, __version__, log_dir=args.log, trigger=not args.notrigger).mainloop()

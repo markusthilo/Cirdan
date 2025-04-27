@@ -10,15 +10,11 @@ There is a check for updates on startup.
 
 The tool can be also be run on PowerShel/CMD. Try
 
-`slowcopy-xxx-vx.x.x.exe -h`
+`slowcopy-vx.x.x.exe -h`
 
 to learn usage.
 
-PyInstaller is needed to bild Windows executables. A make-script can build multiple executables for different destinations. Edit `make-slowcopy.py` and run
-
-`python make-slowcopy.py`
-
-to find the executables in the subfolder `dist`.
+Nuitka is needed to bild Windows executable. The make-script can be used.
 
 Still testing. The author is not responsible for any malfunction and/or lost data.
 

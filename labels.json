@@ -1,0 +1,24 @@
+{
+    "source_dir": "Quellverzeichnis",
+    "source_tip": "Füge das zu kopierende Verzeichnis hinzu (POLIKS-Vorgangsnummer).",
+    "user_label": "Bearbeiter:",
+    "user_tip": "E-Mail-Adresse",
+    "group_label": "Dienststelle:",
+    "group_tip": "Das Zielverzeichnis des Kopierens hängt\nvon der gewählten Dienststelle ab.",
+    "options": "Optionen:",
+    "trigger_button": "Weiterverarbeitung",
+    "trigger_tip": "Angehakt wird die Weiterverarbeitung ausgelöst bzw.\neine fertig.txt-Datei im Importverzeichnis erstellt.\nWird der Haken entfernt, könne weitere Daten unter der\nbetreffenden POLIKS-Nummer hochgeladen werden.",
+    "log_button": "Schreibe Log",
+    "log_tip": "Angehakt wird eine Protokolldateien erzeugt.\nHierfür wird nach abgeschlossenem\nKopiervorgang ein Dialog geöffnet.",
+    "start_button": "Starte Kopiervorgang",
+    "start_tip" :  "Startet den Kopiervorgang der gewählten Ordner\nins MSD-Importverzeichnis.",
+    "update_title": "Eine neuere Version steht bereit: #",
+    "update_message": "Neu Version herunterladen und diese Anwendung verlassen?",
+    "update_dir": "Wähle das Zielverzeichnis für die neue Slowcopy-Version",
+    "error": "Fehler",
+	"update_error": "Die neue Version von SlowCopy konnte nicht kopiert bzw. heruntergeladen werden",
+    "quit": "Beenden",
+
+    "warning": "Achtung!",
+    "running_message": "Kopiervorgang läuft!\nWirklich die Anwendung verlassen und den Kopiervorgang abbrechen?"
+}
