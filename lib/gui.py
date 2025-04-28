@@ -11,6 +11,7 @@ from tkinter.filedialog import askdirectory, asksaveasfilename
 from idlelib.tooltip import Hovertip
 from lib.config import Config
 from lib.update import Update
+from lib.checker import Checker
 
 class Gui(Tk):
 	'''GUI look and feel'''
@@ -18,7 +19,6 @@ class Gui(Tk):
 	def __init__(self, directory, config, app_path, version, log_dir=None, trigger=True):
 		'''Open application window'''
 		super().__init__()
-		self._work_thread = None
 		self._config = config
 		self._defs = Config(app_path / 'gui.json')
 		self._labels = Config(app_path / 'labels.json')
@@ -62,13 +62,13 @@ class Gui(Tk):
 		button = Checkbutton(frame, text=self._labels.trigger_button, variable=self.generate_trigger)
 		button.pack(anchor='w', side='left', padx=self._pad)
 		Hovertip(button, self._labels.trigger_tip)
-		self.write_log = BooleanVar(value=False)
-		button = Checkbutton(frame, text=self._labels.log_button, variable=self.write_log)
+		self._write_log = BooleanVar(value=False)
+		button = Checkbutton(frame, text=self._labels.log_button, variable=self._write_log)
 		button.pack(anchor='w', side='left', padx=self._pad)
 		Hovertip(button, self._labels.log_tip)
-		self.exec_button = Button(self, text=self._labels.start_button, command=self._execute, state='disabled')
-		self.exec_button.grid(row=4, column=1, sticky='e', padx=self._pad, pady=self._pad)
-		Hovertip(self.exec_button, self._labels.start_tip)
+		self._exec_button = Button(self, text=self._labels.start_button, command=self._execute)
+		self._exec_button.grid(row=4, column=1, sticky='e', padx=self._pad, pady=self._pad)
+		Hovertip(self._exec_button, self._labels.start_tip)
 		self._info_text = ScrolledText(self, font=(font_family, font_size), padx=self._pad, pady=self._pad)
 		self._info_text.grid(row=5, column=0, columnspan=2, sticky='nsew',
 			ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
@@ -98,103 +98,93 @@ class Gui(Tk):
 					)
 				self.destroy()
 		else:
+			self._check = Checker(config)
+			try:
+				self._check.target()
+			except Exception as ex:
+				try:
+					msg = self._labels.__dict__[type(ex).__name__.lower()].replace('#', str(ex))
+				except:
+					msg = f'{type(ex).__name__}: {ex}'
+				showerror(title=self._labels.error, message=msg)
+				return
+			self._work_thread = None
+			self._ignore_warning = False
 			self._init_warning()
-			self._check_paths = True
 			if directory:
-				self._add_dir(directory)
-				self._exec_button(state='normal')
+				self._add_dir(Path(directory))
 
-	def _add_dir(self, directory):
-		'''Add directorself.appicon = PhotoImage(file=self.parent_path/'appicon.png')
-		self.iconphoto(True, self.appicon)y into field'''
-		if not directory:
+	def _get_source_paths(self):
+		'''Read directory paths from text field'''
+		text = self._source_text.get('1.0', 'end').strip()
+		if text:
+			return [Path(source_dir.strip()) for source_dir in text.split('\n')]
+
+	def _add_dir(self, dir_path):
+		'''Add directory into field'''
+		if not dir_path:
 			return
-		dir_path = Path(directory).absolute()
+		dir_path = dir_path.absolute()
 		old_paths = self._get_source_paths()
 		if old_paths and dir_path in old_paths:
 			return
-		error = Copy.bad_source(dir_path)
-		if error:
-			showerror(title='Fehler', message=error)
-			return
-		for path, msg in Copy.blacklisted_files(dir_path):
-			if not path:
-				break
-			if askyesno(
-				title = f'Datei löschen?',
-				message = f'{msg}\n\nDatei löschen oder Abbrechen?'
-			):
-				try:
-					path.unlink()
-				except Exception as ex:
-					showerror(title='Fehler', message=f'Konnte Datei {path} nicht löschen:\n{ex}')
-					return
-		for path, msg in Copy.blacklisted_paths(dir_path):
-			if not path:
-				break
-			if askyesno(
-				title = f'Verzeichnis löschen?',
-				message = f'{msg}\n\nVerzeichnis löschen?'
-			):
-				try:
-					rmtree(path)
-				except Exception as ex:
-					showerror(title='Fehler', message=f'Konnte Verzeichnis {path} nicht löschen:\n{ex}')
-					return
-			else:
+		try:
+			self._check.source(dir_path)
+		except Exception as ex:
+			try:
+				msg = self._labels.__dict__[type(ex).__name__.lower()].replace('#', str(ex))
+			except:
+				msg = f'{type(ex).__name__}: {ex}'
+			if isinstance(ex, RuntimeWarning):
 				if askyesno(
-					title = f'Fortfahren?',
-					message = f'{msg}\n\nTrotzdem fortfahren und Verzeichnis hinzufügen?'
+					title = self._labels.warning,
+					message = f'{msg}\n\n{self._labels.ignore}'
 				):
-					self.check_paths = False
+					self._ignore_warning = True
 				else:
 					return
+			else:
+				showerror(title=self._labels.error, message=msg)
+				return
 		self._source_text.insert('end', f'{dir_path}\n')
-		self._exec_button(state='normal')
 
 	def _select_dir(self):
 		'''Select directory to add into field'''
-		directory = askdirectory(title='Wähle das Quellverzeichnis aus', mustexist=True)
+		directory = askdirectory(title=self._labels.select_dir, mustexist=True)
 		if directory:
-			self._add_dir(directory)
+			self._add_dir(Path(directory))
 
 	def echo(self, *arg, end=None):
 		'''Write message to info field (ScrolledText)'''
 		msg = ' '.join(arg)
-		self.info_text.configure(state='normal')
-		if not self.info_newline:
-			self.info_text.delete('end-2l', 'end-1l')
-		self.info_text.insert('end', f'{msg}\n')
-		self.info_text.configure(state='disabled')
-		if self.info_newline:
-			self.info_text.yview('end')
-		self.info_newline = end != '\r'
+		self._info_text.configure(state='normal')
+		if not self._info_newline:
+			self._info_text.delete('end-2l', 'end-1l')
+		self._info_text.insert('end', f'{msg}\n')
+		self._info_text.configure(state='disabled')
+		if self._info_newline:
+			self._info_text.yview('end')
+		self._info_newline = end != '\r'
 
 	def _clear_info(self):
 		'''Clear info text'''
-		self.info_text.configure(state='normal')
-		self.info_text.delete('1.0', 'end')
-		self.info_text.configure(state='disabled')
-		self.info_text.configure(foreground=self.info_fg, background=self.info_bg)
+		self._info_text.configure(state='normal')
+		self._info_text.delete('1.0', 'end')
+		self._info_text.configure(state='disabled')
+		self._info_text.configure(foreground=self._info_fg, background=self._info_bg)
 		self._warning_state = 'stop'
 
-	def _get_source_paths(self):
-		'''Start copy process / worker'''
-		text = self.source_text.get('1.0', 'end').strip()
-		if text:
-			return [Path(source_dir.strip()).absolute() for source_dir in text.split('\n')]
-		
 	def _execute(self):
 		'''Start copy process / worker'''
 		self.source_paths = self._get_source_paths()
 		if not self.source_paths:
 			return
-		self.source_button.configure(state='disabled')
-		self.source_text.configure(state='disabled')
-		self.exec_button.configure(state='disabled')
+		self._source_button.configure(state='disabled')
+		self._source_text.configure(state='disabled')
+		self._exec_button.configure(state='disabled')
 		self._clear_info()
-		self.work_thread = WorkThread(self)
-		self.work_thread.start()
+		self._work_thread = WorkThread(self)
+		self._work_thread.start()
 
 	def _init_warning(self):
 		'''Init warning functionality'''
@@ -204,34 +194,31 @@ class Gui(Tk):
 	def _warning(self):
 		'''Show flashing warning'''
 		if self._warning_state == 'enable':
-			self.info_label.configure(text='ACHTUNG!')
+			self._info_label.configure(text=self._labels.warning)
 			self._warning_state = '1'
 		if self._warning_state == '1':
-			self.info_label.configure(foreground=self.RED_FG, background=self.RED_BG)
+			self._info_label.configure(foreground=self._defs.red_fg, background=self._defs.red_bg)
 			self._warning_state = '2'
 		elif self._warning_state == '2':
-			self.info_label.configure(foreground=self.label_fg, background=self.label_bg)
+			self.info_label.configure(foreground=self._label_fg, background=self._label_bg)
 			self._warning_state = '1'
 		elif self._warning_state != 'disabled':
-			self.info_label.configure(text= '', foreground=self.label_fg, background=self.label_bg)
+			self._info_label.configure(text= '', foreground=self._label_fg, background=self._label_bg)
 			self._warning_state = 'disabled'
 		self.after(500, self._warning)
 
 	def finished(self, errors, log):
-		'''Run this when Worker has finished'''
+		'''Run this when worker has finished'''
 		if errors:
-			self.info_text.configure(foreground=self.RED_FG, background=self.RED_BG)
+			self._info_text.configure(foreground=self.RED_FG, background=self.RED_BG)
 			self._warning_state = 'enable'
-			showerror(
-				title = 'Achtung',
-				message= 'Es traten Fehler auf'
-			)
+			showerror(title=self._labels.warning, message= 'Es traten Fehler auf')
 		else:
 			self._info_text.configure(foreground=self.GREEN_FG, background=self.GREEN_BG)
-		if self.write_log.get() and log:
-			file_name = asksaveasfilename(title='Protokolldatei', defaultextension='.txt')
-			if file_name:
-				Path(file_name).write_text(log)
+		if self._write_log.get() and log:
+			filename = asksaveasfilename(title=self._labels.logdir, defaultextension='.txt')
+			if filename:
+				Path(filename).write_text(log)
 		self._source_text.configure(state='normal')
 		self._source_text.delete('1.0', 'end')
 		self._source_button.configure(state='normal')

@@ -3,110 +3,13 @@
 
 import logging
 from pathlib import Path
-from re import search, sub
 from time import strftime, sleep, perf_counter
 from datetime import timedelta
 from threading import Thread
+from lib.size import Size
 
 class Copy:
 	'''Copy functionality'''
-
-	### hard coded configuration ###
-	LOGLEVEL = logging.INFO				# set log level
-	LOG_NAME = 'log.txt' 				# log file name
-	TSV_NAME = 'fertig.txt'				# file name for csv output textfile - file is generaten when all is done
-	MAX_PATH_LEN = 230					# throw error when paths have more chars
-	BLACKLIST_FILES = (					# prohibited at path depth 1
-		'fertig.txt',
-		'verarbeitet.txt',
-		'fehler.txt',
-		'start.txt',
-		'zu_loeschen.txt'
-	)
-	BLACKLIST_PATHS = {					# forbidden paths
-		'Help': ('HTML5', 'LicenseUpgrade')	# */Help/HTML5* && */Help/LicenseUpgrade*
-	}
-	TOPDIR_REG = r'^[0-9]{6}-([0-9]{4}|[0-9]{6})-[iSZ0-9][0-9]{5}$'	# how the top dir has to look
-
-	@staticmethod
-	def bad_destination():
-		'''Check if target directory is reachable'''
-		try:
-			Copy.DST_PATH.iterdir()
-		except FileNotFoundError:
-			return (f'Zielverzeichnis {Copy.DST_PATH} ist nicht erreichbar')
-
-	@staticmethod
-	def matches_all(dir_path, patterns):
-		'''Return True if all patterns are present under dir_path'''
-		for pattern in patterns:
-			if not dir_path.joinpath(pattern).exists():
-				return False
-		return True
-
-	@staticmethod
-	def bad_destination(root_path):
-		'''Check if destination is clean'''
-		if (Copy.DST_PATH / root_path.name / Copy.TSV_NAME).is_file():
-			return f'{root_path} befindet sich bereits im Ziel- bzw. Importverzeichnis und wird weiterverarbeitet'
-
-	@staticmethod
-	def bad_source(root_path):
-		'''Check if source directory is ok'''
-		if not root_path.is_dir():
-			return f'{root_path} ist kein Verzeichnis oder nicht erreichbar'
-		if not search(Copy.TOPDIR_REG, root_path.name):
-			return f'{root_path} hat nicht das korrekte Namensformat (POLIKS-Vorgansnummer)'
-		for path in root_path.rglob('*'):
-			if len(f'{path.absolute()}') > Copy.MAX_PATH_LEN:
-				return f'Der Pfad {path.absolute()} hat mehr als {Copy.MAX_PATH_LEN} Zeichen'
-
-	@staticmethod
-	def blacklisted_paths(root_path):
-		'''Check paths by blacklists'''
-		for path in root_path.rglob('*'):
-			if path.is_dir() and path.name in Copy.BLACKLIST_PATHS and Copy.matches_all(path, Copy.BLACKLIST_PATHS[path.name]):
-				yield path, f'Das Verzeichnis {path} könnte gegen Pfad-/Dateikonventionen verstoßen!'
-		yield None, None
-
-	@staticmethod
-	def blacklisted_files(root_path):
-		for path in root_path.glob('*'):
-			if path.is_file() and path.name in Copy.BLACKLIST_FILES:
-				yield path, f'Eine Datei {path} darf sich nicht in {root_path} befinden!'
-		yield None, None
-
-	@staticmethod
-	def _bytes(size, format_k='{iec} / {si}', format_b='{b} byte(s)'):
-		'''Genereate readable size string,
-			format_k: "{iec} / {si} / {b} bytes" gives e.g. 9.54 MiB / 10.0 MB / 10000000 bytes
-			format_b will be returned if size < 5 bytes
-		'''
-		def _round(*base):	# intern function to calculate human readable
-			for prefix, b in base:
-				rnd = round(size/b, 2)
-				if rnd >= 1:
-					break
-			if rnd >= 10:
-				rnd = round(rnd, 1)
-			if rnd >= 100:
-				rnd = round(rnd)
-			return f'{rnd} {prefix}', rnd
-		try:	# start method here
-			size = int(size)
-		except (TypeError, ValueError):
-			return 'undetected'
-		iec = None
-		rnd_iec = 0
-		si = None
-		rnd_si = 0
-		if '{iec}' in format_k:
-			iec, rnd_iec = _round(('PiB', 2**50), ('TiB', 2**40), ('GiB', 2**30), ('MiB', 2**20), ('kiB', 2**10))
-		if '{si}' in format_k:
-			si, rnd_si = _round(('PB', 10**15), ('TB', 10**12), ('GB', 10**9), ('MB', 10**6), ('kB', 10**3))
-		if not '{b}' in format_k and rnd_iec == 0 and rnd_si == 0:
-			return format_b.format(b=size)
-		return format_k.format(iec=iec, si=si, b=size)
 
 	def __init__(self, root_path, trigger=True, robocopy=None, echo=print, check_paths=True):
 		'''Generate object to copy and to zip'''

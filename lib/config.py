@@ -19,7 +19,9 @@ class Config:
 		'''Check if key exists'''
 		return key in self._keys
 
-	def save(self):
+	def save(self, path=None):
 		'''Save config file'''
+		if path:
+			self._path = path
 		with self._path.open('w', encoding='utf-8') as fp:
 			dump({key: self.__dict__[key] for key in self._keys}, fp)

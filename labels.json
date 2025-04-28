@@ -18,7 +18,15 @@
     "error": "Fehler",
 	"update_error": "Die neue Version von SlowCopy konnte nicht kopiert bzw. heruntergeladen werden",
     "quit": "Beenden",
-
-    "warning": "Achtung!",
+    "notadirectoryerror": "Kein Verzeichnis oder nicht erreichbar: #",
+    "permissionerror": "Datei # wurde gefunden - keine Berechtigung das Verzeichnis zu kopieren",
+    "nameerror": "Falsches Namensformat (POLIKS-Vorgansnummer): #",
+    "oserror": "Unerlaubter Pfad:\n#",
+    "runtimewarning": "Problematischer Pfad:\n#",
+    "warning": "Warnung",
+    "ignore": "Trotzdem fortfahren und Verzeichnis hinzufügen?",
+    "dst_unreachable": "Zielverzeichnis nicht erreichbar:\n#",
+    "select_dir": "Wähle das Quellverzeichnis aus",
+    "logdir": "Protokolldatei",
     "running_message": "Kopiervorgang läuft!\nWirklich die Anwendung verlassen und den Kopiervorgang abbrechen?"
 }
