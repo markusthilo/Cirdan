@@ -6,6 +6,7 @@ from pathlib import Path
 from time import strftime, sleep, perf_counter
 from datetime import timedelta
 from threading import Thread
+from lib.robocopy import RoboCopy
 from lib.size import Size
 
 class Copy:
@@ -191,24 +192,37 @@ class Copy:
 class Worker:
 	'''Main functionality'''
 
-	def __init__(self, source_paths, config, log_dir=None, trigger=False):
-		if work.log:
-			log.write_text(work.log_path.read_text(encoding='utf-8'), encoding='utf-8')
-
-class WorkThread(Thread):
-	'''Thread that does the work while Tk is running the GUI'''
-
-	def __init__(self, gui):
-		'''Get all attributes from GUI and run Copy'''
-		super().__init__()
-		self.gui = gui
-		self.errors = False
-		self.log = ''
-
-	def run(self):
-		'''Run thread'''
+	def __init__(self, source_paths, config, app_path, log=None, trigger=True, kill=None, echo=print):
+		'''Do the work'''
+		self.error = True
 		robocopy = RoboCopy()
-		for source_path in self.gui.source_paths:
+		local_log_path = log if log else app_path / 'log.txt'
+		log_dir_path = Path(config.log)
+		logging.basicConfig(
+			format = '%(asctime)s %(levelname)s: %(message)s',
+			datefmt='%Y-%m-%d %H:%M:%S',
+			level = logging.DEBUG
+		)
+		local_log_fh = logging.FileHandler(mode='w', filename=log_path)
+		logging.getLogger().addHandler(local_log_fh)
+		for source_path in source_paths:
+			remote_log_fh = logging.FileHandler(mode='w', filename= / 'log.txt')
+		
+			logging.debug('TEST', source_path)
+
+		'''
+		local_logger = logging.getLogger('local')
+		local_logger.setLevel(logging.INFO)
+		local_log_fh = logging.FileHandler(log_path)
+		local_log_fh.setFormatter(log_formatter)
+		remote_logger = logging.getLogger('remote')
+		remote_logger.setLevel(logging.DEBUG)
+
+		remote_log_fh = logging.FileHandler(self.log_path)
+		remote_log_fh.setFormatter(log_formatter)
+		logger1.addHandler(fh1)
+		
+		for source_path in source_paths:
 			try:
 				copy = Copy(source_path,
 					trigger = self.gui.generate_trigger.get(),
@@ -219,6 +233,5 @@ class WorkThread(Thread):
 				if self.gui.write_log:
 					self.log += f'### POLIKS-NR/Verzeichnis: {source_path.name} ###\nProtokoll:\n{copy.log_path.read_text()}'
 			except Exception as ex:
-				self.gui.echo(f'FEHLER: {ex}')
-				self.errors = True
-		self.gui.finished(self.errors, self.log)
+				print(ex)
+		'''

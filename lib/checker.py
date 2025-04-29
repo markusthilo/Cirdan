@@ -43,8 +43,9 @@ class Checker:
 				raise NotADirectoryError(dir)
 
 	def destination(self, src_path):
-		'''Check if destination subdirectory has trigger files'''
+		'''Make destination subdirectory or check existing for trigger files'''
 		dst_path = Path(self._config.target, src_path.name)
+		dst_path.mkdir(exist_ok=True)
 		if dst_path.is_dir():
 			if trigger := self.trigger_exists(dst_path):
 				raise PermissionError(trigger)

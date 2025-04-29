@@ -28,5 +28,6 @@
     "dst_unreachable": "Zielverzeichnis nicht erreichbar:\n#",
     "select_dir": "Wähle das Quellverzeichnis aus",
     "logdir": "Protokolldatei",
-    "running_message": "Kopiervorgang läuft!\nWirklich die Anwendung verlassen und den Kopiervorgang abbrechen?"
+    "problems": "Es traten Probleme auf",
+    "running_warning": "Kopiervorgang läuft!\nWirklich die Anwendung verlassen und den Kopiervorgang abbrechen?"
 }
