@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.9.0_2025-04-29'
+__version__ = '0.9.0_2025-04-30'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilomarkus@gmail.com'
 __status__ = 'Testing'
@@ -32,11 +32,13 @@ if __name__ == '__main__':  # start here when run as application
 	log_path = Path(args.log.strip('"')) if args.log else None
 	source_path = Path(args.source.strip('"')) if args.source else None
 	config = Config(__parent_path__ / 'config.json')
+	labels = Config(__parent_path__ / 'labels.json')
 	if args.source and not args.gui:	# run in terminal
 		check = Checker(config)
 		check.target()
 		check.destination(source_path)
-		Worker([source_path], config, __parent_path__, log=log_path, trigger=not args.notrigger)
+		Worker([source_path], __parent_path__, config, labels, log=log_path, trigger=not args.notrigger)
 	else:	# open gui if no argument is given
-		Gui(source_path, config, __parent_path__, __version__, log=log_path, trigger=not args.notrigger).mainloop()
+		gui_defs = Config(__parent_path__ / 'gui.json')
+		Gui(source_path, __parent_path__, config, labels, gui_defs, __version__, log=log_path, trigger=not args.notrigger).mainloop()
 	sys_exit()

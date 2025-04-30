@@ -9,103 +9,54 @@ from threading import Thread
 from lib.robocopy import RoboCopy
 from lib.size import Size
 
-class Copy:
-	'''Copy functionality'''
+class Worker:
+	'''Main functionality'''
 
-	def __init__(self, root_path, trigger=True, robocopy=None, echo=print, check_paths=True):
-		'''Generate object to copy and to zip'''
-		self.root_path = root_path.resolve()
-		robocopy = robocopy if robocopy else RoboCopy()
-		self.echo = echo
-		if ex := self.bad_destination(self.root_path):
-			raise ValueError(ex)
-		if ex := self.bad_source(self.root_path):
-			raise ValueError(ex)
-		for path, msg in self.blacklisted_files(self.root_path):
-			if not path:
-				break
-			if echo == print:
-				if input(f'\n{msg}\nDatei löschen oder Abbrechen ("löschen" oder beliebige andere Eingabe): ').lower() == 'löschen':
-					try:
-						path.unlink()
-					except Exception as ex:
-						echo(f'Konnte Datei {path} nicht löschen:\n{ex}')
-						raise OSError(ex)
-					echo(f'Die Datei {path} wurde auf Wunsch des Anwenders gelöscht')
-				else:
-					return
-			else:
-				raise ValueError(msg)
-		if check_paths:
-			for path, msg in self.blacklisted_paths(self.root_path):
-				if not path:
-					break
-				if echo == print:
-					answer = input(f'\n{msg}\nVerzeichnis löschen, trotzdem Kopieren oder Abbrechen ("löschen", "kopieren" oder beliebige andere Eingabe): ').lower()
-					if answer == 'löschen':
-						try:
-							rmtree(path)
-						except Exception as ex:
-							echo(f'Konnte Verzeichnis {path} nicht löschen:\n{ex}')
-							raise OSError(ex)
-						echo(f'Das Verzeichnis {path} wurde auf Wunsch des Anwenders gelöscht')
-					elif answer == 'kopieren':
-						continue
-					else:
-						return
-				else:
-					raise ValueError(msg)
-		self.dst_path = self.DST_PATH / self.root_path.name
-		try:
-			self.dst_path.mkdir(exist_ok=True)
-		except Exception as ex:
-			echo(f'Kann das Zielverzeichnis {self.dst_path} nicht erstellen:\n{ex}')
-			raise OSError(ex)
-		log_dir_path = self.LOG_PATH / self.root_path.name
-		try:
-			log_dir_path.mkdir(exist_ok=True)
-		except Exception as ex:
-			echo(f'Kann das Log-Verzeichnis {log_dir_path} nicht erstellen:\n{ex}')
-			raise OSError(ex)
-		self.log_path = log_dir_path / f'{strftime('%y%m%d-%H%M')}-{self.LOG_NAME}'
-		try:
-			logging.basicConfig(	# start logging
-				level = self.LOGLEVEL,
-				filename = self.log_path,
-				format = '%(asctime)s %(levelname)s: %(message)s',
-				datefmt = '%Y-%m-%d %H:%M:%S'
+	def __init__(self, src_paths, app_path, config, labels, log=None, trigger=True, kill=None, echo=print):
+		'''Do the work'''
+		self._echo = echo
+		self.error = True
+		robocopy = RoboCopy()
+		logger = logging.getLogger()
+		logger.setLevel(logging.DEBUG)
+		formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+		local_log_path = log if log else app_path / 'log.txt'
+		local_log_fh = logging.FileHandler(mode='w', filename=local_log_path)
+		local_log_fh.setFormatter(formatter)
+		logger.addHandler(local_log_fh)
+		for src_path in src_paths:
+			remote_log_fh = logging.FileHandler(
+				mode = 'w',
+				filename = Path(config.log, src_path.name, f'{strftime("%y%m%d-%H%M")}-log.txt')
 			)
-		except Exception as ex:
-			echo(f'Kann das Loggen in die Datei {log_path} nicht starten:\n{ex}')
-			raise RuntimeError(ex)
-		start_time = perf_counter()
-		msg = f'Lese Verzeichnisstruktur von {self.root_path}'
-		logging.info(msg)
-		echo(msg)
-		self.src_file_paths = list()
-		self.src_file_sizes = list()
-		self.total_bytes = 0
-		try:
-			for path in self.root_path.rglob('*'):	# analyze root structure
-				if path.is_file():
-					size = path.stat().st_size
-					self.src_file_paths.append(path)
-					self.src_file_sizes.append(size)
-					self.total_bytes += size
-		except Exception as ex:
-			logging.error(ex)
-			raise RuntimeError(ex)
-		msg = f'Starte das Kopieren von {self.root_path} nach {self.dst_path}, {self._bytes(self.total_bytes)}'
-		logging.info(msg)
-		echo(msg)
-		try:
-			hash_thread = HashThread(self.src_file_paths)
-			echo(f'Starte Berechnung von {len(self.src_file_paths)} MD5-Hashes')
-			hash_thread.start()
-		except Exception as ex:
-			msg = f'Konnte Thread, der Hash-Werte bilden soll, nicht starten:\n{ex}'
-			logging.error(msg)
-			echo(f'FEHLER: {msg}')
+			remote_log_fh.setFormatter(formatter)
+			logger.addHandler(remote_log_fh)
+			logging.info(f'{config.user}@{config.domain}, {config.group}')
+			start_time = perf_counter()
+			self._info(f'{labels.reading_structure} {src_path}')
+			src_file_paths = list()
+			src_file_sizes = list()
+			total_bytes = 0
+			try:
+				for path in src_path.rglob('*'):	# analyze root structure
+					if path.is_file():
+						size = path.stat().st_size
+						src_file_paths.append(path)
+						src_file_sizes.append(size)
+						total_bytes += size
+			except Exception as ex:
+				self._error(ex)
+			dst_path = Path(config.target, src_path.name)
+			self._info(f'{labels.starting_robocopy}: {src_path} -> {dst_path}, {Size(total_bytes).readable()}')
+			return
+			try:
+				hash_thread = HashThread(src_file_paths)
+				echo(f'Starte Berechnung von {len(self.src_file_paths)} MD5-Hashes')
+				hash_thread.start()
+			except Exception as ex:
+				msg = f'Konnte Thread, der Hash-Werte bilden soll, nicht starten:\n{ex}'
+				logging.error(msg)
+				echo(f'FEHLER: {msg}')
 		for line in robocopy.copy_dir(self.root_path, self.dst_path):
 			if line.endswith('%'):
 				self.echo(line, end='\r')
@@ -182,6 +133,9 @@ class Copy:
 				logging.error(msg)
 				echo(msg)
 				raise OSError(ex)
+			
+
+
 		end_time = perf_counter()
 		delta = end_time - start_time
 		msg = f'Fertig - das Kopieren dauerte {timedelta(seconds=delta)} (Stunden, Minuten, Sekunden)'
@@ -189,49 +143,14 @@ class Copy:
 		echo(msg)
 		logging.shutdown()
 
-class Worker:
-	'''Main functionality'''
+	def _info(self, msg):
+		'''Log info and echo message'''
+		logging.info(msg)
+		self._echo(msg)
 
-	def __init__(self, source_paths, config, app_path, log=None, trigger=True, kill=None, echo=print):
-		'''Do the work'''
-		self.error = True
-		robocopy = RoboCopy()
-		local_log_path = log if log else app_path / 'log.txt'
-		log_dir_path = Path(config.log)
-		logging.basicConfig(
-			format = '%(asctime)s %(levelname)s: %(message)s',
-			datefmt='%Y-%m-%d %H:%M:%S',
-			level = logging.DEBUG
-		)
-		local_log_fh = logging.FileHandler(mode='w', filename=log_path)
-		logging.getLogger().addHandler(local_log_fh)
-		for source_path in source_paths:
-			remote_log_fh = logging.FileHandler(mode='w', filename= / 'log.txt')
-		
-			logging.debug('TEST', source_path)
-
-		'''
-		local_logger = logging.getLogger('local')
-		local_logger.setLevel(logging.INFO)
-		local_log_fh = logging.FileHandler(log_path)
-		local_log_fh.setFormatter(log_formatter)
-		remote_logger = logging.getLogger('remote')
-		remote_logger.setLevel(logging.DEBUG)
-
-		remote_log_fh = logging.FileHandler(self.log_path)
-		remote_log_fh.setFormatter(log_formatter)
-		logger1.addHandler(fh1)
-		
-		for source_path in source_paths:
-			try:
-				copy = Copy(source_path,
-					trigger = self.gui.generate_trigger.get(),
-					robocopy = robocopy,
-					echo = self.gui.echo,
-					check_paths = self.gui.check_paths
-				)
-				if self.gui.write_log:
-					self.log += f'### POLIKS-NR/Verzeichnis: {source_path.name} ###\nProtokoll:\n{copy.log_path.read_text()}'
-			except Exception as ex:
-				print(ex)
-		'''
+	def _error(self, ex):
+		'''Log error and raise exception'''
+		msg = f'{type(ex)}: {ex}'
+		logging.error(msg)
+		self._echo(msg)
+		raise ex

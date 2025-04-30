@@ -49,3 +49,4 @@ class Checker:
 		if dst_path.is_dir():
 			if trigger := self.trigger_exists(dst_path):
 				raise PermissionError(trigger)
+		Path(self._config.log, src_path.name).mkdir(exist_ok=True)

@@ -29,5 +29,10 @@
     "select_dir": "Wähle das Quellverzeichnis aus",
     "logdir": "Protokolldatei",
     "problems": "Es traten Probleme auf",
-    "running_warning": "Kopiervorgang läuft!\nWirklich die Anwendung verlassen und den Kopiervorgang abbrechen?"
+    "running_warning": "Kopiervorgang läuft!\nWirklich die Anwendung verlassen und den Kopiervorgang abbrechen?",
+	"reading_structure": "Lese Verzeichnisstruktur von",
+    "starting_robocopy": "Starte RoboCopy",
+    "starting_hashing": "Starte Berechnung der Hash-Werte"
+
+    
 }
