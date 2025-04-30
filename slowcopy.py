@@ -21,6 +21,10 @@ __parent_path__ = Path(__file__).parent if Path(__executable__).name == 'python.
 
 if __name__ == '__main__':  # start here when run as application
 	argparser = ArgumentParser(prog=f'SlowCopy Version {__version__}', description='Custom copy tool using RoboCopy')
+	argparser.add_argument('-d', '--done', action='store_true',
+		help='Send e-mail to user when processing has finished')
+	argparser.add_argument('-e', '--email', action='store_true',
+		help='Send e-mail to user when copy process has finished')
 	argparser.add_argument('-g', '--gui', action='store_true',
 		help='Use GUI with given root directory as command line parameters')
 	argparser.add_argument('-l', '--log', type=str, metavar='FILE',
@@ -37,7 +41,8 @@ if __name__ == '__main__':  # start here when run as application
 		check = Checker(config)
 		check.target()
 		check.destination(source_path)
-		Worker([source_path], __parent_path__, config, labels, log=log_path, trigger=not args.notrigger)
+		Worker([source_path], __parent_path__, config, labels,
+			done=args.done, email=args.email, log=log_path, trigger=not args.notrigger)
 	else:	# open gui if no argument is given
 		gui_defs = Config(__parent_path__ / 'gui.json')
 		Gui(source_path, __parent_path__, config, labels, gui_defs, __version__, log=log_path, trigger=not args.notrigger).mainloop()

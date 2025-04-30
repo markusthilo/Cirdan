@@ -35,6 +35,8 @@ class WorkThread(Thread):
 			self._gui.app_path,
 			self._gui.config, 
 			self._gui.labels,
+			done = self._gui.done,
+			email = self._gui.email,
 			log = self._gui.log_path,
 			trigger = self._gui.write_trigger,
 			kill = self._kill_event,
