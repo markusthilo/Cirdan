@@ -13,7 +13,7 @@ class Worker:
 	'''Main functionality'''
 
 	def __init__(self, src_paths, app_path, config, labels,
-		done=None, email=None, log=None, trigger=True, kill=None, echo=print):
+		done=False, nomail=False, log=None, trigger=True, kill=None, echo=print):
 		'''Do the work'''
 		self._echo = echo
 		self.error = True

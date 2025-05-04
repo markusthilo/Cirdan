@@ -35,10 +35,10 @@ class WorkThread(Thread):
 			self._gui.app_path,
 			self._gui.config, 
 			self._gui.labels,
-			done = self._gui.done,
-			email = self._gui.email,
-			log = self._gui.log_path,
-			trigger = self._gui.write_trigger,
+			done = self._gui.done.get(),
+			nomail = self._gui.email.get(),
+			log = self._gui.log_path.get(),
+			trigger = self._gui.write_trigger.get(),
 			kill = self._kill_event,
 			echo = print
 		)
@@ -82,9 +82,9 @@ class Gui(Tk):
 		self._user = StringVar(value=self.config.user)
 		Entry(frame, textvariable=self._user, width=self._defs.user_width).pack(side='left', anchor='w')
 		Label(frame, text=f'@{self.config.domain}').pack(side='right', anchor='w')
-		label = Label(self, text=self.labels.group_label)
+		label = Label(self, text=self.labels.destination)
 		label.grid(row=2, column=0, sticky='w', padx=self._pad)
-		Hovertip(label, self.labels.group_tip)
+		Hovertip(label, self.labels.destination_tip)
 		self._group = StringVar()
 		OptionMenu(self, self._group, self.config.group, *self.config.groups).grid(row=2, column=1, sticky='w', padx=self._pad)
 		Label(self, text=self.labels.options).grid(row=3, column=0, sticky='w', padx=self._pad, pady=(self._pad, 0))
@@ -94,8 +94,15 @@ class Gui(Tk):
 		button = Checkbutton(frame, text=self.labels.trigger_button, variable=self.write_trigger)
 		button.pack(anchor='w', side='left', padx=self._pad)
 		Hovertip(button, self.labels.trigger_tip)
-		self._write_log = BooleanVar(value=bool(log_dir))
-		button = Checkbutton(frame, text=self.labels.log_button, variable=self._write_log, comman=self._select_log)
+
+
+		self.send_email = BooleanVar(value=trigger)
+		button = Checkbutton(frame, text=self.labels.trigger_button, variable=self.write_trigger)
+		button.pack(anchor='w', side='left', padx=self._pad)
+		Hovertip(button, self.labels.trigger_tip)
+
+		self.write_log = BooleanVar(value=bool(log))
+		button = Checkbutton(frame, text=self.labels.log_button, variable=self.write_log, comman=self._select_log)
 		button.pack(anchor='w', side='left', padx=self._pad)
 		Hovertip(button, self.labels.log_tip)
 		self._exec_button = Button(self, text=self.labels.start_button, command=self._execute)

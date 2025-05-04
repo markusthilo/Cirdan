@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.9.0_2025-04-30'
+__version__ = '0.9.0_2025-05-04'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilomarkus@gmail.com'
 __status__ = 'Testing'
@@ -23,12 +23,12 @@ if __name__ == '__main__':  # start here when run as application
 	argparser = ArgumentParser(prog=f'SlowCopy Version {__version__}', description='Custom copy tool using RoboCopy')
 	argparser.add_argument('-d', '--done', action='store_true',
 		help='Send e-mail to user when processing has finished')
-	argparser.add_argument('-e', '--email', action='store_true',
-		help='Send e-mail to user when copy process has finished')
 	argparser.add_argument('-g', '--gui', action='store_true',
 		help='Use GUI with given root directory as command line parameters')
 	argparser.add_argument('-l', '--log', type=str, metavar='FILE',
 		help='File to store log (default: log.txt in app folder)')
+	argparser.add_argument('-m', '--nomail', action='store_true',
+		help='Do not send e-mail to user when copy process has finished')
 	argparser.add_argument('-n', '--notrigger', action='store_true',
 		help='Do not triggedr further process to handle/move uploaded data')
 	argparser.add_argument('source', nargs='?', help='Source directory', type=str, metavar='DIRECTORY')
@@ -42,8 +42,9 @@ if __name__ == '__main__':  # start here when run as application
 		check.target()
 		check.destination(source_path)
 		Worker([source_path], __parent_path__, config, labels,
-			done=args.done, email=args.email, log=log_path, trigger=not args.notrigger)
+			done=args.done, nomail=not args.nomail, log=log_path, trigger=not args.notrigger)
 	else:	# open gui if no argument is given
 		gui_defs = Config(__parent_path__ / 'gui.json')
-		Gui(source_path, __parent_path__, config, labels, gui_defs, __version__, log=log_path, trigger=not args.notrigger).mainloop()
+		Gui(source_path, __parent_path__, config, labels, gui_defs, __version__,
+			done=args.done, nomail=not args.nomail, log=log_path, trigger=not args.notrigger).mainloop()
 	sys_exit()
