@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import logging
 from threading import Thread, Event
 from pathlib import Path
 from tkinter import Tk, PhotoImage, StringVar, BooleanVar
@@ -20,34 +21,43 @@ class WorkThread(Thread):
 
 	def __init__(self, gui):
 		'''Pass all attributes from GUI to work thread'''
-		super().__init__()
 		self._gui = gui
+		super().__init__()
 		self._kill_event = Event()
+		self._worker = Worker(gui.app_path, gui.config, gui.labels,
+			done = gui.send_done.get(),
+			finished = gui.send_finished.get(),
+			log = gui.log_path.get() if self._gui.write_log.get() else None,
+			trigger = gui.write_trigger.get(),
+			echo = gui.echo,
+			kill = self._kill_event
+		)		
+
+	def run(self):
+		'''Run thread'''
+		error = False
+		for src_path in self._gui.source_paths:
+			try:
+				self._worker.copy_dir(src_path)
+			except Exception as ex:
+				logging.error(f'{type(ex)}: {ex}')
+				self._gui.echo(f'{type(ex)}: {ex}')
+				error = True
+		try:
+			logging.shutdown()
+		except:
+			pass
+		self._gui.finished(error)
 
 	def kill(self):
 		'''Kill thread'''
 		self._kill_event.set()
 
-	def run(self):
-		'''Run thread'''
-		worker = Worker(
-			self._gui.source_paths,
-			self._gui.app_path,
-			self._gui.config, 
-			self._gui.labels,
-			done = self._gui.done.get(),
-			nomail = self._gui.email.get(),
-			log = self._gui.log_path.get(),
-			trigger = self._gui.write_trigger.get(),
-			kill = self._kill_event,
-			echo = print
-		)
-		self._gui.finished(worker.error)
-
 class Gui(Tk):
 	'''GUI look and feel'''
 
-	def __init__(self, directory, app_path, config, labels, gui_defs, version, log=None, trigger=True):
+	def __init__(self, directory, app_path, config, labels, gui_defs, version,
+			  done=False, finished=True, log=None, trigger=True):
 		'''Open application window'''
 		super().__init__()
 		self.app_path = app_path
@@ -79,31 +89,33 @@ class Gui(Tk):
 		Hovertip(label, self.labels.user_tip)
 		frame = Frame(self)
 		frame.grid(row=1, column=1, sticky='w', padx=self._pad)
-		self._user = StringVar(value=self.config.user)
-		Entry(frame, textvariable=self._user, width=self._defs.user_width).pack(side='left', anchor='w')
+		self.user = StringVar(value=self.config.user)
+		Entry(frame, textvariable=self.user, width=self._defs.user_width).pack(side='left', anchor='w')
 		Label(frame, text=f'@{self.config.domain}').pack(side='right', anchor='w')
 		label = Label(self, text=self.labels.destination)
 		label.grid(row=2, column=0, sticky='w', padx=self._pad)
 		Hovertip(label, self.labels.destination_tip)
-		self._group = StringVar()
-		OptionMenu(self, self._group, self.config.group, *self.config.groups).grid(row=2, column=1, sticky='w', padx=self._pad)
+		self.destination = StringVar()
+		OptionMenu(self, self.destination, self.config.destination, *self.config.destinations
+			).grid(row=2, column=1, sticky='w', padx=self._pad)
 		Label(self, text=self.labels.options).grid(row=3, column=0, sticky='w', padx=self._pad, pady=(self._pad, 0))
 		frame = Frame(self)
 		frame.grid(row=3, column=1, sticky='w', pady=(self._pad, 0))
 		self.write_trigger = BooleanVar(value=trigger)
 		button = Checkbutton(frame, text=self.labels.trigger_button, variable=self.write_trigger)
-		button.pack(anchor='w', side='left', padx=self._pad)
+		button.grid(row=0, column=0, sticky='w', padx=self._pad)
 		Hovertip(button, self.labels.trigger_tip)
-
-
-		self.send_email = BooleanVar(value=trigger)
-		button = Checkbutton(frame, text=self.labels.trigger_button, variable=self.write_trigger)
-		button.pack(anchor='w', side='left', padx=self._pad)
-		Hovertip(button, self.labels.trigger_tip)
-
+		self.send_finished = BooleanVar(value=finished)
+		button = Checkbutton(frame, text=self.labels.finished_button, variable=self.send_finished)
+		button.grid(row=0, column=1, sticky='w', padx=self._pad)
+		Hovertip(button, self.labels.finished_tip)
+		self.send_done = BooleanVar(value=done)
+		button = Checkbutton(frame, text=self.labels.done_button, variable=self.send_done)
+		button.grid(row=1, column=0, sticky='w', padx=self._pad)
+		Hovertip(button, self.labels.done_tip)
 		self.write_log = BooleanVar(value=bool(log))
 		button = Checkbutton(frame, text=self.labels.log_button, variable=self.write_log, comman=self._select_log)
-		button.pack(anchor='w', side='left', padx=self._pad)
+		button.grid(row=1, column=1, sticky='w', padx=self._pad)
 		Hovertip(button, self.labels.log_tip)
 		self._exec_button = Button(self, text=self.labels.start_button, command=self._execute)
 		self._exec_button.grid(row=4, column=1, sticky='e', padx=self._pad, pady=self._pad)
@@ -193,12 +205,15 @@ class Gui(Tk):
 
 	def _select_log(self):
 		'''Select directory '''
-		if self._write_log.get():
-			filename = asksaveasfilename(title=self.labels.logdir, defaultextension='.txt')
+		if self.write_log.get():
+			filename = asksaveasfilename(
+				title = self.labels.logdir,
+				defaultextension = Path(self.config.log_name).suffix()
+			)
 			if filename:
 				self.log_path = Path(filename)
 			else:
-				self._write_log.set(False)
+				self.write_log.set(False)
 				self.log_path = None
 
 	def echo(self, *args, end=None):
@@ -278,11 +293,14 @@ class Gui(Tk):
 
 	def _quit_app(self):
 		'''Quit app, ask when copy processs is running'''
-		if not self._work_thread or askyesno(title=self.labels.warning, message=self.labels.running_warning):
-			self.config.user = self._user.get()
-			self.config.group = self._group.get()
-			try:
-				self.config.save()
-			except:
-				pass
-			self.destroy()
+		if self._work_thread:
+			if not askyesno(title=self.labels.warning, message=self.labels.running_warning):
+				return
+			self._work_thread.kill()
+		self.config.user = self.user.get()
+		self.config.destination = self.destination.get()
+		try:
+			self.config.save()
+		except:
+			pass
+		self.destroy()

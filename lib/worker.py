@@ -5,97 +5,94 @@ import logging
 from pathlib import Path
 from time import strftime, sleep, perf_counter
 from datetime import timedelta
-from threading import Thread
 from lib.robocopy import RoboCopy
+from lib.hash import HashThread
 from lib.size import Size
 
 class Worker:
 	'''Main functionality'''
 
-	def __init__(self, src_paths, app_path, config, labels,
-		done=False, nomail=False, log=None, trigger=True, kill=None, echo=print):
-		'''Do the work'''
+	def __init__(self, app_path, config, labels,
+		done=False, finished=True, log=None, trigger=True, kill=None, echo=print):
+		'''Prepare copy process'''
+		self._config = config
+		self._labels = labels
+		self._send_done = done
+		self._send_finished = finished
+		self._write_trigger = trigger
+		self._kill_switch = kill
 		self._echo = echo
-		self.error = True
-		robocopy = RoboCopy()
+		try:
+			logger = logging.getLogger()
+			logger.setLevel(logging.DEBUG)
+			self._formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+			local_log_path = log if log else app_path / self._config.log_name
+			local_log_fh = logging.FileHandler(mode='w', filename=local_log_path)
+			local_log_fh.setFormatter(self._formatter)
+			logger.addHandler(local_log_fh)
+		except Exception as ex:
+			echo(f'{type(ex)}: {ex}')
+			raise ex
+		try:
+			self._robocopy = RoboCopy()
+		except Exception as ex:
+			self._error(ex)
+			raise ex
+	
+	def copy_dir(self, src_path):
+		'''Copy directories'''
+		src_path = src_path.resolve()
+		now = strftime('%y%m%d_%H%M')
+		start_time = perf_counter()
+		log_tsv_path = Path(self._config.log, src_path.name, f'{now}_{self._config.tsv_name}')
 		logger = logging.getLogger()
-		logger.setLevel(logging.DEBUG)
-		formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-		local_log_path = log if log else app_path / 'log.txt'
-		local_log_fh = logging.FileHandler(mode='w', filename=local_log_path)
-		local_log_fh.setFormatter(formatter)
-		logger.addHandler(local_log_fh)
-		for src_path in src_paths:
-			remote_log_fh = logging.FileHandler(
-				mode = 'w',
-				filename = Path(config.log, src_path.name, f'{strftime("%y%m%d-%H%M")}-log.txt')
-			)
-			remote_log_fh.setFormatter(formatter)
-			logger.addHandler(remote_log_fh)
-			logging.info(f'{config.user}@{config.domain}, {config.group}')
-			start_time = perf_counter()
-			self._info(f'{labels.reading_structure} {src_path}')
-			src_file_paths = list()
-			src_file_sizes = list()
-			total_bytes = 0
-			try:
-				for path in src_path.rglob('*'):	# analyze root structure
-					if path.is_file():
-						size = path.stat().st_size
-						src_file_paths.append(path)
-						src_file_sizes.append(size)
-						total_bytes += size
-			except Exception as ex:
-				self._error(ex)
-			dst_path = Path(config.target, src_path.name)
-			self._info(f'{labels.starting_robocopy}: {src_path} -> {dst_path}, {Size(total_bytes).readable()}')
-			return
-			try:
-				hash_thread = HashThread(src_file_paths)
-				echo(f'Starte Berechnung von {len(self.src_file_paths)} MD5-Hashes')
-				hash_thread.start()
-			except Exception as ex:
-				msg = f'Konnte Thread, der Hash-Werte bilden soll, nicht starten:\n{ex}'
-				logging.error(msg)
-				echo(f'FEHLER: {msg}')
-		for line in robocopy.copy_dir(self.root_path, self.dst_path):
+		remote_log_fh = logging.FileHandler(
+			mode = 'w',
+			filename = Path(self._config.log, src_path.name, f'{now}_{self._config.log_name}')
+		)
+		remote_log_fh.setFormatter(self._formatter)
+		logger.addHandler(remote_log_fh)
+		logging.info(f'{self._config.user}@{self._config.domain} -> {self._config.destination}')
+		self._info(f'{self._labels.reading_structure} {src_path}')
+		src_file_paths = list()
+		src_file_sizes = list()
+		total_bytes = 0
+		for path in src_path.rglob('*'):	# analyze root structure
+			if path.is_file():
+				size = path.stat().st_size
+				src_file_paths.append(path)
+				src_file_sizes.append(size)
+				total_bytes += size
+		hash_thread = HashThread(src_file_paths)
+		self._info(self._labels.starting_hashing.replace('#', f'{len(src_file_paths)}'))
+		hash_thread.start()
+		dst_path = Path(self._config.target, src_path.name)
+		self._info(f'{self._labels.starting_robocopy}: {src_path} -> {dst_path}, {Size(total_bytes).readable()}')
+		for line in self._robocopy.copy_dir(src_path, dst_path):
 			if line.endswith('%'):
-				self.echo(line, end='\r')
+				self._echo(line, end='\r')
 			else:
-				self.echo(line)
-		if robocopy.returncode > 5:
-			msg = f'"{robocopy}" hatte ein Problem, Rückgabewert: {robocopy.returncode}'
-			logging.error(msg)
-			raise ChildProcessError(ex)
-		msg = f'"{robocopy}" wurde beendet, starte Überprüfung anhand Dateigröße'
-		logging.info(msg)
-		echo(msg)
-		errors = 0
+				self._echo(line)
+			if self._kill_switch and self._kill_switch.is_set():
+				self._robocopy.terminate()
+				raise SystemExit(self._labels.worker_killed)
+		if self._robocopy.returncode > 5:
+			raise ChildProcessError(self._labels.robocopy_problem.replace('#', f'{self._robocopy.returncode}'))
+		self._info(self._labels.robocopy_finished)
 		mismatches = 0
-		total = len(self.src_file_paths)
-		for cnt, (src_path, src_size) in enumerate(zip(self.src_file_paths, self.src_file_sizes), start=1):
-			echo(f'{int(100*cnt/total)}%', end='\r')
-			dst_path = self.dst_path.joinpath(src_path.relative_to(self.root_path))
-			try:
-				dst_size = dst_path.stat().st_size
-			except Exception as ex:
-				msg = f'Dateigröße von {dst_path} konnte nicht ermittelt werden:\n{ex}'
+		total = len(src_file_paths)
+		for cnt, (src_file_path, src_size) in enumerate(zip(src_file_paths, src_file_sizes), start=1):
+			self._echo(f'{int(100*cnt/total)}%', end='\r')
+			dst_file_path = dst_path.joinpath(src_file_path.relative_to(src_path))
+			dst_size = dst_file_path.stat().st_size
+			if dst_size != src_size:
+				msg = self._labels.mismatching_sizes.replace('#', f'{src_file_path} => {src_size}, {dst_file_path} => {dst_size}')
 				logging.warning(msg)
-				echo(f'WARNING: {msg}')
-				errors += 1
-			else:
-				if dst_size != src_size:
-					msg = f'Dateigrößenabweichung: {src_path} => {src_size}, {dst_path} => {dst_size}'
-					logging.warning(msg)
-					echo(f'WARNING: {msg}')
-					mismatches += 1
-		msg = 'Überprüfung anhand Dateigröße ist abgeschlossen'
-		logging.info(msg)
-		echo(msg)
+				self._echo(msg)
+				mismatches += 1
+		self._info(self._labels.size_check_finished)
 		if hash_thread.is_alive():
-			msg = 'Führe die Hash-Wert-Berechnung fort'
-			logging.info(msg)
-			echo(msg)
+			self._info(self._labels.hashing_in_progress)
 			index = 0
 			while hash_thread.is_alive():
 				echo(f'{"|/-\\"[index]}  ', end='\r')
@@ -103,46 +100,24 @@ class Worker:
 				if index > 3:
 					index = 0
 				sleep(.25)
-			echo('MD5-Hashes-Berechnung ist abgeschlossen')
 		hash_thread.join()
-		tsv = 'Pfad\tMD5-Hash'
+		self._info(self._labels.hashing_finished)
+		tsv = self._config.tsv_head
 		for path, md5 in hash_thread.get_hashes():
-			tsv += f'\n{path.relative_to(self.root_path.parent)}\t{md5}'
-		log_tsv_path = log_dir_path / f'{strftime('%y%m%d-%H%M')}-{self.TSV_NAME}'
+			tsv += f'\n{path.relative_to(src_path.parent)}\t{md5}'
 		try:
 			log_tsv_path.write_text(tsv, encoding='utf-8')
 		except Exception as ex:
-			msg = f'Konnte Log-Datei {log_tsv_path} nicht erzeugen:\n{ex}'
-			logging.error(msg)
-			raise OSError(ex)
-		if errors:
-			msg = f'Die Größe von {errors} Datei(en) konnte nicht ermittelt werden'
-			logging.error(msg)
-			if not mismatches:
-				raise OSError(msg)
-			echo(f'WARNING: {msg}')
+			self._error(ex)
 		if mismatches:
-			msg = f'Bei {mismatches} Datei(en) stimmt die Größe der Zieldatei nicht mit der Ausgangsdatei überein'
-			logging.error(msg)
-			raise RuntimeError(msg)
-		if trigger:
-			dst_tsv_path = self.dst_path / self.TSV_NAME
-			try:
-				dst_tsv_path.write_text(tsv, encoding='utf-8')
-			except Exception as ex:
-				msg = f'Konnte {dst_tsv_path} nicht erzeugen:\n{ex}'
-				logging.error(msg)
-				echo(msg)
-				raise OSError(ex)
-			
-
-
+			raise BytesWarning(self._labels.size_mismatch.replace('#', f'{mismatches}'))
+		if self._write_trigger:
+			dst_tsv_path = dst_path / self._config.tsv_name
+			dst_tsv_path.write_text(tsv, encoding='utf-8')
 		end_time = perf_counter()
 		delta = end_time - start_time
-		msg = f'Fertig - das Kopieren dauerte {timedelta(seconds=delta)} (Stunden, Minuten, Sekunden)'
-		logging.info(msg)
-		echo(msg)
-		logging.shutdown()
+		self._info(self._labels.copy_finished.replace('#', f'{timedelta(seconds=delta)}'))
+		logger.removeHandler(remote_log_fh)
 
 	def _info(self, msg):
 		'''Log info and echo message'''
@@ -150,8 +125,7 @@ class Worker:
 		self._echo(msg)
 
 	def _error(self, ex):
-		'''Log error and raise exception'''
+		'''Log and echo error'''
 		msg = f'{type(ex)}: {ex}'
 		logging.error(msg)
 		self._echo(msg)
-		raise ex
