@@ -7,8 +7,6 @@ from subprocess import Popen, PIPE, STDOUT, STARTUPINFO, STARTF_USESHOWWINDOW
 class RoboCopy:
 	'''Wrapper for RoboCopy'''
 
-	EXE = 'Robocopy.exe'
-
 	def __init__(self):
 		'''Create robocopy process'''
 		self._startupinfo = STARTUPINFO()
@@ -21,11 +19,11 @@ class RoboCopy:
 				elif line.lower().startswith('/compress'):
 					self._copy_args.append('/compress')
 		except Exception as ex:
-			raise RuntimeError(f'Unable to execute "{self.EXE} /?":\n{ex}')
+			raise RuntimeError(f'Unable to execute "robocopy /?":\n{ex}')
 
 	def _popen(self, args):
 		'''Use Popen to run RoboCopy'''
-		self._cmd = [self.EXE] + args
+		self._cmd = ['robocopy'] + args
 		return Popen(self._cmd,
 			stdout = PIPE,
 			stderr = STDOUT,

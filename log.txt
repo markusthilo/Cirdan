@@ -1,0 +1,10 @@
+2025-05-06 16:09:22 INFO: markus.thilo@polizei.berlin.de -> Test THI
+2025-05-06 16:09:22 INFO: Lese Verzeichnisstruktur von C:\Users\THI\Documents\250410-0843-712000
+2025-05-06 16:09:22 INFO: Starte Berechnung von 51 MD5-Hashes
+2025-05-06 16:09:22 INFO: Starte Berechnung von 51 Hash-Werten
+2025-05-06 16:09:22 INFO: Starte RoboCopy: C:\Users\THI\Documents\250410-0843-712000 -> C:\Users\THI\Documents\test_import\250410-0843-712000, 309 kiB / 316 kB
+2025-05-06 16:09:22 INFO: Hash-Wert-Berechnung ist abgeschlossen
+2025-05-06 16:09:22 INFO: RoboCopy wurde beendet, starte Überprüfung anhand Dateigröße
+2025-05-06 16:09:22 INFO: Überprüfung anhand Dateigröße ist abgeschlossen
+2025-05-06 16:09:22 INFO: Hash-Wert-Berechnung ist abgeschlossen
+2025-05-06 16:09:22 INFO: Fertig - das Kopieren dauerte 0:00:00.239228 (Stunden, Minuten, Sekunden)

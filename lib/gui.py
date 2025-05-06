@@ -12,7 +12,6 @@ from tkinter.messagebox import askyesno, showerror
 from tkinter.filedialog import askdirectory, asksaveasfilename
 from idlelib.tooltip import Hovertip
 from lib.worker import Worker
-from lib.config import Config
 from lib.update import Update
 from lib.checker import Checker
 
@@ -27,7 +26,7 @@ class WorkThread(Thread):
 		self._worker = Worker(gui.app_path, gui.config, gui.labels,
 			done = gui.send_done.get(),
 			finished = gui.send_finished.get(),
-			log = gui.log_path.get() if self._gui.write_log.get() else None,
+			log = gui.log_path if self._gui.write_log.get() else None,
 			trigger = gui.write_trigger.get(),
 			echo = gui.echo,
 			kill = self._kill_event
@@ -206,15 +205,22 @@ class Gui(Tk):
 	def _select_log(self):
 		'''Select directory '''
 		if self.write_log.get():
+			defaultextension = Path(self.config.log_name).suffix.lstrip('.')
 			filename = asksaveasfilename(
-				title = self.labels.logdir,
-				defaultextension = Path(self.config.log_name).suffix()
+				title = self.labels.logfile,
+				filetypes = (
+					(self.labels.logfile, f'*.{defaultextension}'),
+					(self.labels.allfiles, '*.*')
+				),
+				defaultextension = defaultextension,
+				confirmoverwrite = True
 			)
 			if filename:
 				self.log_path = Path(filename)
 			else:
 				self.write_log.set(False)
 				self.log_path = None
+			print(filename)
 
 	def echo(self, *args, end=None):
 		'''Write message to info field (ScrolledText)'''
@@ -255,7 +261,10 @@ class Gui(Tk):
 		self._source_text.configure(state='disabled')
 		self._exec_button.configure(state='disabled')
 		self._clear_info()
-		self._work_thread = WorkThread(self)
+		try:
+			self._work_thread = WorkThread(self)
+		except:
+			self.finished(True)
 		self._work_thread.start()
 
 	def _init_warning(self):

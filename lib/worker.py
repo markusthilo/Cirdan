@@ -25,11 +25,11 @@ class Worker:
 		self._kill_switch = kill
 		self._echo = echo
 		self._mail_address = f'{self._config.user}@{self._config.domain}'
+		local_log_path = log if log else app_path / self._config.log_name
 		try:
 			logger = logging.getLogger()
 			logger.setLevel(logging.DEBUG)
 			self._formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-			local_log_path = log if log else app_path / self._config.log_name
 			local_log_fh = logging.FileHandler(mode='w', filename=local_log_path)
 			local_log_fh.setFormatter(self._formatter)
 			logger.addHandler(local_log_fh)
