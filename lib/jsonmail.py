@@ -22,5 +22,7 @@ class JsonMail:
 			mail['Subject'] = subject
 		if body:
 			mail['Body'] = body
-		with dir_path.joinpath(f'{strftime("%y%m%d-%H%M%S")}_{mail["To"].split('@')[0].replace('.', '_')}.json').open('w') as fp:
+		with dir_path.joinpath(
+			f'{strftime("%y%m%d_%H%M%S")}_{mail["To"].split('@')[0].replace('.', '_')}.json'
+		).open('w') as fp:
 			dump(mail, fp)

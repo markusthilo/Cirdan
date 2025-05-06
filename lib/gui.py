@@ -98,7 +98,7 @@ class Gui(Tk):
 		self.destination = StringVar()
 		OptionMenu(self, self.destination, self.config.destination, *self.config.destinations
 			).grid(row=2, column=1, sticky='w', padx=self._pad)
-		Label(self, text=self.labels.options).grid(row=3, column=0, sticky='w', padx=self._pad, pady=(self._pad, 0))
+		Label(self, text=self.labels.options).grid(row=3, column=0, sticky='nw', padx=self._pad, pady=(self._pad, 0))
 		frame = Frame(self)
 		frame.grid(row=3, column=1, sticky='w', pady=(self._pad, 0))
 		self.write_trigger = BooleanVar(value=trigger)
@@ -245,8 +245,11 @@ class Gui(Tk):
 			try:
 				self._check.destination(source_path)
 			except Exception as ex:
-				if isisnstance(ex, PermissionError):
-					showerror(title=self.labels.error, message=self.labels.permission.replace('#', ex))
+				if isinstance(ex, PermissionError):
+					showerror(
+						title = self.labels.error,
+						message = self.labels.permissionerror.replace('#', f'{ex}')
+					)
 				return
 		self._source_button.configure(state='disabled')
 		self._source_text.configure(state='disabled')
@@ -283,7 +286,7 @@ class Gui(Tk):
 			self._warning_state = 'enable'
 			showerror(title=self.labels.warning, message=self.labels.problems)
 		else:
-			self._info_text.configure(foreground=self._defs.green_bg, background=self._defs.green_bg)
+			self._info_text.configure(foreground=self._defs.green_fg, background=self._defs.green_bg)
 		self._source_text.configure(state='normal')
 		self._source_text.delete('1.0', 'end')
 		self._source_button.configure(state='normal')

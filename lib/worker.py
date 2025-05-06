@@ -8,6 +8,7 @@ from datetime import timedelta
 from lib.robocopy import RoboCopy
 from lib.hash import HashThread
 from lib.size import Size
+from lib.jsonmail import JsonMail
 
 class Worker:
 	'''Main functionality'''
@@ -15,6 +16,7 @@ class Worker:
 	def __init__(self, app_path, config, labels,
 		done=False, finished=True, log=None, trigger=True, kill=None, echo=print):
 		'''Prepare copy process'''
+		self._app_path = app_path
 		self._config = config
 		self._labels = labels
 		self._send_done = done
@@ -22,6 +24,7 @@ class Worker:
 		self._write_trigger = trigger
 		self._kill_switch = kill
 		self._echo = echo
+		self._mail_address = f'{self._config.user}@{self._config.domain}'
 		try:
 			logger = logging.getLogger()
 			logger.setLevel(logging.DEBUG)
@@ -52,7 +55,7 @@ class Worker:
 		)
 		remote_log_fh.setFormatter(self._formatter)
 		logger.addHandler(remote_log_fh)
-		logging.info(f'{self._config.user}@{self._config.domain} -> {self._config.destination}')
+		logging.info(f'{self._mail_address} -> {self._config.destination}')
 		self._info(f'{self._labels.reading_structure} {src_path}')
 		src_file_paths = list()
 		src_file_sizes = list()
@@ -112,8 +115,20 @@ class Worker:
 		if mismatches:
 			raise BytesWarning(self._labels.size_mismatch.replace('#', f'{mismatches}'))
 		if self._write_trigger:
-			dst_tsv_path = dst_path / self._config.tsv_name
-			dst_tsv_path.write_text(tsv, encoding='utf-8')
+			dst_path.joinpath(self._config.tsv_name).write_text(
+				tsv, encoding='utf-8'
+			)
+		if self._send_done:
+			dst_path.joinpath(self._config.done_name).write_text(
+				self._mail_address, encoding='utf-8'
+			)
+		if self._send_finished:
+			JsonMail(self._app_path / 'mail.json').send(
+				Path(self._config.mail),
+				to = self._mail_address,
+				subject = src_path.name,
+				body = tsv
+			)
 		end_time = perf_counter()
 		delta = end_time - start_time
 		self._info(self._labels.copy_finished.replace('#', f'{timedelta(seconds=delta)}'))

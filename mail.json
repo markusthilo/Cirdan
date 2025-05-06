@@ -1,1 +1,20 @@
-{"mail": {"version_hr": "v1.0", "version": 100, "meta": "v1.0"}, "mail_meta": {"val_id": "0001", "uuid": "d8657443-d42a-4158-9898-7fe677c8e3d1"}, "mail_content": {"From": "MSD-Netz-Support@polizei.berlin.de", "FromDisplayName": "MSD Netz Support", "FromPersonalNr": "24521844", "ReplyTo": "MSD-Netz-Support@polizei.berlin.de"}, "To": "markus.thilo@polizei.berlin.de", "Subject": "Test SlowCopy", "Body": "This is a test!"}
+{
+    "mail": {
+        "version_hr": "v1.0",
+        "version": 100,
+        "meta": "v1.0"
+    },
+    "mail_meta": {
+        "val_id": "0001",
+        "uuid": "d8657443-d42a-4158-9898-7fe677c8e3d1"
+    },
+    "mail_content": {
+        "From": "MSD-Netz-Support@polizei.berlin.de",
+        "FromDisplayName": "MSD Netz Support",
+        "FromPersonalNr": "24521844",
+        "ReplyTo": "MSD-Netz-Support@polizei.berlin.de"
+    },
+    "To": "markus.thilo@polizei.berlin.de",
+    "Subject": "Test SlowCopy",
+    "Body": "This is a test!"
+}

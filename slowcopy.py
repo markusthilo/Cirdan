@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.9.0_2025-05-05'
+__version__ = '0.9.0_2025-05-06'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilomarkus@gmail.com'
 __status__ = 'Testing'
@@ -22,7 +22,7 @@ __parent_path__ = Path(__file__).parent if Path(__executable__).name == 'python.
 if __name__ == '__main__':  # start here when run as application
 	argparser = ArgumentParser(prog=f'SlowCopy Version {__version__}', description='Custom copy tool using RoboCopy')
 	argparser.add_argument('-d', '--done', action='store_true',
-		help='Send e-mail to user when processing has finished')
+		help='Trigger processing software to send e-mail to user when finished')
 	argparser.add_argument('-g', '--gui', action='store_true',
 		help='Use GUI with given root directory as command line parameters')
 	argparser.add_argument('-l', '--log', type=str, metavar='FILE',
