@@ -8,7 +8,7 @@ from lib.config import Config
 from lib.robocopy import RoboCopy
 
 if __name__ == '__main__':  # start here when run as application
-	dist_path = Path(argv[1])
+	dist_path = Path(argv[1]) / 'slowcopy.dist'
 	install_path = Path(argv[2])
 	old_path = Path(argv[3])
 	config = Config(old_path / 'config.json')

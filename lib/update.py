@@ -15,7 +15,7 @@ class Update:
 		'''Check for newer version'''
 		self._dist_path = dist_path
 		try:
-			new_version = self._dist_path.joinpath('slowcopy-dist/version.txt').read_text(encoding='utf-8')
+			new_version = self._dist_path.joinpath('version.txt').read_text(encoding='utf-8')
 		except:
 			self.new_version = None
 			return
@@ -23,10 +23,10 @@ class Update:
 
 	def download(self, install_path, old_path):
 		'''Launch update downloader'''
-		exe_path = self._dist_path / 'slowdown.exe'
+		exe_path = self._dist_path / 'slowdown.dist/slowdown.exe'
 		cmd = [f'{exe_path}'] if exe_path.is_file() else ['python', old_path / 'slowdown.py']
 		return Popen(
-			cmd + [self._dist_path / 'slowcopy-dist', install_path, old_path],
+			cmd + [self._dist_path, install_path, old_path],
 			start_new_session=True
 		)
 
