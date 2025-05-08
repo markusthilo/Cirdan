@@ -134,36 +134,42 @@ class Gui(Tk):
 		self._quit_button = Button(self, text=self.labels.quit, command=self._quit_app)
 		self._quit_button.grid(row=6, column=1, sticky='e', padx=self._pad, pady=self._pad)
 		update = Update(version, Path(self.config.update))
-		if update.version and askyesno(
-			title = self.labels.update_title.replace('#', update.version),
+		if update.new_version and askyesno(
+			title = self.labels.update_title.replace('#', update.new_version),
 			message = self.labels.update_message
 		):
-			if directory := askdirectory(title=self.labels.update_dir, mustexist=True):
-				try:
-					update.install(Path(directory))
-				except Exception as ex:
+			if install_dir := askdirectory(title=self.labels.update_dir, mustexist=False):
+				install_path = Path(install_dir)
+				if any(install_path.iterdir()) and not install_path.samefile(app_path):
 					showerror(
 						title = self.labels.error,
-						message= f'{self.labels.update_error}:\n{ex}'
+						message= f'{self.labels.update_error}:\n{self.labels.dir_not_empty}'
 					)
-				self.destroy()
-		else:
-			self._check = Checker(config)
+				else:
+					try:
+						update.download(install_path, app_path)
+						self.destroy()
+					except Exception as ex:
+						showerror(
+							title = self.labels.error,
+							message= f'{self.labels.update_error}:\n{type(ex)}: {ex}'
+						)
+		self._check = Checker(config)
+		try:
+			self._check.target()
+		except Exception as ex:
 			try:
-				self._check.target()
-			except Exception as ex:
-				try:
-					msg = self.labels.__dict__[type(ex).__name__.lower()].replace('#', str(ex))
-				except:
-					msg = f'{type(ex).__name__}: {ex}'
-				showerror(title=self.labels.error, message=msg)
-				return
-			self.log_path = log
-			self._work_thread = None
-			self._ignore_warning = False
-			self._init_warning()
-			if directory:
-				self._add_dir(directory)
+				msg = self.labels.__dict__[type(ex).__name__.lower()].replace('#', str(ex))
+			except:
+				msg = f'{type(ex).__name__}: {ex}'
+			showerror(title=self.labels.error, message=msg)
+			return
+		self.log_path = log
+		self._work_thread = None
+		self._ignore_warning = False
+		self._init_warning()
+		if directory:
+			self._add_dir(directory)
 
 	def _get_source_paths(self):
 		'''Read directory paths from text field'''

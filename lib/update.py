@@ -2,15 +2,10 @@
 # -*- coding: utf-8 -*-
 
 from re import sub
-from sys import argv
-from pathlib import Path
-from lib.robocopy import Robocopy
+from subprocess import Popen
 
 class Update:
-	'''Chech and download update if newer version is available'''
-
-	FILENAME = 'version.txt'
-	#subprocess.Popen(cmds, start_new_session=True)
+	'''Check for new version and start download if available'''
 
 	@staticmethod
 	def _int(string):
@@ -19,21 +14,20 @@ class Update:
 	def __init__(self, this_version, dist_path):
 		'''Check for newer version'''
 		self._dist_path = dist_path
-		self.version = None
 		try:
-			new_version = self._dist_path.joinpath(self.FILENAME).read_text(encoding='utf-8')
+			new_version = self._dist_path.joinpath('slowcopy-dist/version.txt').read_text(encoding='utf-8')
 		except:
+			self.new_version = None
 			return
-		if self._int(new_version) > self._int(this_version):
-			self.version = new_version
+		self.new_version = new_version if self._int(new_version) > self._int(this_version) else None
+
+	def download(self, install_path, old_path):
+		'''Launch update downloader'''
+		exe_path = self._dist_path / 'slowdown.exe'
+		cmd = [f'{exe_path}'] if exe_path.is_file() else ['python', old_path / 'slowdown.py']
+		return Popen(
+			cmd + [self._dist_path / 'slowcopy-dist', install_path, old_path],
+			start_new_session=True
+		)
 
 
-
-if __name__ == '__main__':  # start here when run as application
-	dist_path = Path(argv[1])
-	install_path = Path(argv[2])
-	robocopy = RoboCopy()
-	for line in robocopy.copy_dir(dist_path, install_path):
-		print(line)
-	if robocopy.returncode > 5:
-		raise ChildProcessError(f'RoboCopy returncode: {robocopy.returncode}')
