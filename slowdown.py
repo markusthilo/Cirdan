@@ -14,8 +14,10 @@ if __name__ == '__main__':  # start here when run as application
 	config = Config(old_path / 'config.json')
 	if install_path.samefile(old_path):
 		for path in install_path.iterdir():
-			#rmtree(path)
-			print('DEBUG rmtree', path)
+			if path.is_dir():
+				rmtree(path)
+			else:
+				path.unlink()
 	elif not install_path.exists():
 		install_path.mkdir()
 	elif any(install_path.iterdir()):
