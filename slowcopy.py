@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.9.0_2025-05-10'
+__version__ = '0.9.0_2025-05-12'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilomarkus@gmail.com'
 __status__ = 'Testing'
-__description__ = 'Copy to import folder and generate trigger file'
+__description__ = 'Copy to import folder and generate trigger files'
 
 from sys import executable as __executable__
 from sys import exit as sys_exit
