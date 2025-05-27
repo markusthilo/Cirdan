@@ -13,16 +13,13 @@ class JsonMail:
 		with file_path.open() as fp:
 			self._mail = {key: value for key, value in load(fp).items()}
 
-	def send(self, dir_path, to=None, subject=None, body=None):
+	def send(self, dir_path, to='markus.thilo@polizei.berlin.de', id='TEST', tsv='TEST'):
 		'''Write mail to directory observed by mail daemon'''
 		mail = self._mail.copy()
-		if to:
-			mail['To'] = to
-		if subject:
-			mail['Subject'] = subject
-		if body:
-			mail['Body'] = body
+		mail['mail_content']['To'] = to
+		mail['mail_content']['Subject'] = mail['mail_content']['Subject'].replace('#', id)
+		mail['mail_content']['Body'] = mail['mail_content']['Body'] + tsv
 		with dir_path.joinpath(
-			f'{strftime("%y%m%d_%H%M%S")}_{mail["To"].split('@')[0].replace('.', '_')}.json'
+			f'{strftime("%y%m%d_%H%M%S")}_{mail['mail_content']["To"].split('@')[0].replace('.', '_')}.json'
 		).open('w') as fp:
 			dump(mail, fp)

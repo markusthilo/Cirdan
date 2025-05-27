@@ -34,14 +34,14 @@ class WorkThread(Thread):
 
 	def run(self):
 		'''Run thread'''
-		error = False
+		error = True
 		for src_path in self._gui.source_paths:
 			try:
 				self._worker.copy_dir(src_path)
+				error = False
 			except Exception as ex:
 				logging.error(f'{type(ex)}: {ex}')
 				self._gui.echo(f'{type(ex)}: {ex}')
-				error = True
 		try:
 			logging.shutdown()
 		except:

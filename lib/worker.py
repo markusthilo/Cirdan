@@ -46,10 +46,9 @@ class Worker:
 	
 	def copy_dir(self, src_path):
 		'''Copy directories'''
-		src_path = src_path.resolve()
-		now = strftime('%y%m%d_%H%M')
 		start_time = perf_counter()
-		log_tsv_path = Path(self._config.log, src_path.name, f'{now}_{self._config.tsv_name}')
+		now = strftime('%y%m%d_%H%M')
+		src_path = src_path.resolve()
 		logger = logging.getLogger()
 		remote_log_fh = logging.FileHandler(
 			mode = 'w',
@@ -111,26 +110,39 @@ class Worker:
 		for path, md5 in hash_thread.get_hashes():
 			tsv += f'\n{path.relative_to(src_path.parent)}\t{md5}'
 		try:
-			log_tsv_path.write_text(tsv, encoding='utf-8')
+			Path(self._config.log, src_path.name, f'{now}_{self._config.tsv_name}').write_text(tsv, encoding='utf-8')
+		except Exception as ex:
+			self._error(ex)
+		try:
+			Path(dst_path, f'{now}_{self._config.tsv_name}').write_text(tsv, encoding='utf-8')
 		except Exception as ex:
 			self._error(ex)
 		if mismatches:
 			raise BytesWarning(self._labels.size_mismatch.replace('#', f'{mismatches}'))
 		if self._write_trigger:
-			dst_path.joinpath(self._config.tsv_name).write_text(
-				tsv, encoding='utf-8'
-			)
+			try:
+				dst_path.joinpath(self._config.trigger_name).write_text(
+					self._mail_address, encoding='utf-8'
+				)
+			except Exception as ex:
+				self._error(ex)
 		if self._send_done:
-			dst_path.joinpath(self._config.done_name).write_text(
-				self._mail_address, encoding='utf-8'
-			)
+			try:
+				dst_path.joinpath(self._config.done_name).write_text(
+					self._mail_address, encoding='utf-8'
+				)
+			except Exception as ex:
+				self._error(ex)
 		if self._send_finished:
-			JsonMail(self._app_path / 'mail.json').send(
-				Path(self._config.mail),
-				to = self._mail_address,
-				subject = src_path.name,
-				body = tsv
-			)
+			try:
+				JsonMail(self._app_path / 'mail.json').send(
+					Path(self._config.mail),
+					to = self._mail_address,
+					id = src_path.name,
+					tsv = tsv
+				)
+			except Exception as ex:
+				self._error(ex)
 		end_time = perf_counter()
 		delta = end_time - start_time
 		self._info(self._labels.copy_finished.replace('#', f'{timedelta(seconds=delta)}'))
