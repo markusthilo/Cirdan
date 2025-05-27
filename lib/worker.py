@@ -135,7 +135,7 @@ class Worker:
 				self._error(ex)
 		if self._send_finished:
 			try:
-				JsonMail(self._app_path / 'mail.json').send(
+				JsonMail(self._app_path / f'{self._config.mail_name}_{now}').send(
 					Path(self._config.mail),
 					to = self._mail_address,
 					id = src_path.name,
