@@ -226,7 +226,6 @@ class Gui(Tk):
 			else:
 				self.write_log.set(False)
 				self.log_path = None
-			print(filename)
 
 	def echo(self, *args, end=None):
 		'''Write message to info field (ScrolledText)'''

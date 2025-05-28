@@ -1,0 +1,5 @@
+2025-05-28 07:33:28 INFO: markus.thilo@polizei.berlin.de -> Test THI
+2025-05-28 07:33:28 INFO: Lese Verzeichnisstruktur von C:\Users\THI\Documents\250410-0843-712000
+2025-05-28 07:33:28 INFO: Starte Berechnung von 51 MD5-Hashes
+2025-05-28 07:33:28 INFO: Starte Berechnung von 51 Hash-Werten
+2025-05-28 07:33:28 INFO: Hash-Wert-Berechnung ist abgeschlossen

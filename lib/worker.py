@@ -70,7 +70,7 @@ class Worker:
 		hash_thread = HashThread(src_file_paths)
 		self._info(self._labels.starting_hashing.replace('#', f'{len(src_file_paths)}'))
 		hash_thread.start()
-		dst_path = Path(self._config.target, src_path.name)
+		dst_path = Path(self._config.target, self._config.destinations[self._config.destination], src_path.name)
 		self._info(f'{self._labels.starting_robocopy}: {src_path} -> {dst_path}, {Size(total_bytes).readable()}')
 		for line in self._robocopy.copy_dir(src_path, dst_path):
 			if line.endswith('%'):
@@ -135,8 +135,8 @@ class Worker:
 				self._error(ex)
 		if self._send_finished:
 			try:
-				JsonMail(self._app_path / f'{self._config.mail_name}_{now}').send(
-					Path(self._config.mail),
+				JsonMail(self._app_path / 'mail.json').send(
+					Path(self._config.mail, f'{self._config.mail_name}_{now}'),
 					to = self._mail_address,
 					id = src_path.name,
 					tsv = tsv
