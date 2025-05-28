@@ -63,6 +63,8 @@ class Gui(Tk):
 		self.config = config
 		self.labels = labels
 		self._defs = gui_defs
+		self.log_path = log
+		self._work_thread = None
 		self.title(f'SlowCopy v{version}')
 		self.rowconfigure(0, weight=1)
 		self.columnconfigure(1, weight=1)
@@ -164,8 +166,6 @@ class Gui(Tk):
 				msg = f'{type(ex).__name__}: {ex}'
 			showerror(title=self.labels.error, message=msg)
 			return
-		self.log_path = log
-		self._work_thread = None
 		self._ignore_warning = False
 		self._init_warning()
 		if directory:
