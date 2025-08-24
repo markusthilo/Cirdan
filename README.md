@@ -10,9 +10,16 @@ There is a check for updates on startup.
 
 The tool can be also be run on PowerShel/CMD. Try
 
-`slowcopy-vx.x.x.exe -h`
+`slowcopy-v*.exe -h`
 
 to learn usage.
+
+JSON files are used to store configuration (not touched by application) and user settings that ere rewritten every run:
+
+- `config.json`: admin given parameters as domain, paths etc.
+- `gui.json`: basic parameters for the GUI
+- `labels.json`: text shown in the GUI
+- `settings.json`: parameters (e.g. user name) that are set by the GUI or CMD arguments
 
 Nuitka is needed to bild Windows executable. The make-script can be used.
 

@@ -4,8 +4,8 @@
 from sys import argv
 from pathlib import Path
 from shutil import rmtree
-from lib.config import Config
-from lib.robocopy import RoboCopy
+from classes.config import Config
+from classes.robocopy import RoboCopy
 
 if __name__ == '__main__':  # start here when run as application
 	dist_path = Path(argv[1]) / 'slowcopy.dist'

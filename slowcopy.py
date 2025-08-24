@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.9.1_2025-05-28'
+__version__ = '0.9.2_2025-08-24'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilomarkus@gmail.com'
 __status__ = 'Testing'
@@ -12,10 +12,11 @@ from sys import executable as __executable__
 from sys import exit as sys_exit
 from argparse import ArgumentParser
 from pathlib import Path
-from lib.config import Config
-from lib.checker import Checker
-from lib.worker import Worker
-from lib.gui import Gui
+from classes.config import Config
+from classes.settings import Settings
+from classes.checker import Checker
+from classes.worker import Worker
+from classes.gui import Gui
 
 __parent_path__ = Path(__file__).parent if Path(__executable__).name == 'python.exe' else Path(__executable__).parent
 
@@ -37,14 +38,19 @@ if __name__ == '__main__':  # start here when run as application
 	source_path = Path(args.source.strip('"')) if args.source else None
 	config = Config(__parent_path__ / 'config.json')
 	labels = Config(__parent_path__ / 'labels.json')
+	settings = Settings(__parent_path__ / 'settings.json')
+	if args.done:
+		settings.done = True
+	if args.nomail:
+		settings.finished = False
+	if args.notrigger:
+		settings.triggert = False
 	if args.source and not args.gui:	# run in terminal
 		check = Checker(config)
 		check.target()
 		check.destination(source_path)
-		Worker(__parent_path__, config, labels,
-			done=args.done, finished=not args.nomail, log=log_path, trigger=not args.notrigger).copy_dir(source_path)
+		Worker(__parent_path__, config, labels, settings, log=log_path).copy_dir(source_path)
 	else:	# open gui if no argument is given
 		gui_defs = Config(__parent_path__ / 'gui.json')
-		Gui(source_path, __parent_path__, config, labels, gui_defs, __version__,
-			done=args.done, finished=not args.nomail, log=log_path, trigger=not args.notrigger).mainloop()
+		Gui(source_path, __parent_path__, config, labels, settings, gui_defs, __version__, log_path).mainloop()
 	sys_exit()
