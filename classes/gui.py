@@ -23,7 +23,7 @@ class WorkThread(Thread):
 		self._gui = gui
 		super().__init__()
 		self._kill_event = Event()
-		self._worker = Worker(gui.app_path, gui.config, gui.labels,
+		self._worker = Worker(gui.app_path, gui.config, gui.settings, gui.labels,
 			done = gui.send_done.get(),
 			finished = gui.send_finished.get(),
 			log = gui.log_path if self._gui.write_log.get() else None,
@@ -269,9 +269,10 @@ class Gui(Tk):
 		self._clear_info()
 		try:
 			self._work_thread = WorkThread(self)
-		except:
-			self.finished(True)
-		self._work_thread.start()
+		except exception as ex:
+			self.finished(ex)
+		else:
+			self._work_thread.start()
 
 	def _init_warning(self):
 		'''Init warning functionality'''
@@ -299,7 +300,10 @@ class Gui(Tk):
 		if error:
 			self._info_text.configure(foreground=self._defs.red_fg, background=self._defs.red_bg)
 			self._warning_state = 'enable'
-			showerror(title=self.labels.warning, message=self.labels.problems)
+			msg = self.labels.problems
+			if error != True:
+				msg += f': {error}'
+			showerror(title=self.labels.warning, message=msg)
 		else:
 			self._info_text.configure(foreground=self._defs.green_fg, background=self._defs.green_bg)
 		self._source_text.configure(state='normal')

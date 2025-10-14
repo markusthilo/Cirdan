@@ -13,18 +13,19 @@ from classes.jsonmail import JsonMail
 class Worker:
 	'''Main functionality'''
 
-	def __init__(self, app_path, config, labels,
+	def __init__(self, app_path, config, settings, labels,
 		done=False, finished=True, log=None, trigger=True, kill=None, echo=print):
 		'''Prepare copy process'''
 		self._app_path = app_path
 		self._config = config
+		self._settings = settings
 		self._labels = labels
 		self._send_done = done
 		self._send_finished = finished
 		self._write_trigger = trigger
 		self._kill_switch = kill
 		self._echo = echo
-		self._mail_address = f'{self._config.user}@{self._config.domain}'
+		self._mail_address = f'{self._settings.user}@{self._config.domain}'
 		try:
 			logger = logging.getLogger()
 			logger.setLevel(logging.DEBUG)

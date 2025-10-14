@@ -1,8 +1,8 @@
 {
-    "target": "C:/Users/marku/Documents/test_import/",
-    "log": "C:/Users/marku/Documents/test_logs/",
-    "mail": "C:/Users/marku/Documents/test_mail/",
-    "update": "C:/Users/marku/SlowCopy/dist/",
+    "target": "C:/Users/vboxuser/Documents/dst/",
+    "log": "C:/Users/vboxuser/Documents/log/",
+    "mail": "C:/Users/vboxuser/Documents/mail/",
+    "update": "C:/Users/vboxuser/Documents/dist/",
     "domain": "polizei.berlin.de",
     "destinations": {
         "LKA 711": "LKA 711",
