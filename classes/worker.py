@@ -57,7 +57,7 @@ class Worker:
 		)
 		remote_log_fh.setFormatter(self._formatter)
 		logger.addHandler(remote_log_fh)
-		logging.info(f'{self._mail_address} -> {self._config.destination}')
+		logging.info(f'{self._mail_address} -> {self._settings.destination}')
 		self._info(f'{self._labels.reading_structure} {src_path}')
 		src_file_paths = list()
 		src_file_sizes = list()
@@ -71,7 +71,7 @@ class Worker:
 		hash_thread = HashThread(src_file_paths)
 		self._info(self._labels.starting_hashing.replace('#', f'{len(src_file_paths)}'))
 		hash_thread.start()
-		dst_path = Path(self._config.target, self._config.destinations[self._config.destination], src_path.name)
+		dst_path = Path(self._config.target, self._config.destinations[self._settings.destination], src_path.name)
 		self._info(f'{self._labels.starting_robocopy}: {src_path} -> {dst_path}, {Size(total_bytes).readable()}')
 		for line in self._robocopy.copy_dir(src_path, dst_path):
 			if line.endswith('%'):

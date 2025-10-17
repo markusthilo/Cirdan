@@ -1,1 +1,0 @@
-2025-10-14 19:43:18 ERROR: <class 'AttributeError'>: 'Config' object has no attribute 'destination'

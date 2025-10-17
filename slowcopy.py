@@ -49,7 +49,7 @@ if __name__ == '__main__':  # start here when run as application
 		check = Checker(config)
 		check.target()
 		check.destination(source_path)
-		Worker(__parent_path__, config, labels, settings, log=log_path).copy_dir(source_path)
+		#Worker(__parent_path__, config, settings, labels, log=log_path)#.copy_dir(source_path)
 	else:	# open gui if no argument is given
 		gui_defs = Config(__parent_path__ / 'gui.json')
 		Gui(source_path, __parent_path__, config, labels, settings, gui_defs, __version__, log_path).mainloop()
