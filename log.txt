@@ -1,0 +1,8 @@
+2025-10-18 19:12:48 INFO: markus.thilo@polizei.berlin.de -> Test THI
+2025-10-18 19:12:48 INFO: Lese Verzeichnisstruktur von \\VBoxSvr\Public\251014-1800-420797
+2025-10-18 19:12:48 INFO: Starte Berechnung von 1 MD5-Hashes
+2025-10-18 19:12:48 INFO: Starte RoboCopy: \\VBoxSvr\Public\251014-1800-420797 -> C:\Users\vboxuser\Documents\dst\test_thi\251014-1800-420797, 10.0 MiB / 10.5 MB
+2025-10-18 19:12:48 INFO: RoboCopy wurde beendet, starte Überprüfung anhand Dateigröße
+2025-10-18 19:12:48 INFO: Überprüfung anhand Dateigröße ist abgeschlossen
+2025-10-18 19:12:48 INFO: Hash-Wert-Berechnung ist abgeschlossen
+2025-10-18 19:12:48 INFO: Fertig - das Kopieren dauerte 0:00:00.361781 (Stunden, Minuten, Sekunden)

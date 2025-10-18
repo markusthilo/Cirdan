@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.9.2_2025-10-14'
+__version__ = '0.9.2_2025-10-18'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilomarkus@gmail.com'
 __status__ = 'Testing'
@@ -47,9 +47,9 @@ if __name__ == '__main__':  # start here when run as application
 		settings.triggert = False
 	if args.source and not args.gui:	# run in terminal
 		check = Checker(config)
-		check.target()
-		check.destination(source_path)
-		#Worker(__parent_path__, config, settings, labels, log=log_path)#.copy_dir(source_path)
+		check.source(source_path)
+		check.destination(Path(config.target, config.destinations[settings.destination], source_path.name))
+		Worker(__parent_path__, config, settings, labels, log=log_path).copy_dir(source_path)
 	else:	# open gui if no argument is given
 		gui_defs = Config(__parent_path__ / 'gui.json')
 		Gui(source_path, __parent_path__, config, labels, settings, gui_defs, __version__, log_path).mainloop()

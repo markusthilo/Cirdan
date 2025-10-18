@@ -156,9 +156,8 @@ class Gui(Tk):
 							title = self.labels.error,
 							message= f'{self.labels.update_error}:\n{type(ex)}: {ex}'
 						)
-		self._check = Checker(config)
 		try:
-			self._check.target()
+			self._check = Checker(config)
 		except Exception as ex:
 			try:
 				msg = self.labels.__dict__[type(ex).__name__.lower()].replace('#', str(ex))
