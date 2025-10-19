@@ -1,4 +1,4 @@
-# SlowCopy
+# Cirdan
 
 Copy directories to a fixed destination and build md5 hashes. Some criterias are checked while selecting the source directory. Some subdirectories with to many files will be zipped.
 
@@ -10,7 +10,7 @@ There is a check for updates on startup.
 
 The tool can be also be run on PowerShel/CMD. Try
 
-`slowcopy-v*.exe -h`
+`cirdan-v*.exe -h`
 
 to learn usage.
 
@@ -26,3 +26,4 @@ Nuitka is needed to bild Windows executable. The make-script can be used.
 Still testing. The author is not responsible for any malfunction and/or lost data.
 
 MIT License
+
