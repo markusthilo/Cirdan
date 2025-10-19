@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.9.2_2025-10-18'
+__version__ = '0.9.2_2025-10-19'
 __license__ = 'GPL-3'
-__email__ = 'markus.thilomarkus@gmail.com'
+__email__ = 'markus.thilo@gmail.com'
 __status__ = 'Testing'
 __description__ = 'Copy to import folder and generate trigger files'
 
@@ -21,7 +21,7 @@ from classes.gui import Gui
 __parent_path__ = Path(__file__).parent if Path(__executable__).name == 'python.exe' else Path(__executable__).parent
 
 if __name__ == '__main__':  # start here when run as application
-	argparser = ArgumentParser(prog=f'SlowCopy Version {__version__}', description='Custom copy tool using RoboCopy')
+	argparser = ArgumentParser(prog=f'Cirdan Version {__version__}', description='Custom upload/copy tool using RoboCopy')
 	argparser.add_argument('-d', '--done', action='store_true',
 		help='Trigger processing software to send e-mail to user when finished')
 	argparser.add_argument('-g', '--gui', action='store_true',

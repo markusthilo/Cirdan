@@ -8,7 +8,7 @@ from classes.config import Config
 from classes.robocopy import RoboCopy
 
 if __name__ == '__main__':  # start here when run as application
-	dist_path = Path(argv[1]) / 'slowcopy.dist'
+	dist_path = Path(argv[1]) / 'cirdan.dist'
 	install_path = Path(argv[2])
 	old_path = Path(argv[3])
 	config = Config(old_path / 'config.json')
