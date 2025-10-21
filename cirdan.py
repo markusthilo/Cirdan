@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.9.2_2025-10-19'
+__version__ = '0.9.3_2025-10-21'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@gmail.com'
 __status__ = 'Testing'
@@ -38,7 +38,7 @@ if __name__ == '__main__':  # start here when run as application
 	source_path = Path(args.source.strip('"')) if args.source else None
 	config = Config(__parent_path__ / 'config.json')
 	labels = Config(__parent_path__ / 'labels.json')
-	settings = Settings(__parent_path__ / 'settings.json')
+	settings = Settings(__parent_path__ / 'settings.json', config)
 	if args.done:
 		settings.done = True
 	if args.nomail:
@@ -49,6 +49,8 @@ if __name__ == '__main__':  # start here when run as application
 		check = Checker(config)
 		check.source(source_path)
 		check.destination(Path(config.target, config.destinations[settings.destination], source_path.name))
+		if not settings.user:
+			raise ValueError('User name has not been set')
 		Worker(__parent_path__, config, settings, labels, log=log_path).copy_dir(source_path)
 	else:	# open gui if no argument is given
 		gui_defs = Config(__parent_path__ / 'gui.json')

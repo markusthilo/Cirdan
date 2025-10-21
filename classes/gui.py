@@ -140,22 +140,14 @@ class Gui(Tk):
 			title = self.labels.update_title.replace('#', update.new_version),
 			message = self.labels.update_message
 		):
-			if install_dir := askdirectory(title=self.labels.update_dir, mustexist=False):
-				install_path = Path(install_dir)
-				if any(install_path.iterdir()) and not install_path.samefile(app_path):
-					showerror(
-						title = self.labels.error,
-						message= f'{self.labels.update_error}:\n{self.labels.dir_not_empty}'
-					)
-				else:
-					try:
-						update.download(install_path, app_path)
-						self.destroy()
-					except Exception as ex:
-						showerror(
-							title = self.labels.error,
-							message= f'{self.labels.update_error}:\n{type(ex)}: {ex}'
-						)
+			try:
+				update.download(self.app_path)
+				self.destroy()
+			except Exception as ex:
+				showerror(
+					title = self.labels.error,
+					message= f'{self.labels.update_error}:\n{type(ex)}: {ex}'
+				)
 		try:
 			self._check = Checker(config)
 		except Exception as ex:
@@ -250,6 +242,9 @@ class Gui(Tk):
 		'''Start copy process / worker'''
 		self.source_paths = self._get_source_paths()
 		if not self.source_paths:
+			showerror(title=self.labels.error, message=self.labels.missing_dir)
+			return
+		if self._bad_settings():
 			return
 		self._save_settings()
 		for source_path in self.source_paths:
@@ -312,10 +307,24 @@ class Gui(Tk):
 		self._quit_button.configure(state='normal')
 		self._work_thread = None
 
+	def _bad_settings(self):
+		'''Check settings: user name and destination'''
+		self.settings.user = self.user.get()
+		if not self.settings.user:
+			showerror(title=self.labels.error, message=self.labels.missing_name)
+			return True	
+		self.settings.destination = self.destination.get()
+		if not self.settings.destination in self.config.destinations:
+			showerror(
+				title = self.labels.error,
+				message = self.labels.bad_destination.replace('#', f'{self.settings.destination}')
+			)
+			return True
+		return False
+
 	def _save_settings(self):
 		'''Get settings from GUI an save to JSON file'''
 		self.settings.user = self.user.get()
-		self.settings.destination = self.destination.get()
 		self.settings.trigger = self.write_trigger.get()
 		self.settings.finished = self.send_finished.get()
 		self.settings.done = self.send_done.get()
