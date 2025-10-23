@@ -9,11 +9,11 @@ class Checker:
 
 	def __init__(self, config):
 		'''Set up checker'''
-		for dir in (config.target, config.log):
+		for dir_path in (config.target_path, config.log_path):
 			try:
-				Path(dir).iterdir()
+				dir_path.iterdir()
 			except:
-				raise NotADirectoryError(dir)
+				raise NotADirectoryError(f'{dir_path}')
 		self._config = config
 
 	def trigger_exists(self, root_path):
@@ -39,10 +39,11 @@ class Checker:
 				if path.match(pattern):
 					raise RuntimeWarning(relative_path)
 
-	def destination(self, dst_path):
+	def destination(self, source_path, settings):
 		'''Make destination subdirectory or check existing for trigger files'''
+		dst_path = self._config.target_path.joinpath(self._config.destinations[settings.destination], source_path.name)
 		dst_path.mkdir(parents=True, exist_ok=True)
-		if dst_path.is_dir():
-			if trigger := self.trigger_exists(dst_path):
-				raise PermissionError(trigger)
-		Path(self._config.log, dst_path.name).mkdir(parents=True, exist_ok=True)
+		if trigger := self.trigger_exists(dst_path):
+			raise PermissionError(trigger)
+		self._config.log_path.joinpath(dst_path.name).mkdir(parents=True, exist_ok=True)
+		return dst_path

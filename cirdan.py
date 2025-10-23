@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.9.3_2025-10-21'
+__version__ = '0.9.4_2025-10-23'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@gmail.com'
 __status__ = 'Testing'
@@ -13,6 +13,7 @@ from sys import exit as sys_exit
 from argparse import ArgumentParser
 from pathlib import Path
 from classes.config import Config
+from classes.labels import Labels
 from classes.settings import Settings
 from classes.checker import Checker
 from classes.worker import Worker
@@ -27,30 +28,30 @@ if __name__ == '__main__':  # start here when run as application
 	argparser.add_argument('-g', '--gui', action='store_true',
 		help='Use GUI with given root directory as command line parameters')
 	argparser.add_argument('-l', '--log', type=str, metavar='FILE',
-		help='File to store log (default: log.txt in app folder)')
-	argparser.add_argument('-m', '--nomail', action='store_true',
-		help='Do not send e-mail to user when copy process has finished')
+		help='File to store log')
+	argparser.add_argument('-m', '--mail', type=str, metavar='USERNAME',
+		help='Send e-mail to given user (e-mail-address without domain, e.g. john.doe) when copy process has finished')
 	argparser.add_argument('-n', '--notrigger', action='store_true',
 		help='Do not triggedr further process to handle/move uploaded data')
 	argparser.add_argument('source', nargs='?', help='Source directory', type=str, metavar='DIRECTORY')
 	args = argparser.parse_args()
-	log_path = Path(args.log.strip('"')) if args.log else None
-	source_path = Path(args.source.strip('"')) if args.source else None
-	config = Config(__parent_path__ / 'config.json')
-	labels = Config(__parent_path__ / 'labels.json')
-	settings = Settings(__parent_path__ / 'settings.json', config)
+	log_path = Path(args.log.strip('"\'')) if args.log else None
+	source_path = Path(args.source.strip('"\'')) if args.source else None
+	config = Config(__parent_path__)
+	labels = Labels(__parent_path__)
+	config.local_path.mkdir(parents=True, exist_ok=True)
+	settings = Settings(config)
 	if args.done:
 		settings.done = True
-	if args.nomail:
-		settings.finished = False
+	if args.mail:
+		settings.finished = True
+		settings.user = args.mail.strip('"\'')
 	if args.notrigger:
 		settings.triggert = False
 	if args.source and not args.gui:	# run in terminal
 		check = Checker(config)
 		check.source(source_path)
-		check.destination(Path(config.target, config.destinations[settings.destination], source_path.name))
-		if not settings.user:
-			raise ValueError('User name has not been set')
+		check.destination(source_path, settings)
 		Worker(__parent_path__, config, settings, labels, log=log_path).copy_dir(source_path)
 	else:	# open gui if no argument is given
 		gui_defs = Config(__parent_path__ / 'gui.json')

@@ -1,34 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from json import load, dump
+from json import load
+from pathlib import Path
 
 class Config:
 	'''Handle configuration file in JSON format'''
 
-	def __init__(self, path):
-		'''Read config file'''	
-		self._path = path
-		self._keys = list()
-		try:
-			with self._path.open(encoding='utf-8') as fp:
-				for key, value in load(fp).items():
-					self.create(key, value)
-		except:
-			pass
-
-	def create(self, key, value):
-		'''Create item'''
-		self.__dict__[key] = value
-		self._keys.append(key)
-
-	def exists(self, key):
-		'''Check if key exists'''
-		return key in self._keys
-
-	def save(self, path=None):
-		'''Save config file'''
-		if path:
-			self._path = path
-		with self._path.open('w', encoding='utf-8') as fp:
-			dump({key: self.__dict__[key] for key in self._keys}, fp)
+	def __init__(self, app_path):
+		'''Read config file'''
+		with app_path.joinpath('config.json').open(encoding='utf-8') as fp:
+			for key, value in load(fp).items():
+				if key.endswith('_path'):
+					if value.startswith('$HOME/') or value.startswith('$HOME\\'):
+						self.__dict__[key] = Path().home().joinpath(value[6:]).resolve()
+					elif value.startswith('$APP/') or value.startswith('$APP\\'):
+						self.__dict__[key] = app_path.joinpath(value[5:]).resolve()
+					else:
+						self.__dict__[key] = Path(value).resolve()

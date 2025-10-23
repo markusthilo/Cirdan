@@ -33,7 +33,7 @@
     "runtimewarning": "Problematischer Pfad: #",
     "warning": "Warnung",
     "ignore": "Trotzdem fortfahren und Verzeichnis hinzufügen?",
-    "dst_unreachable": "Zielverzeichnis nicht erreichbar:#",
+    "dst_unreachable": "Zielverzeichnis nicht erreichbar: #",
     "select_dir": "Wähle das Quellverzeichnis aus",
     "logfile": "Protokolldatei",
     "allfiles": "Alle Dateien",

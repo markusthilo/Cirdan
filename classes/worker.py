@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 from time import strftime, sleep, perf_counter
 from datetime import timedelta
+from os import getlogin
 from classes.robocopy import RoboCopy
 from classes.hash import HashThread
 from classes.size import Size
@@ -120,18 +121,17 @@ class Worker:
 			self._error(ex)
 		if mismatches:
 			raise BytesWarning(self._labels.size_mismatch.replace('#', f'{mismatches}'))
+		msg = f'{getlogin()}'
+		if self._mail_address:
+			msg += f'/n{self._mail_address}'
 		if self._write_trigger:
 			try:
-				dst_path.joinpath(self._config.trigger_name).write_text(
-					self._mail_address, encoding='utf-8'
-				)
+				dst_path.joinpath(self._config.trigger_name).write_text(msg, encoding='utf-8')
 			except Exception as ex:
 				self._error(ex)
 		if self._send_done:
 			try:
-				dst_path.joinpath(self._config.done_name).write_text(
-					self._mail_address, encoding='utf-8'
-				)
+				dst_path.joinpath(self._config.done_name).write_text(msg, encoding='utf-8')
 			except Exception as ex:
 				self._error(ex)
 		if self._send_finished:

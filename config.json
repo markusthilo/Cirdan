@@ -1,8 +1,9 @@
 {
-    "target": "C:/Users/vboxuser/Documents/dst/",
-    "log": "C:/Users/vboxuser/Documents/log/",
-    "mail": "C:/Users/vboxuser/Documents/mail/",
-    "update": "P:/Cirdan/",
+    "local_path": "$HOME/AppData/Local/Cirdan/",
+    "target_path": "$HOME/Documents/",
+    "log_path": "$HOME/Documents/_logs/",
+    "mail_path": "$HOME/Documents/_mail/",
+    "update_path": "$HOME/Documents/_dist/Cirdan/",
     "domain": "polizei.berlin.de",
     "destinations": {
         "Importverzeichnis LKA 711": "LKA 711",
@@ -23,6 +24,7 @@
         "Test-Importverzeichnis": "Testverzeichnis"
     },
     "default_destination": "Test-Importverzeichnis",
+    "settings_name": "settings.json",
     "log_name": "log.txt",
     "tsv_name": "md5.txt",
     "tsv_head": "Pfad\tMD5-Hash",

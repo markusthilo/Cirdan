@@ -14,7 +14,7 @@ if __name__ == '__main__':  # start here when run as application
 	dst_path = Path(argv[2])
 	robocopy = RoboCopy()
 	print('Starting download...')
-	for line in robocopy.copy_dir(sub_path, dst_path):	# copy cirdan.dist
+	for line in robocopy.mirror_dir(sub_path, dst_path):	# copy cirdan.dist
 		print(line)
 	if robocopy.returncode > 5:
 		msg = f'RoboCopy reported problems while downloading directory {sub_path}'

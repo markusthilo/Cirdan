@@ -45,6 +45,10 @@ class RoboCopy:
 		'''Copy recursivly a directory'''
 		return self._yield([src, dst] + ['/e'] + self._copy_args)
 
+	def mirror_dir(self, src, dst):
+		'''Empty destination directory and copy source into it'''
+		return self._yield([src, dst] + ['/mir'] + self._copy_args)
+
 	def copy_files(self, src, dst, filenames):
 		'''Copy files into destination directory'''
 		return self._yield([src, dst] + filenames + self._copy_args)
