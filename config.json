@@ -29,7 +29,7 @@
     "tsv_name": "md5.txt",
     "tsv_head": "Pfad\tMD5-Hash",
     "trigger_name": "fertig.txt",
-    "done_name": "qualicheck.txt",
+    "qualicheck_name": "qualicheck.txt",
     "mail_name": "CIRDAN",
     "max_path_len": 230,
     "dir_regex": "^[0-9]{6}-([0-9]{4}|[0-9]{6})-[iSZ0-9][0-9]{5}$",

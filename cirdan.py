@@ -23,37 +23,41 @@ __parent_path__ = Path(__file__).parent if Path(__executable__).name == 'python.
 
 if __name__ == '__main__':  # start here when run as application
 	argparser = ArgumentParser(prog=f'Cirdan Version {__version__}', description='Custom upload/copy tool using RoboCopy')
-	argparser.add_argument('-d', '--done', action='store_true',
-		help='Trigger processing software to send e-mail to user when finished')
+	argparser.add_argument('-d', '--destination', type=str, metavar='STRING',
+		help='Destination to copy to')
 	argparser.add_argument('-g', '--gui', action='store_true',
 		help='Use GUI with given root directory as command line parameters')
 	argparser.add_argument('-l', '--log', type=str, metavar='FILE',
 		help='File to store log')
-	argparser.add_argument('-m', '--mail', type=str, metavar='USERNAME',
-		help='Send e-mail to given user (e-mail-address without domain, e.g. john.doe) when copy process has finished')
 	argparser.add_argument('-n', '--notrigger', action='store_true',
 		help='Do not triggedr further process to handle/move uploaded data')
+	argparser.add_argument('-q', '--qualicheck', action='store_true',
+		help='Trigger qualicheck when the entire process has finished')
+	argparser.add_argument('-s', '--sendmail', action='store_true',
+		help='Send e-mail to user when copy process has finished')
+	argparser.add_argument('-u', '--user', type=str, metavar='USERNAME',
+		help='Username / e-mail-address without domain (e.g. john.doe)')
 	argparser.add_argument('source', nargs='?', help='Source directory', type=str, metavar='DIRECTORY')
 	args = argparser.parse_args()
-	log_path = Path(args.log.strip('"\'')) if args.log else None
-	source_path = Path(args.source.strip('"\'')) if args.source else None
 	config = Config(__parent_path__)
 	labels = JsonObject(__parent_path__ / 'labels.json')
 	config.local_path.mkdir(parents=True, exist_ok=True)
 	settings = Settings(config)
-	if args.done:
-		settings.done = True
-	if args.mail:
-		settings.finished = True
-		settings.user = args.mail.strip('"\'')
-	if args.notrigger:
-		settings.triggert = False
+	if args.destination:
+		settings.destination = args.destination
+	log_path = Path(args.log.strip('"\'')) if args.log else None
+	settings.qualicheck = args.qualicheck
+	settings.sendmail = args.sendmail
+	settings.trigger = not args.notrigger
+	if args.user:
+		settings.user = args.user.strip('"\'')
+	source_path = Path(args.source.strip('"\'')) if args.source else None
 	if args.source and not args.gui:	# run in terminal
 		check = Checker(config)
 		check.source(source_path)
 		check.destination(source_path, settings)
 		Worker(__parent_path__, config, settings, labels, log=log_path).copy_dir(source_path)
 	else:	# open gui if no argument is given
-		gui_defs = Config(__parent_path__ / 'gui.json')
+		gui_defs = JsonObject(__parent_path__ / 'gui.json')
 		Gui(source_path, __parent_path__, config, labels, settings, gui_defs, __version__, log_path).mainloop()
 	sys_exit()

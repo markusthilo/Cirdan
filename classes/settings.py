@@ -14,12 +14,12 @@ class Settings:
 				items = load(fp)
 		except:
 			items = dict()
-		self._keys = ('user', 'destination', 'trigger', 'finished', 'done')
-		self.__dict__['user'] = items['user'] if 'user' in items else ''
+		self._keys = ('destination', 'qualicheck', 'sendmail', 'trigger', 'user')
 		self.__dict__['destination'] = items['destination'] if 'destination' in items else config.default_destination
+		self.__dict__['qualicheck'] = items['qualicheck'] if 'qualicheck' in items else False
+		self.__dict__['sendmail'] = items['sendmail'] if 'sendmail' in items else True
 		self.__dict__['trigger'] = items['trigger'] if 'trigger' in items else True
-		self.__dict__['finished'] = items['finished'] if 'finished' in items else True
-		self.__dict__['done'] = items['done'] if 'done' in items else False
+		self.__dict__['user'] = items['user'] if 'user' in items else ''
 
 	def save(self):
 		'''Save config file'''

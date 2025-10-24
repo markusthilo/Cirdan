@@ -14,31 +14,27 @@ from classes.jsonmail import JsonMail
 class Worker:
 	'''Main functionality'''
 
-	def __init__(self, app_path, config, settings, labels,
-		done=False, finished=True, log=None, trigger=True, kill=None, echo=print):
+	def __init__(self, app_path, config, settings, labels, log=None, kill=None, echo=print):
 		'''Prepare copy process'''
 		self._app_path = app_path
 		self._config = config
 		self._settings = settings
 		self._labels = labels
-		self._send_done = done
-		self._send_finished = finished
-		self._write_trigger = trigger
 		self._kill_switch = kill
 		self._echo = echo
-		self._mail_address = f'{self._settings.user}@{self._config.domain}'
+		self._mail_address = f'{self._settings.user}@{self._config.domain}' if self._settings.user else None
 		try:
 			logger = logging.getLogger()
 			logger.setLevel(logging.DEBUG)
 			self._formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-			local_log_fh = logging.FileHandler(
+			self._local_log_fh = logging.FileHandler(
 				mode = 'w',
-				filename = log if log else app_path / self._config.log_name
+				filename = log if log else self._config.local_path / self._config.log_name
 			)
-			local_log_fh.setFormatter(self._formatter)
-			logger.addHandler(local_log_fh)
+			self._local_log_fh.setFormatter(self._formatter)
+			logger.addHandler(self._local_log_fh)
 		except Exception as ex:
-			echo(f'{type(ex)}: {ex}')
+			echo(f'{self._labels.error}: {type(ex)}: {ex}')
 			raise ex
 		try:
 			self._robocopy = RoboCopy()
@@ -49,15 +45,16 @@ class Worker:
 	def copy_dir(self, src_path):
 		'''Copy directories'''
 		start_time = perf_counter()
-		now = strftime('%y%m%d_%H%M')
+		now = strftime('%y%m%d_%H%M%S')
 		src_path = src_path.resolve()
+		self._config.log_path.mkdir(parents=True, exist_ok=True)
 		logger = logging.getLogger()
-		remote_log_fh = logging.FileHandler(
+		self._remote_log_fh = logging.FileHandler(
 			mode = 'w',
-			filename = Path(self._config.log, src_path.name, f'{now}_{self._config.log_name}')
+			filename = self._config.log_path.joinpath(f'{now}_{src_path.name}_{self._config.log_name}')
 		)
-		remote_log_fh.setFormatter(self._formatter)
-		logger.addHandler(remote_log_fh)
+		self._remote_log_fh.setFormatter(self._formatter)
+		logger.addHandler(self._remote_log_fh)
 		logging.info(f'{self._mail_address} -> {self._settings.destination}')
 		self._info(f'{self._labels.reading_structure} {src_path}')
 		src_file_paths = list()
@@ -72,7 +69,7 @@ class Worker:
 		hash_thread = HashThread(src_file_paths)
 		self._info(self._labels.starting_hashing.replace('#', f'{len(src_file_paths)}'))
 		hash_thread.start()
-		dst_path = Path(self._config.target, self._config.destinations[self._settings.destination], src_path.name)
+		dst_path = self._config.target_path.joinpath(self._config.destinations[self._settings.destination], src_path.name)
 		self._info(f'{self._labels.starting_robocopy}: {src_path} -> {dst_path}, {Size(total_bytes).readable()}')
 		for line in self._robocopy.copy_dir(src_path, dst_path):
 			if line.endswith('%'):
@@ -112,42 +109,43 @@ class Worker:
 		for path, md5 in hash_thread.get_hashes():
 			tsv += f'\n{path.relative_to(src_path.parent)}\t{md5}'
 		try:
-			Path(self._config.log, src_path.name, f'{now}_{self._config.tsv_name}').write_text(tsv, encoding='utf-8')
+			self._config.log_path.joinpath(f'{now}_{src_path.name}_{self._config.tsv_name}').write_text(tsv, encoding='utf-8')
 		except Exception as ex:
 			self._error(ex)
 		try:
-			Path(dst_path, f'{now}_{self._config.tsv_name}').write_text(tsv, encoding='utf-8')
+			dst_path.joinpath(f'{now}_{self._config.tsv_name}').write_text(tsv, encoding='utf-8')
 		except Exception as ex:
 			self._error(ex)
 		if mismatches:
 			raise BytesWarning(self._labels.size_mismatch.replace('#', f'{mismatches}'))
 		msg = f'{getlogin()}'
 		if self._mail_address:
-			msg += f'/n{self._mail_address}'
-		if self._write_trigger:
+			msg += f'\n{self._mail_address}'
+		if self._settings.trigger:
 			try:
 				dst_path.joinpath(self._config.trigger_name).write_text(msg, encoding='utf-8')
 			except Exception as ex:
 				self._error(ex)
-		if self._send_done:
-			try:
-				dst_path.joinpath(self._config.done_name).write_text(msg, encoding='utf-8')
-			except Exception as ex:
-				self._error(ex)
-		if self._send_finished:
+		if self._settings.sendmail and self._mail_address:
 			try:
 				JsonMail(self._app_path / 'mail.json').send(
-					Path(self._config.mail, f'{self._config.mail_name}_{now}'),
+					self._config.mail_path.joinpath(f'{self._config.mail_name}_{now}'),
 					to = self._mail_address,
 					id = src_path.name,
 					tsv = tsv
 				)
 			except Exception as ex:
 				self._error(ex)
+		if self._settings.qualicheck:
+			try:
+				dst_path.joinpath(self._config.qualicheck_name).write_text(msg, encoding='utf-8')
+			except Exception as ex:
+				self._error(ex)
 		end_time = perf_counter()
 		delta = end_time - start_time
 		self._info(self._labels.copy_finished.replace('#', f'{timedelta(seconds=delta)}'))
-		logger.removeHandler(remote_log_fh)
+		logger.removeHandler(self._remote_log_fh)
+		logger.removeHandler(self._local_log_fh)
 
 	def _info(self, msg):
 		'''Log info and echo message'''
@@ -158,4 +156,6 @@ class Worker:
 		'''Log and echo error'''
 		msg = f'{type(ex)}: {ex}'
 		logging.error(msg)
-		self._echo(msg)
+		logger.removeHandler(self._remote_log_fh)
+		logger.removeHandler(self._local_log_fh)
+		self._echo(f'{self._labels.error}: {msg}')

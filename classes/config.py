@@ -18,3 +18,5 @@ class Config:
 						self.__dict__[key] = app_path.joinpath(value[5:]).resolve()
 					else:
 						self.__dict__[key] = Path(value).resolve()
+				else:	
+					self.__dict__[key] = value

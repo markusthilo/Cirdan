@@ -24,13 +24,13 @@ class WorkThread(Thread):
 		super().__init__()
 		self._kill_event = Event()
 		self._worker = Worker(gui.app_path, gui.config, gui.settings, gui.labels,
-			done = gui.send_done.get(),
 			finished = gui.send_finished.get(),
 			log = gui.log_path if self._gui.write_log.get() else None,
+			sendmail = gui.send_mail.get(),
 			trigger = gui.write_trigger.get(),
 			echo = gui.echo,
 			kill = self._kill_event
-		)		
+		)
 
 	def run(self):
 		'''Run thread'''
@@ -41,7 +41,7 @@ class WorkThread(Thread):
 				error = False
 			except Exception as ex:
 				logging.error(f'{type(ex)}: {ex}')
-				self._gui.echo(f'{type(ex)}: {ex}')
+				self._gui.echo(f'{self._gui.labels.error}_{type(ex)}: {ex}')
 		try:
 			logging.shutdown()
 		except:
@@ -110,10 +110,10 @@ class Gui(Tk):
 		button = Checkbutton(frame, text=self.labels.finished_button, variable=self.send_finished)
 		button.grid(row=0, column=1, sticky='w', padx=self._pad)
 		Hovertip(button, self.labels.finished_tip)
-		self.send_done = BooleanVar(value=self.settings.done)
-		button = Checkbutton(frame, text=self.labels.done_button, variable=self.send_done)
+		self.send_mail = BooleanVar(value=self.settings.sendmail)
+		button = Checkbutton(frame, text=self.labels.sendmail_button, variable=self.send_mail)
 		button.grid(row=1, column=0, sticky='w', padx=self._pad)
-		Hovertip(button, self.labels.done_tip)
+		Hovertip(button, self.labels.sendmail_tip)
 		self.write_log = BooleanVar(value=bool(log_path))
 		button = Checkbutton(frame, text=self.labels.log_button, variable=self.write_log, comman=self._select_log)
 		button.grid(row=1, column=1, sticky='w', padx=self._pad)
@@ -135,7 +135,7 @@ class Gui(Tk):
 		self._label_bg = self._info_label.cget('background')
 		self._quit_button = Button(self, text=self.labels.quit, command=self._quit_app)
 		self._quit_button.grid(row=6, column=1, sticky='e', padx=self._pad, pady=self._pad)
-		update = Update(version, Path(self.config.update))
+		update = Update(version, self.config.update_path)
 		if update.new_version and askyesno(
 			title = self.labels.update_title.replace('#', update.new_version),
 			message = self.labels.update_message
@@ -249,7 +249,7 @@ class Gui(Tk):
 		self._save_settings()
 		for source_path in self.source_paths:
 			try:
-				self._check.destination(source_path)
+				self._check.destination(source_path, self.settings)
 			except Exception as ex:
 				if isinstance(ex, PermissionError):
 					showerror(
@@ -327,7 +327,7 @@ class Gui(Tk):
 		self.settings.user = self.user.get()
 		self.settings.trigger = self.write_trigger.get()
 		self.settings.finished = self.send_finished.get()
-		self.settings.done = self.send_done.get()
+		self.settings.sendmail = self.send_mail.get()
 		try:
 			self.settings.save()
 		except:

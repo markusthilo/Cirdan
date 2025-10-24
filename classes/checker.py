@@ -45,5 +45,4 @@ class Checker:
 		dst_path.mkdir(parents=True, exist_ok=True)
 		if trigger := self.trigger_exists(dst_path):
 			raise PermissionError(trigger)
-		self._config.log_path.joinpath(dst_path.name).mkdir(parents=True, exist_ok=True)
 		return dst_path
