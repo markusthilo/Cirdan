@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.9.4_2025-10-23'
+__version__ = '0.9.4_2025-10-24'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@gmail.com'
 __status__ = 'Testing'
@@ -12,8 +12,8 @@ from sys import executable as __executable__
 from sys import exit as sys_exit
 from argparse import ArgumentParser
 from pathlib import Path
+from classes.jsonobject import JsonObject
 from classes.config import Config
-from classes.labels import Labels
 from classes.settings import Settings
 from classes.checker import Checker
 from classes.worker import Worker
@@ -38,7 +38,7 @@ if __name__ == '__main__':  # start here when run as application
 	log_path = Path(args.log.strip('"\'')) if args.log else None
 	source_path = Path(args.source.strip('"\'')) if args.source else None
 	config = Config(__parent_path__)
-	labels = Labels(__parent_path__)
+	labels = JsonObject(__parent_path__ / 'labels.json')
 	config.local_path.mkdir(parents=True, exist_ok=True)
 	settings = Settings(config)
 	if args.done:
