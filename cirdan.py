@@ -41,7 +41,6 @@ if __name__ == '__main__':  # start here when run as application
 	args = argparser.parse_args()
 	config = Config(__parent_path__)
 	labels = JsonObject(__parent_path__ / 'labels.json')
-	config.local_path.mkdir(parents=True, exist_ok=True)
 	settings = Settings(config)
 	if args.destination:
 		settings.destination = args.destination
