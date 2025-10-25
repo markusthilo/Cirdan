@@ -9,12 +9,12 @@ from os import getlogin
 from classes.robocopy import RoboCopy
 from classes.hash import HashThread
 from classes.size import Size
-from classes.jsonmail import JsonMail
+from classes.jsonmail import JsonMail 
 
 class Worker:
 	'''Main functionality'''
 
-	def __init__(self, app_path, config, settings, labels, log=None, kill=None, echo=print):
+	def __init__(self, app_path, config, labels, settings, log, kill=None, echo=print):
 		'''Prepare copy process'''
 		self._app_path = app_path
 		self._config = config
@@ -23,6 +23,9 @@ class Worker:
 		self._kill_switch = kill
 		self._echo = echo
 		self._mail_address = f'{self._settings.user}@{self._config.domain}' if self._settings.user else None
+		self._user = getlogin()
+		if self._mail_address:
+			self._user += f' / {self._mail_address}'
 		try:
 			logger = logging.getLogger()
 			logger.setLevel(logging.DEBUG)
@@ -55,7 +58,7 @@ class Worker:
 		)
 		self._remote_log_fh.setFormatter(self._formatter)
 		logger.addHandler(self._remote_log_fh)
-		logging.info(f'{self._mail_address} -> {self._settings.destination}')
+		logging.info(f'{self._labels.user_label}: {self._user}')
 		self._info(f'{self._labels.reading_structure} {src_path}')
 		src_file_paths = list()
 		src_file_sizes = list()
@@ -118,12 +121,9 @@ class Worker:
 			self._error(ex)
 		if mismatches:
 			raise BytesWarning(self._labels.size_mismatch.replace('#', f'{mismatches}'))
-		msg = f'{getlogin()}'
-		if self._mail_address:
-			msg += f'\n{self._mail_address}'
 		if self._settings.trigger:
 			try:
-				dst_path.joinpath(self._config.trigger_name).write_text(msg, encoding='utf-8')
+				dst_path.joinpath(self._config.trigger_name).write_text(self._user, encoding='utf-8')
 			except Exception as ex:
 				self._error(ex)
 		if self._settings.sendmail and self._mail_address:
@@ -138,7 +138,7 @@ class Worker:
 				self._error(ex)
 		if self._settings.qualicheck:
 			try:
-				dst_path.joinpath(self._config.qualicheck_name).write_text(msg, encoding='utf-8')
+				dst_path.joinpath(self._config.qualicheck_name).write_text(self._user, encoding='utf-8')
 			except Exception as ex:
 				self._error(ex)
 		end_time = perf_counter()

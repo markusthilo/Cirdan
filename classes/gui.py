@@ -23,11 +23,8 @@ class WorkThread(Thread):
 		self._gui = gui
 		super().__init__()
 		self._kill_event = Event()
-		self._worker = Worker(gui.app_path, gui.config, gui.settings, gui.labels,
-			finished = gui.send_finished.get(),
-			log = gui.log_path if self._gui.write_log.get() else None,
-			sendmail = gui.send_mail.get(),
-			trigger = gui.write_trigger.get(),
+		self._worker = Worker(gui.app_path, gui.config, gui.labels, gui.settings,
+			gui.log_path if self._gui.write_log.get() else None,
 			echo = gui.echo,
 			kill = self._kill_event
 		)
@@ -106,14 +103,14 @@ class Gui(Tk):
 		button = Checkbutton(frame, text=self.labels.trigger_button, variable=self.write_trigger)
 		button.grid(row=0, column=0, sticky='w', padx=self._pad)
 		Hovertip(button, self.labels.trigger_tip)
-		self.send_finished = BooleanVar(value=self.settings.finished)
-		button = Checkbutton(frame, text=self.labels.finished_button, variable=self.send_finished)
-		button.grid(row=0, column=1, sticky='w', padx=self._pad)
-		Hovertip(button, self.labels.finished_tip)
 		self.send_mail = BooleanVar(value=self.settings.sendmail)
 		button = Checkbutton(frame, text=self.labels.sendmail_button, variable=self.send_mail)
-		button.grid(row=1, column=0, sticky='w', padx=self._pad)
+		button.grid(row=0, column=1, sticky='w', padx=self._pad)
 		Hovertip(button, self.labels.sendmail_tip)
+		self.write_qualicheck = BooleanVar(value=self.settings.qualicheck)
+		button = Checkbutton(frame, text=self.labels.qualicheck_button, variable=self.write_qualicheck)
+		button.grid(row=1, column=0, sticky='w', padx=self._pad)
+		Hovertip(button, self.labels.qualicheck_tip)
 		self.write_log = BooleanVar(value=bool(log_path))
 		button = Checkbutton(frame, text=self.labels.log_button, variable=self.write_log, comman=self._select_log)
 		button.grid(row=1, column=1, sticky='w', padx=self._pad)
@@ -261,9 +258,10 @@ class Gui(Tk):
 		self._source_text.configure(state='disabled')
 		self._exec_button.configure(state='disabled')
 		self._clear_info()
+		self._get_settings()
 		try:
 			self._work_thread = WorkThread(self)
-		except exception as ex:
+		except Exception as ex:
 			self.finished(ex)
 		else:
 			self._work_thread.start()
@@ -322,12 +320,17 @@ class Gui(Tk):
 			return True
 		return False
 
-	def _save_settings(self):
-		'''Get settings from GUI an save to JSON file'''
+	def _get_settings(self):
+		'''Get settings from GUI'''
 		self.settings.user = self.user.get()
+		self.settings.destination = self.destination.get()
 		self.settings.trigger = self.write_trigger.get()
-		self.settings.finished = self.send_finished.get()
 		self.settings.sendmail = self.send_mail.get()
+		self.settings.qualicheck = self.write_qualicheck.get()
+
+	def _save_settings(self):
+		'''Get settings from GUI and save to JSON file'''
+		self._get_settings()
 		try:
 			self.settings.save()
 		except:

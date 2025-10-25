@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.9.4_2025-10-24'
+__version__ = '0.9.4_2025-10-25'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@gmail.com'
 __status__ = 'Testing'
@@ -46,17 +46,17 @@ if __name__ == '__main__':  # start here when run as application
 	if args.destination:
 		settings.destination = args.destination
 	log_path = Path(args.log.strip('"\'')) if args.log else None
-	settings.qualicheck = args.qualicheck
-	settings.sendmail = args.sendmail
 	settings.trigger = not args.notrigger
 	if args.user:
 		settings.user = args.user.strip('"\'')
 	source_path = Path(args.source.strip('"\'')) if args.source else None
 	if args.source and not args.gui:	# run in terminal
+		settings.qualicheck = args.qualicheck
+		settings.sendmail = args.sendmail
 		check = Checker(config)
 		check.source(source_path)
 		check.destination(source_path, settings)
-		Worker(__parent_path__, config, settings, labels, log=log_path).copy_dir(source_path)
+		Worker(__parent_path__, config, labels, settings, log_path).copy_dir(source_path)
 	else:	# open gui if no argument is given
 		gui_defs = JsonObject(__parent_path__ / 'gui.json')
 		Gui(source_path, __parent_path__, config, labels, settings, gui_defs, __version__, log_path).mainloop()
