@@ -20,11 +20,12 @@ JSON files are used to store configuration (not touched by application):
 - `gui.json`: basic parameters for the GUI
 - `labels.json`: text shown in the GUI
 
-By default user settings are stored in `%AppData\Local\Cirdan\settings.json`.
+By default user settings are stored in `%AppData%\Local\Cirdan\settings.json`.
 
 Nuitka is needed to bild Windows executable. The make-script can be used. Check if paths need to be adapted.
 
 Still testing. The author is not responsible for any malfunction and/or lost data.
 
 MIT License
+
 
