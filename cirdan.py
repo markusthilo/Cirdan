@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.9.4_2025-10-25'
+__version__ = '0.9.4_2025-10-26'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@gmail.com'
 __status__ = 'Testing'
@@ -15,7 +15,7 @@ from pathlib import Path
 from classes.jsonobject import JsonObject
 from classes.config import Config
 from classes.settings import Settings
-from classes.checker import Checker
+from classes.pathhandler import PathHandler
 from classes.worker import Worker
 from classes.gui import Gui
 
@@ -41,6 +41,7 @@ if __name__ == '__main__':  # start here when run as application
 	args = argparser.parse_args()
 	config = Config(__parent_path__)
 	labels = JsonObject(__parent_path__ / 'labels.json')
+	labels.version = __version__
 	settings = Settings(config)
 	if args.destination:
 		settings.destination = args.destination
@@ -49,14 +50,14 @@ if __name__ == '__main__':  # start here when run as application
 	if args.user:
 		settings.user = args.user.strip('"\'')
 	source_path = Path(args.source.strip('"\'')) if args.source else None
-	if args.source and not args.gui:	# run in terminal
-		settings.qualicheck = args.qualicheck
-		settings.sendmail = args.sendmail
-		check = Checker(config)
-		check.source(source_path)
-		check.destination(source_path, settings)
-		Worker(__parent_path__, config, labels, settings, log_path).copy_dir(source_path)
-	else:	# open gui if no argument is given
-		gui_defs = JsonObject(__parent_path__ / 'gui.json')
-		Gui(source_path, __parent_path__, config, labels, settings, gui_defs, __version__, log_path).mainloop()
+	if source_path:
+		ph = PathHandler(config, labels)
+		ph.check_root_paths()
+		ph.check_source_path(source_path)
+		if not args.gui:	# run in terminal
+			settings.qualicheck = args.qualicheck
+			settings.sendmail = args.sendmail
+			Worker(__parent_path__, config, labels, settings, local_log=log_path).copy_dir(source_path)
+			sys_exit()
+	Gui(__parent_path__, config, labels, settings, log=log_path, source=source_path).mainloop()
 	sys_exit()

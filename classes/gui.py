@@ -12,8 +12,9 @@ from tkinter.messagebox import askyesno, showerror
 from tkinter.filedialog import askdirectory, asksaveasfilename
 from idlelib.tooltip import Hovertip
 from classes.worker import Worker
+from classes.jsonobject import JsonObject
 from classes.update import Update
-from classes.checker import Checker
+from classes.pathhandler import PathHandler
 
 class WorkThread(Thread):
 	'''Thread that does the work while Tk is running the GUI'''
@@ -24,25 +25,22 @@ class WorkThread(Thread):
 		super().__init__()
 		self._kill_event = Event()
 		self._worker = Worker(gui.app_path, gui.config, gui.labels, gui.settings,
-			gui.log_path if self._gui.write_log.get() else None,
+			local_log = gui.log_path,
 			echo = gui.echo,
 			kill = self._kill_event
 		)
 
 	def run(self):
 		'''Run thread'''
-		error = True
+		error = False
 		for src_path in self._gui.source_paths:
 			try:
 				self._worker.copy_dir(src_path)
-				error = False
 			except Exception as ex:
 				logging.error(f'{type(ex)}: {ex}')
-				self._gui.echo(f'{self._gui.labels.error}_{type(ex)}: {ex}')
-		try:
-			logging.shutdown()
-		except:
-			pass
+				self._gui.echo(f'{self._gui.labels.error} ({type(ex).__name__}): {ex}')
+				error = True
+		del self._worker
 		self._gui.finished(error)
 
 	def kill(self):
@@ -52,17 +50,17 @@ class WorkThread(Thread):
 class Gui(Tk):
 	'''GUI look and feel'''
 
-	def __init__(self, directory, app_path, config, labels, settings, gui_defs, version, log_path):
+	def __init__(self, app_path, config, labels, settings, log=None, source=None):
 		'''Open application window'''
 		super().__init__()
 		self.app_path = app_path
 		self.config = config
 		self.labels = labels
 		self.settings = settings
-		self._defs = gui_defs
-		self.log_path = log_path
+		self._defs = JsonObject(app_path / 'gui.json')
+		self.log_path = log
 		self._work_thread = None
-		self.title(f'SlowCopy v{version}')
+		self.title(f'SlowCopy v{self.labels.version}')
 		self.rowconfigure(0, weight=1)
 		self.columnconfigure(1, weight=1)
 		self.rowconfigure(5, weight=1)
@@ -82,6 +80,8 @@ class Gui(Tk):
 		Hovertip(self._source_button, self.labels.source_tip)
 		self._source_text = ScrolledText(self, font=(font_family, font_size), padx=self._pad, pady=self._pad)
 		self._source_text.grid(row=0, column=1, sticky='nsew', ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
+		if source:
+			self._source_text.insert('end', f'{source}\n')
 		label = Label(self, text=self.labels.user_label)
 		label.grid(row=1, column=0, sticky='w', padx=self._pad, pady=self._pad)
 		Hovertip(label, self.labels.user_tip)
@@ -111,7 +111,7 @@ class Gui(Tk):
 		button = Checkbutton(frame, text=self.labels.qualicheck_button, variable=self.write_qualicheck)
 		button.grid(row=1, column=0, sticky='w', padx=self._pad)
 		Hovertip(button, self.labels.qualicheck_tip)
-		self.write_log = BooleanVar(value=bool(log_path))
+		self.write_log = BooleanVar(value=bool(self.log_path))
 		button = Checkbutton(frame, text=self.labels.log_button, variable=self.write_log, comman=self._select_log)
 		button.grid(row=1, column=1, sticky='w', padx=self._pad)
 		Hovertip(button, self.labels.log_tip)
@@ -132,7 +132,7 @@ class Gui(Tk):
 		self._label_bg = self._info_label.cget('background')
 		self._quit_button = Button(self, text=self.labels.quit, command=self._quit_app)
 		self._quit_button.grid(row=6, column=1, sticky='e', padx=self._pad, pady=self._pad)
-		update = Update(version, self.config.update_path)
+		update = Update(self.labels.version, self.config.update_path)
 		if update.new_version and askyesno(
 			title = self.labels.update_title.replace('#', update.new_version),
 			message = self.labels.update_message
@@ -143,52 +143,50 @@ class Gui(Tk):
 			except Exception as ex:
 				showerror(
 					title = self.labels.error,
-					message= f'{self.labels.update_error}:\n{type(ex)}: {ex}'
+					message= f'{self.labels.update_error}:\n{type(ex).__name__}: {ex}'
 				)
+		self._path_handler = PathHandler(config, labels)
 		try:
-			self._check = Checker(config)
+			self._path_handler.check_root_paths()
 		except Exception as ex:
-			try:
-				msg = self.labels.__dict__[type(ex).__name__.lower()].replace('#', str(ex))
-			except:
-				msg = f'{type(ex).__name__}: {ex}'
-			showerror(title=self.labels.error, message=msg)
+			showerror(title=self.labels.error, message=f'{type(ex).__name__}: {ex}')
 			return
 		self._ignore_warning = False
 		self._init_warning()
-		if directory:
-			self._add_dir(directory)
 
 	def _get_source_paths(self):
 		'''Read directory paths from text field'''
 		text = self._source_text.get('1.0', 'end').strip()
+		good_paths = set()
+		bad_paths = set()
 		if text:
-			return [Path(source_dir.strip()) for source_dir in text.split('\n')]
+			for line in text.split('\n'):
+				stripped = line.strip()
+				try:
+					good_paths.add(Path(stripped).resolve())
+				except:
+					bad_paths.add(stripped)
+		return good_paths, bad_paths
+
+	def _check_source_dir(self, dir_path):
+		'''Check if given dir is a correct source to copy'''
+		if not dir_path:
+			return
+		dir_path = dir_path.resolve()
+		try:
+			self._path_handler.check_source_path(dir_path)
+		except Exception as ex:
+			showerror(title=self.labels.error, message=f'{type(ex).__name__}: {ex}')
+		else:
+			return dir_path
 
 	def _add_dir(self, dir_path):
 		'''Add directory into field'''
-		if not dir_path:
-			return
-		dir_path = dir_path.absolute()
-		old_paths = self._get_source_paths()
-		if old_paths and dir_path in old_paths:
-			return
-		try:
-			self._check.source(dir_path)
-		except Exception as ex:
-			try:
-				msg = self.labels.__dict__[type(ex).__name__.lower()].replace('#', str(ex))
-			except:
-				msg = f'{type(ex).__name__}: {ex}'
-			if isinstance(ex, RuntimeWarning):
-				if askyesno(title=self.labels.warning, message=f'{msg}\n\n{self.labels.ignore}'):
-					self._ignore_warning = True
-				else:
-					return
-			else:
-				showerror(title=self.labels.error, message=msg)
+		if path := self._check_source_dir(dir_path):
+			old_paths, bad_paths = self._get_source_paths()
+			if old_paths and path in old_paths:
 				return
-		self._source_text.insert('end', f'{dir_path}\n')
+			self._source_text.insert('end', f'{dir_path}\n')
 
 	def _select_dir(self):
 		'''Select directory to add into field'''
@@ -203,7 +201,7 @@ class Gui(Tk):
 			filename = asksaveasfilename(
 				title = self.labels.logfile,
 				filetypes = (
-					(self.labels.logfile, f'*.{defaultextension}'),
+					(f'{self.labels.logfile} (*.{defaultextension})', f'*.{defaultextension}'),
 					(self.labels.allfiles, '*.*')
 				),
 				defaultextension = defaultextension,
@@ -235,36 +233,46 @@ class Gui(Tk):
 		self._info_text.configure(foreground=self._info_fg, background=self._info_bg)
 		self._warning_state = 'stop'
 
+	def _get_settings(self):
+		'''Get settings from GUI'''
+		self.settings.user = self.user.get()
+		self.settings.destination = self.destination.get()
+		self.settings.trigger = self.write_trigger.get()
+		self.settings.sendmail = self.send_mail.get()
+		self.settings.qualicheck = self.write_qualicheck.get()
+
+	def _save_settings(self):
+		'''Get settings from GUI and save to JSON file'''
+		self._get_settings()
+		try:
+			self.settings.save()
+		except:
+			pass
+
 	def _execute(self):
 		'''Start copy process / worker'''
-		self.source_paths = self._get_source_paths()
+		self.source_paths, bad_paths = self._get_source_paths()
+		if bad_paths:
+			showerror(title=self.labels.error, message=f'{self.labels.bad_sources}: {"\n ".join(bad_paths)}')
 		if not self.source_paths:
-			showerror(title=self.labels.error, message=self.labels.missing_dir)
+			showerror(title=self.labels.error, message=self.labels.missing_source_dir)
 			return
-		if self._bad_settings():
+		self._get_settings()
+		if not self.settings.user:
+			showerror(title=self.labels.error, message=self.labels.missing_name)
+			return
+		if not self.settings.destination in self.config.destinations:
+			showerror(
+				title = self.labels.error,
+				message = self.labels.bad_destination.replace('#', f'{self.settings.destination}')
+			)
 			return
 		self._save_settings()
-		for source_path in self.source_paths:
-			try:
-				self._check.destination(source_path, self.settings)
-			except Exception as ex:
-				if isinstance(ex, PermissionError):
-					showerror(
-						title = self.labels.error,
-						message = self.labels.permissionerror.replace('#', f'{ex}')
-					)
-				return
 		self._source_button.configure(state='disabled')
 		self._source_text.configure(state='disabled')
 		self._exec_button.configure(state='disabled')
 		self._clear_info()
-		self._get_settings()
-		try:
-			self._work_thread = WorkThread(self)
-		except Exception as ex:
-			self.finished(ex)
-		else:
-			self._work_thread.start()
+		self._work_thread = WorkThread(self).start()
 
 	def _init_warning(self):
 		'''Init warning functionality'''
@@ -300,41 +308,12 @@ class Gui(Tk):
 			self._info_text.configure(foreground=self._defs.green_fg, background=self._defs.green_bg)
 		self._source_text.configure(state='normal')
 		self._source_text.delete('1.0', 'end')
+		self.write_log.set(False)
+		self.log_path = None
 		self._source_button.configure(state='normal')
 		self._exec_button.configure(state='normal')
 		self._quit_button.configure(state='normal')
 		self._work_thread = None
-
-	def _bad_settings(self):
-		'''Check settings: user name and destination'''
-		self.settings.user = self.user.get()
-		if not self.settings.user:
-			showerror(title=self.labels.error, message=self.labels.missing_name)
-			return True	
-		self.settings.destination = self.destination.get()
-		if not self.settings.destination in self.config.destinations:
-			showerror(
-				title = self.labels.error,
-				message = self.labels.bad_destination.replace('#', f'{self.settings.destination}')
-			)
-			return True
-		return False
-
-	def _get_settings(self):
-		'''Get settings from GUI'''
-		self.settings.user = self.user.get()
-		self.settings.destination = self.destination.get()
-		self.settings.trigger = self.write_trigger.get()
-		self.settings.sendmail = self.send_mail.get()
-		self.settings.qualicheck = self.write_qualicheck.get()
-
-	def _save_settings(self):
-		'''Get settings from GUI and save to JSON file'''
-		self._get_settings()
-		try:
-			self.settings.save()
-		except:
-			pass
 
 	def _quit_app(self):
 		'''Quit app, ask when copy processs is running'''

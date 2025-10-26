@@ -6,6 +6,7 @@ from pathlib import Path
 from time import strftime, sleep, perf_counter
 from datetime import timedelta
 from os import getlogin
+from classes.pathhandler import PathHandler
 from classes.robocopy import RoboCopy
 from classes.hash import HashThread
 from classes.size import Size
@@ -14,7 +15,7 @@ from classes.jsonmail import JsonMail
 class Worker:
 	'''Main functionality'''
 
-	def __init__(self, app_path, config, labels, settings, log, kill=None, echo=print):
+	def __init__(self, app_path, config, labels, settings, local_log=None, kill=None, echo=print):
 		'''Prepare copy process'''
 		self._app_path = app_path
 		self._config = config
@@ -26,16 +27,17 @@ class Worker:
 		self._user = getlogin()
 		if self._mail_address:
 			self._user += f' / {self._mail_address}'
+		self._path_handler = PathHandler(self._config, self._labels)
 		try:
-			logger = logging.getLogger()
-			logger.setLevel(logging.DEBUG)
+			self._logger = logging.getLogger()
+			self._logger.setLevel(logging.DEBUG)
 			self._formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 			self._local_log_fh = logging.FileHandler(
 				mode = 'w',
-				filename = log if log else self._config.local_path / self._config.log_name
+				filename = local_log if local_log else self._config.local_path / self._config.log_name
 			)
 			self._local_log_fh.setFormatter(self._formatter)
-			logger.addHandler(self._local_log_fh)
+			self._logger.addHandler(self._local_log_fh)
 		except Exception as ex:
 			echo(f'{self._labels.error}: {type(ex)}: {ex}')
 			raise ex
@@ -43,22 +45,37 @@ class Worker:
 			self._robocopy = RoboCopy()
 		except Exception as ex:
 			self._error(ex)
-			raise ex
+
+	def __del__(self):
+		'''Close log file handler'''
+		try:
+			self._logger.removeHandler(self._local_log_fh)
+		except:
+			pass
+		try:
+			self._logger.removeHandler(self._remote_log_fh)
+		except:
+			pass
+		try:
+			logging.shutdown()
+		except:
+			pass
 	
 	def copy_dir(self, src_path):
 		'''Copy directories'''
 		start_time = perf_counter()
 		now = strftime('%y%m%d_%H%M%S')
 		src_path = src_path.resolve()
-		self._config.log_path.mkdir(parents=True, exist_ok=True)
-		logger = logging.getLogger()
-		self._remote_log_fh = logging.FileHandler(
-			mode = 'w',
-			filename = self._config.log_path.joinpath(f'{now}_{src_path.name}_{self._config.log_name}')
-		)
+		remote_log_dir_path = self._config.log_path / src_path.name
+		remote_log_dir_path.mkdir(parents=True, exist_ok=True)
+		self._remote_log_fh = logging.FileHandler(mode='w', filename=remote_log_dir_path /  f'{now}_{self._config.log_name}')
 		self._remote_log_fh.setFormatter(self._formatter)
-		logger.addHandler(self._remote_log_fh)
+		self._logger.addHandler(self._remote_log_fh)
 		logging.info(f'{self._labels.user_label}: {self._user}')
+		try:
+			dst_path = self._path_handler.mk_destination(src_path, self._settings)
+		except Exception as ex:
+			self._error(ex)
 		self._info(f'{self._labels.reading_structure} {src_path}')
 		src_file_paths = list()
 		src_file_sizes = list()
@@ -111,16 +128,17 @@ class Worker:
 		tsv = self._config.tsv_head
 		for path, md5 in hash_thread.get_hashes():
 			tsv += f'\n{path.relative_to(src_path.parent)}\t{md5}'
+		tsv_name =  f'{now}_{self._config.tsv_name}'
 		try:
-			self._config.log_path.joinpath(f'{now}_{src_path.name}_{self._config.tsv_name}').write_text(tsv, encoding='utf-8')
+			self._config.log_path.joinpath(src_path.name, tsv_name).write_text(tsv, encoding='utf-8')
 		except Exception as ex:
 			self._error(ex)
 		try:
-			dst_path.joinpath(f'{now}_{self._config.tsv_name}').write_text(tsv, encoding='utf-8')
+			dst_path.joinpath(tsv_name).write_text(tsv, encoding='utf-8')
 		except Exception as ex:
 			self._error(ex)
 		if mismatches:
-			raise BytesWarning(self._labels.size_mismatch.replace('#', f'{mismatches}'))
+			self._error(BytesWarning(self._labels.mismatching_sizes.replace('#', f'{mismatches}')))
 		if self._settings.trigger:
 			try:
 				dst_path.joinpath(self._config.trigger_name).write_text(self._user, encoding='utf-8')
@@ -144,8 +162,7 @@ class Worker:
 		end_time = perf_counter()
 		delta = end_time - start_time
 		self._info(self._labels.copy_finished.replace('#', f'{timedelta(seconds=delta)}'))
-		logger.removeHandler(self._remote_log_fh)
-		logger.removeHandler(self._local_log_fh)
+		self._logger.removeHandler(self._remote_log_fh)
 
 	def _info(self, msg):
 		'''Log info and echo message'''
@@ -156,6 +173,5 @@ class Worker:
 		'''Log and echo error'''
 		msg = f'{type(ex)}: {ex}'
 		logging.error(msg)
-		logger.removeHandler(self._remote_log_fh)
-		logger.removeHandler(self._local_log_fh)
 		self._echo(f'{self._labels.error}: {msg}')
+		raise ex
