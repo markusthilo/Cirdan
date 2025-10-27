@@ -147,7 +147,7 @@ class Worker:
 		if self._settings.sendmail and self._mail_address:
 			try:
 				JsonMail(self._app_path / 'mail.json').send(
-					self._config.mail_path.joinpath(f'{self._config.mail_name}_{now}'),
+					self._config.mail_path.joinpath(f'{self._config.mail_name}_{now}.json'),
 					to = self._mail_address,
 					id = src_path.name,
 					tsv = tsv

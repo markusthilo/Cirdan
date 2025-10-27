@@ -14,7 +14,6 @@ class JsonMail:
 
 	def send(self, path, to='markus.thilo@polizei.berlin.de', id='TEST', tsv='TEST'):
 		'''Write mail to directory observed by mail daemon'''
-		path.parent.mkdir(parents=True, exist_ok=True)
 		mail = self._mail.copy()
 		mail['mail_content']['To'] = to
 		mail['mail_content']['Subject'] = mail['mail_content']['Subject'].replace('#', id)
