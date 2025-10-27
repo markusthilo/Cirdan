@@ -1,8 +1,0 @@
-2025-10-21 11:13:27 INFO: markus.thilo@polizei.berlin.de -> Test-Importverzeichnis
-2025-10-21 11:13:27 INFO: Lese Verzeichnisstruktur von \\VBoxSvr\Public\251014-1800-420797
-2025-10-21 11:13:27 INFO: Starte Berechnung von 1 MD5-Hashes
-2025-10-21 11:13:27 INFO: Starte RoboCopy: \\VBoxSvr\Public\251014-1800-420797 -> C:\Users\vboxuser\Documents\dst\Testverzeichnis\251014-1800-420797, 10.0 MiB / 10.5 MB
-2025-10-21 11:13:27 INFO: RoboCopy wurde beendet, starte Überprüfung anhand Dateigröße
-2025-10-21 11:13:27 INFO: Überprüfung anhand Dateigröße ist abgeschlossen
-2025-10-21 11:13:27 INFO: Hash-Wert-Berechnung ist abgeschlossen
-2025-10-21 11:13:27 INFO: Fertig - das Kopieren dauerte 0:00:00.314573 (Stunden, Minuten, Sekunden)

@@ -23,7 +23,7 @@ class Update:
 	def download(self, install_path):
 		'''Launch update downloader'''
 		exe_path = self._src_path / 'download_app.dist' / 'download_app.exe'
-		cmd = [f'{exe_path}'] if exe_path.is_file() else ['python', _src_path / 'download_app.py']
+		cmd = [f'{exe_path}'] if exe_path.is_file() else ['python', self._src_path / 'download_app.py']
 		return Popen(
 			cmd + [self._src_path, install_path],
 			start_new_session=True
