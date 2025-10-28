@@ -13,7 +13,7 @@ class PathHandler:
 		self._labels = labels
 		self._re = re_compile(self._config.dir_regex)
 
-	def dir_is_writeable(self, dir_path):
+	def is_writeable_dir(self, dir_path):
 		if not dir_path.is_dir():
 			return False
 		if not access(dir_path, W_OK):
@@ -22,11 +22,11 @@ class PathHandler:
 
 	def check_root_paths(self):
 		'''Check if destination and log root paths are okay'''
-		if not self.dir_is_writeable(self._config.target_path):
+		if not self.is_writeable_dir(self._config.target_path):
 			raise OSError(self._labels.bad_destination.replace('#', f'{self._config.target_path}'))
-		if not self.dir_is_writeable(self._config.log_path):
+		if not self.is_writeable_dir(self._config.log_path):
 			raise OSError(self._labels.bad_log_dir.replace('#', f'{self._config.log_path}'))
-		if not self.dir_is_writeable(self._config.mail_path):
+		if not self.is_writeable_dir(self._config.mail_path):
 			raise OSError(self._labels.bad_mail_dir.replace('#', f'{self._config.mail_path}'))
 
 	def get_too_long_path(self, src_path):

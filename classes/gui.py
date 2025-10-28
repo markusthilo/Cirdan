@@ -94,6 +94,12 @@ class Gui(Tk):
 		label.grid(row=2, column=0, sticky='w', padx=self._pad)
 		Hovertip(label, self.labels.destination_tip)
 		self.destination = StringVar()
+
+		###############################################
+		#print(self.config.destinations)
+		#destinations = [r for for dst_dir in self.config.destinations:
+		###############################################
+
 		OptionMenu(self, self.destination, self.settings.destination, *self.config.destinations
 			).grid(row=2, column=1, sticky='w', padx=self._pad)
 		Label(self, text=self.labels.options).grid(row=3, column=0, sticky='nw', padx=self._pad, pady=(self._pad, 0))
