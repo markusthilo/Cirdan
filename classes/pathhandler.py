@@ -22,8 +22,6 @@ class PathHandler:
 
 	def check_root_paths(self):
 		'''Check if destination and log root paths are okay'''
-		if not self.is_writeable_dir(self._config.target_path):
-			raise OSError(self._labels.bad_destination.replace('#', f'{self._config.target_path}'))
 		if not self.is_writeable_dir(self._config.log_path):
 			raise OSError(self._labels.bad_log_dir.replace('#', f'{self._config.log_path}'))
 		if not self.is_writeable_dir(self._config.mail_path):

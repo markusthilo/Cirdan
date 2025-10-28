@@ -28,7 +28,7 @@
     "bad_file": "Verbotene Datei: #",
     "bad_sources": "Ungültige(s) Quellverzeichnis(se):\n#",
     "destination_blocked_by": "Zielverzeichnis ist blockiert durch Trigger-Datei: #",
-    "bad_destination": "Ungültiges Zielverzeichnis: #",
+    "bad_destination": "Ungültiges Zielverzeichnis",
     "bad_log_dir": "Ungültiges Protokollverzeichnis: #",
     "bad_mail_dir:": "Ungültiges E-Mail-Verzeichnis: #",
     "dir_not_empty": "Das Verzeichnis ist nicht leer",

@@ -93,15 +93,21 @@ class Gui(Tk):
 		label = Label(self, text=self.labels.destination)
 		label.grid(row=2, column=0, sticky='w', padx=self._pad)
 		Hovertip(label, self.labels.destination_tip)
+		self._path_handler = PathHandler(config, labels)
+		self.destinations = tuple(
+			dst for dst in self.config.destinations
+			if self._path_handler.is_writeable_dir(self.config.target_path / self.config.destinations[dst])
+		)
 		self.destination = StringVar()
-
-		###############################################
-		#print(self.config.destinations)
-		#destinations = [r for for dst_dir in self.config.destinations:
-		###############################################
-
-		OptionMenu(self, self.destination, self.settings.destination, *self.config.destinations
-			).grid(row=2, column=1, sticky='w', padx=self._pad)
+		if len(self.destinations) == 1:
+			self.settings.destination = self.destinations[0]
+			self.destination.set(self.destinations[0])
+			Label(self, text=self.destinations[0]).grid(row=2, column=1, sticky='w', padx=self._pad)
+		elif len(self.destinations) > 1:
+			if not self.settings.destination:
+				self.settings.destination = self.destinations[0]
+			OptionMenu(self, self.destination, self.settings.destination, *self.destinations
+				).grid(row=2, column=1, sticky='w', padx=self._pad)
 		Label(self, text=self.labels.options).grid(row=3, column=0, sticky='nw', padx=self._pad, pady=(self._pad, 0))
 		frame = Frame(self)
 		frame.grid(row=3, column=1, sticky='w', pady=(self._pad, 0))
@@ -151,12 +157,14 @@ class Gui(Tk):
 					title = self.labels.error,
 					message= f'{self.labels.update_error}:\n{type(ex).__name__}: {ex}'
 				)
-		self._path_handler = PathHandler(config, labels)
+		if not self.settings.destination:
+			showerror(title=self.labels.error, message=self.labels.bad_destination)
+			self.destroy()
 		try:
 			self._path_handler.check_root_paths()
 		except Exception as ex:
 			showerror(title=self.labels.error, message=f'{type(ex).__name__}: {ex}')
-			return
+			self.destroy()
 		self._ignore_warning = False
 		self._init_warning()
 
