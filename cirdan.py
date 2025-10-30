@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.9.5_2025-10-28'
+__version__ = '0.9.5_2025-10-30'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@gmail.com'
 __status__ = 'Testing'
@@ -52,7 +52,10 @@ if __name__ == '__main__':  # start here when run as application
 	source_path = Path(args.source.strip('"\'')) if args.source else None
 	if source_path:
 		ph = PathHandler(config, labels)
-		ph.check_root_paths()
+		if not ph.is_accessable_dir(config.log_path):
+			raise PermissionError(labels.bad_log_dir.replace('#', f'{config.log_path}'))
+		if not ph.is_accessable_dir(config.mail_path):
+			raise PermissionError(labels.bad_mail_dir.replace('#', f'{config.mail_path}'))
 		ph.check_source_path(source_path)
 		if not args.gui:	# run in terminal
 			settings.qualicheck = args.qualicheck

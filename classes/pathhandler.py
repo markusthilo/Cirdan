@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 from re import compile as re_compile
-from os import access, W_OK
 
 class PathHandler:
 	'''Methods to check and create paths'''
@@ -13,19 +12,15 @@ class PathHandler:
 		self._labels = labels
 		self._re = re_compile(self._config.dir_regex)
 
-	def is_writeable_dir(self, dir_path):
-		if not dir_path.is_dir():
+	def is_accessable_dir(self, path):
+		'''Check if path is accessable'''
+		if not path.is_dir():
 			return False
-		if not access(dir_path, W_OK):
+		try:
+			path.iterdir()
+		except:
 			return False
 		return True
-
-	def check_root_paths(self):
-		'''Check if destination and log root paths are okay'''
-		if not self.is_writeable_dir(self._config.log_path):
-			raise OSError(self._labels.bad_log_dir.replace('#', f'{self._config.log_path}'))
-		if not self.is_writeable_dir(self._config.mail_path):
-			raise OSError(self._labels.bad_mail_dir.replace('#', f'{self._config.mail_path}'))
 
 	def get_too_long_path(self, src_path):
 		'''Check if path length is okay'''

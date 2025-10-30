@@ -39,7 +39,7 @@ class Worker:
 			self._local_log_fh.setFormatter(self._formatter)
 			self._logger.addHandler(self._local_log_fh)
 		except Exception as ex:
-			echo(f'{self._labels.error}: {type(ex)}: {ex}')
+			self._echo(f'{self._labels.error}: {type(ex)}: {ex}')
 			raise ex
 		try:
 			self._robocopy = RoboCopy()
@@ -118,7 +118,7 @@ class Worker:
 			self._info(self._labels.hashing_in_progress)
 			index = 0
 			while hash_thread.is_alive():
-				echo(f'{"|/-\\"[index]}  ', end='\r')
+				self._echo(f'{"|/-\\"[index]}  ', end='\r')
 				index += 1
 				if index > 3:
 					index = 0

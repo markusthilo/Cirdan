@@ -26,7 +26,7 @@ class WorkThread(Thread):
 		self._kill_event = Event()
 		self._worker = Worker(gui.app_path, gui.config, gui.labels, gui.settings,
 			local_log = gui.log_path,
-			echo = gui.echo,
+			echo = self._gui.echo,
 			kill = self._kill_event
 		)
 
@@ -96,7 +96,7 @@ class Gui(Tk):
 		self._path_handler = PathHandler(config, labels)
 		self.destinations = tuple(
 			dst for dst in self.config.destinations
-			if self._path_handler.is_writeable_dir(self.config.target_path / self.config.destinations[dst])
+			if self._path_handler.is_accessable_dir(self.config.target_path.joinpath(self.config.destinations[dst]))
 		)
 		self.destination = StringVar()
 		if len(self.destinations) == 1:
@@ -152,19 +152,27 @@ class Gui(Tk):
 			try:
 				update.download(self.app_path)
 				self.destroy()
+				return
 			except Exception as ex:
 				showerror(
 					title = self.labels.error,
 					message= f'{self.labels.update_error}:\n{type(ex).__name__}: {ex}'
 				)
-		if not self.settings.destination:
-			showerror(title=self.labels.error, message=self.labels.bad_destination)
+		if not self.destinations:
+			if self.settings.destination:
+				showerror(title=self.labels.error, message=self.labels.bad_destination.replace('#', self.settings.destination))
+			else:
+				showerror(title=self.labels.error, message=self.labels.no_destination)
 			self.destroy()
-		try:
-			self._path_handler.check_root_paths()
-		except Exception as ex:
-			showerror(title=self.labels.error, message=f'{type(ex).__name__}: {ex}')
+			return
+		if not self._path_handler.is_accessable_dir(self.config.log_path):
+			showerror(title=self.labels.error, message=self.labels.bad_log_dir.replace('#', f'{self.config.log_path}'))
 			self.destroy()
+			return
+		if not self._path_handler.is_accessable_dir(self.config.mail_path):
+			showerror(title=self.labels.error, message=self.labels.bad_mail_dir.replace('#', f'{self.config.mail_path}'))
+			self.destroy()
+			return
 		self._ignore_warning = False
 		self._init_warning()
 
