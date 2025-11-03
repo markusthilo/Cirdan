@@ -190,25 +190,23 @@ class Gui(Tk):
 					bad_paths.add(stripped)
 		return good_paths, bad_paths
 
-	def _check_source_dir(self, dir_path):
-		'''Check if given dir is a correct source to copy'''
+	def _add_dir(self, dir_path):
+		'''Add directory into field'''
 		if not dir_path:
 			return
 		dir_path = dir_path.resolve()
+		self.echo(self.labels.checking_source.replace('#', f'{dir_path}'), end='\r')
 		try:
 			self._path_handler.check_source_path(dir_path)
 		except Exception as ex:
+			self.echo('', end='\r')
 			showerror(title=self.labels.error, message=f'{type(ex).__name__}: {ex}')
-		else:
-			return dir_path
-
-	def _add_dir(self, dir_path):
-		'''Add directory into field'''
-		if path := self._check_source_dir(dir_path):
-			old_paths, bad_paths = self._get_source_paths()
-			if old_paths and path in old_paths:
-				return
-			self._source_text.insert('end', f'{dir_path}\n')
+			return
+		self.echo('', end='\r')
+		old_paths, bad_paths = self._get_source_paths()
+		if old_paths and path in old_paths:
+			return
+		self._source_text.insert('end', f'{dir_path}\n')
 
 	def _select_dir(self):
 		'''Select directory to add into field'''

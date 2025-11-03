@@ -20,6 +20,7 @@ class Worker:
 		self._app_path = app_path
 		self._config = config
 		self._settings = settings
+		self._local_log_path = local_log
 		self._labels = labels
 		self._kill_switch = kill
 		self._echo = echo
@@ -28,16 +29,14 @@ class Worker:
 		if self._mail_address:
 			self._user += f' / {self._mail_address}'
 		self._path_handler = PathHandler(self._config, self._labels)
+		self._lastlog_path = self._config.local_path / 'lastlog.txt'
 		try:
 			self._logger = logging.getLogger()
 			self._logger.setLevel(logging.DEBUG)
 			self._formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-			self._local_log_fh = logging.FileHandler(
-				mode = 'w',
-				filename = local_log if local_log else self._config.local_path / self._config.log_name
-			)
-			self._local_log_fh.setFormatter(self._formatter)
-			self._logger.addHandler(self._local_log_fh)
+			self._lastlog_fh = logging.FileHandler(mode='w', filename=self._lastlog_path)
+			self._lastlog_fh.setFormatter(self._formatter)
+			self._logger.addHandler(self._lastlog_fh)
 		except Exception as ex:
 			self._echo(f'{self._labels.error}: {type(ex)}: {ex}')
 			raise ex
@@ -49,17 +48,14 @@ class Worker:
 	def __del__(self):
 		'''Close log file handler'''
 		try:
-			self._logger.removeHandler(self._local_log_fh)
-		except:
-			pass
-		try:
-			self._logger.removeHandler(self._remote_log_fh)
-		except:
-			pass
-		try:
 			logging.shutdown()
 		except:
 			pass
+		if self._local_log_path:
+			try:
+				self._local_log_path.write_text(self._lastlog_path.read_text())
+			except:
+				pass
 	
 	def copy_dir(self, src_path):
 		'''Copy directories'''

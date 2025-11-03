@@ -21,6 +21,7 @@
     "update_dir": "Wähle das Zielverzeichnis für die neue Slowcopy-Version",
     "error": "Fehler",
     "missing_name": "Fehlender Bearbeiter / fehlende E-Mail-Adresse",
+    "checking_source": "Prüfe Quellverzeichnis #",
     "missing_source_dir": "Quellverzeichnis fehlt",
     "bad_source": "Ungültiges Quellverzeichnis: #",
     "path_too_long": "Pfad ist zu lang: #",
