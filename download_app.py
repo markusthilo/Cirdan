@@ -3,11 +3,10 @@
 
 from sys import argv
 from pathlib import Path
+from subprocess import Popen
 from classes.robocopy import RoboCopy
 
 if __name__ == '__main__':  # start here when run as application
-	### remove old settings.json if incompatible with new version ###
-	#Path().home.joinpath('AppData/Cirdan/settings.json').unlink(missing_ok=True)
 	src_path = Path(argv[1])
 	sub_path = src_path / 'cirdan.dist'
 	dst_path = Path(argv[2])
@@ -37,3 +36,8 @@ if __name__ == '__main__':  # start here when run as application
 		msg += '\nReturncode: {robocopy.returncode}'
 		raise ChildProcessError(msg)
 	print(f'...done executing the following commands:\n{first_robocopy}\n{robocopy}')
+	try:
+		Popen([dst_path / 'cirdan.exe'], start_new_session=True)
+	except Exception as ex:
+		print(f'{type(ex)}: {ex}')
+		input('Press Enter to close terminal window...')
