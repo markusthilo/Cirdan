@@ -24,9 +24,10 @@ class PathHandler:
 
 	def get_too_long_path(self, src_path):
 		'''Check if path length is okay'''
-		max_len = self._config.max_path_len - len(f'{src_path.name}')
+		max_len = self._config.max_path_len
 		for abs_path in src_path.rglob('*'):
-			rel_path = abs_path.relative_to(src_path)
+			rel_path = abs_path.relative_to(src_path.parent)
+			path_len = len(f'{rel_path}')
 			if len(f'{rel_path}') > max_len:
 				return rel_path
 
@@ -51,7 +52,7 @@ class PathHandler:
 		if not self._re.match(src_path.name):
 			raise PermissionError(self._labels.bad_source.replace('#', f'{src_path}'))
 		if path := self.get_too_long_path(src_path):
-			raise PerError(self._labels.path_too_long.replace('#', f'{path}'))
+			raise PermissionError(self._labels.path_too_long.replace('#', f'{path}'))
 		if path := self.get_blacklisted(src_path):
 			raise PermissionError(self._labels.blacklisted_path.replace('#', f'{path}'))
 		if path := self.search_trigger_file(src_path):
