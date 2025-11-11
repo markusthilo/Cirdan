@@ -95,20 +95,30 @@ class Worker:
 			if self._kill_switch and self._kill_switch.is_set():
 				self._robocopy.terminate()
 				raise SystemExit(self._labels.worker_killed)
+		try:
+			robocopy_msg = f'{self._robocopy.returncode} - ' + self._labels.__dict__[f'returncode_{self._robocopy.returncode}']
+		except KeyError:
+			robocopy_msg = f'{self._robocopy.returncode}'
+		robocopy_msg = self._labels.robocopy_returned.replace('#', robocopy_msg)
 		if self._robocopy.returncode > 5:
-			raise ChildProcessError(self._labels.robocopy_problem.replace('#', f'{self._robocopy.returncode}'))
-		self._info(self._labels.robocopy_finished)
-		mismatches = 0
+			self._warning(robocopy_msg)
+		else:
+			self._info(robocopy_msg)
+		self._info(self._labels.starting_size_check)
+		missing_paths = list()
+		bad_paths = list()
 		total = len(src_file_paths)
 		for cnt, (src_file_path, src_size) in enumerate(zip(src_file_paths, src_file_sizes), start=1):
 			self._echo(f'{int(100*cnt/total)}%', end='\r')
 			dst_file_path = dst_path.joinpath(src_file_path.relative_to(src_path))
+			if not dst_file_path.exists():
+				self._warning(self._labels.missing_file.replace('#', f'{src_file_path}'))
+				missing_paths.append(src_file_path)
+				continue
 			dst_size = dst_file_path.stat().st_size
 			if dst_size != src_size:
-				msg = self._labels.mismatching_sizes.replace('#', f'{src_file_path} => {src_size}, {dst_file_path} => {dst_size}')
-				logging.warning(msg)
-				self._echo(msg)
-				mismatches += 1
+				self._warning(self._labels.mismatching_sizes.replace('#', f'{src_file_path} => {src_size}, {dst_file_path} => {dst_size}'))
+				bad_paths.append(src_file_path)
 		self._info(self._labels.size_check_finished)
 		if hash_thread.is_alive():
 			self._info(self._labels.hashing_in_progress)
@@ -121,9 +131,15 @@ class Worker:
 				sleep(.25)
 		hash_thread.join()
 		self._info(self._labels.hashing_finished)
-		tsv = self._config.tsv_head
+		tsv = self._labels.tsv_head
 		for path, md5 in hash_thread.get_hashes():
-			tsv += f'\n{path.relative_to(src_path.parent)}\t{md5}'
+			tsv += f'\n{path.relative_to(src_path.parent)}\t{md5}\t'
+			if path in missing_paths:
+				tsv += self._labels.missing
+			elif path in bad_paths:
+				tsv += self._labels.bad_size
+			else:
+				tsv += 'OK'
 		tsv_name =  f'{now}_{self._config.tsv_name}'
 		try:
 			self._config.log_path.joinpath(src_path.name, tsv_name).write_text(tsv, encoding='utf-8')
@@ -133,8 +149,10 @@ class Worker:
 			dst_path.joinpath(tsv_name).write_text(tsv, encoding='utf-8')
 		except Exception as ex:
 			self._error(ex)
-		if mismatches:
-			self._error(BytesWarning(self._labels.mismatching_sizes.replace('#', f'{mismatches}')))
+		if bad_paths:
+			self._error(BytesWarning(self._labels.error_sizes.replace('#', f'{len(bad_paths)}')))
+		if missing_paths:
+			self._error(FileNotFoundError(self._labels.error_missing.replace('#', f'{len(missing_paths)}')))
 		if self._settings.trigger:
 			try:
 				dst_path.joinpath(self._config.trigger_name).write_text(self._user, encoding='utf-8')
@@ -163,6 +181,11 @@ class Worker:
 	def _info(self, msg):
 		'''Log info and echo message'''
 		logging.info(msg)
+		self._echo(msg)
+
+	def _warning(self, msg):
+		'''Log warning and echo message'''
+		logging.warning(msg)
 		self._echo(msg)
 
 	def _error(self, ex):

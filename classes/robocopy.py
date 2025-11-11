@@ -11,7 +11,7 @@ class RoboCopy:
 		'''Create robocopy process'''
 		self._startupinfo = STARTUPINFO()
 		self._startupinfo.dwFlags |= STARTF_USESHOWWINDOW
-		self._copy_args = ['/fp', '/ns', '/njh', '/njs', '/nc']
+		self._copy_args = ['/fp', '/ns', '/njh', '/njs', '/nc', '/a-:R']
 		try:
 			for line in self._yield(['/?']):
 				if line.lstrip().lower().startswith('/unicode'):

@@ -27,7 +27,6 @@
     "settings_name": "settings.json",
     "log_name": "log.txt",
     "tsv_name": "md5.txt",
-    "tsv_head": "Pfad\tMD5-Hash",
     "trigger_name": "fertig.txt",
     "qualicheck_name": "qualicheck.txt",
     "mail_name": "CIRDAN",

@@ -12,7 +12,7 @@ from tkinter.messagebox import askyesno, showerror
 from tkinter.filedialog import askdirectory, asksaveasfilename
 from idlelib.tooltip import Hovertip
 from classes.worker import Worker
-from classes.jsonobject import JsonObject
+from classes.json import Json
 from classes.update import Update
 from classes.pathhandler import PathHandler
 
@@ -57,7 +57,7 @@ class Gui(Tk):
 		self.config = config
 		self.labels = labels
 		self.settings = settings
-		self._defs = JsonObject(app_path / 'gui.json')
+		self._defs = Json(app_path / 'gui.json')
 		self.log_path = log
 		self._work_thread = None
 		self.title(f'SlowCopy v{self.labels.version}')

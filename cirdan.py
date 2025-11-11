@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.9.7_2025-11-10'
+__version__ = '0.9.7_2025-11-11'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@gmail.com'
 __status__ = 'Testing'
@@ -12,7 +12,7 @@ from sys import executable as __executable__
 from sys import exit as sys_exit
 from argparse import ArgumentParser
 from pathlib import Path
-from classes.jsonobject import JsonObject
+from classes.json import Json
 from classes.config import Config
 from classes.settings import Settings
 from classes.pathhandler import PathHandler
@@ -40,7 +40,7 @@ if __name__ == '__main__':  # start here when run as application
 	argparser.add_argument('source', nargs='?', help='Source directory', type=str, metavar='DIRECTORY')
 	args = argparser.parse_args()
 	config = Config(__parent_path__)
-	labels = JsonObject(__parent_path__ / 'labels.json')
+	labels = Json(__parent_path__ / 'labels.json')
 	labels.version = __version__
 	settings = Settings(config)
 	if args.destination:

@@ -3,7 +3,7 @@
 
 from json import load
 
-class JsonObject:
+class Json:
 	'''JSOM file to Object'''
 
 	def __init__(self, path):
