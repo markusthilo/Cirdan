@@ -47,15 +47,10 @@ class Worker:
 
 	def __del__(self):
 		'''Close log file handler'''
-		try:
-			logging.shutdown()
-		except:
-			pass
+		logging.shutdown()
 		if self._local_log_path:
-			try:
-				self._local_log_path.write_text(self._lastlog_path.read_text())
-			except:
-				pass
+			self._local_log_path.write_text(self._lastlog_path.read_text())
+
 	
 	def copy_dir(self, src_path):
 		'''Copy directories'''
@@ -141,38 +136,23 @@ class Worker:
 			else:
 				tsv += 'OK'
 		tsv_name =  f'{now}_{self._config.tsv_name}'
-		try:
-			self._config.log_path.joinpath(src_path.name, tsv_name).write_text(tsv, encoding='utf-8')
-		except Exception as ex:
-			self._error(ex)
-		try:
-			dst_path.joinpath(tsv_name).write_text(tsv, encoding='utf-8')
-		except Exception as ex:
-			self._error(ex)
-		if bad_paths:
-			self._error(BytesWarning(self._labels.error_sizes.replace('#', f'{len(bad_paths)}')))
+		self._config.log_path.joinpath(src_path.name, tsv_name).write_text(tsv, encoding='utf-8')
+		dst_path.joinpath(tsv_name).write_text(tsv, encoding='utf-8')
 		if missing_paths:
-			self._error(FileNotFoundError(self._labels.error_missing.replace('#', f'{len(missing_paths)}')))
+			raise FileNotFoundError(self._labels.error_missing.replace('#', f'{len(missing_paths)}'))
+		if bad_paths:
+			raise BytesWarning(self._labels.error_sizes.replace('#', f'{len(bad_paths)}'))
 		if self._settings.trigger:
-			try:
-				dst_path.joinpath(self._config.trigger_name).write_text(self._user, encoding='utf-8')
-			except Exception as ex:
-				self._error(ex)
+			dst_path.joinpath(self._config.trigger_name).write_text(self._user, encoding='utf-8')
 		if self._settings.sendmail and self._mail_address:
-			try:
-				JsonMail(self._app_path / 'mail.json').send(
-					self._config.mail_path.joinpath(f'{self._config.mail_name}_{now}.json'),
-					to = self._mail_address,
-					id = src_path.name,
-					tsv = tsv
-				)
-			except Exception as ex:
-				self._error(ex)
+			JsonMail(self._app_path / 'mail.json').send(
+				self._config.mail_path.joinpath(f'{self._config.mail_name}_{now}.json'),
+				to = self._mail_address,
+				id = src_path.name,
+				tsv = tsv
+			)
 		if self._settings.qualicheck:
-			try:
-				dst_path.joinpath(self._config.qualicheck_name).write_text(self._user, encoding='utf-8')
-			except Exception as ex:
-				self._error(ex)
+			dst_path.joinpath(self._config.qualicheck_name).write_text(self._user, encoding='utf-8')
 		end_time = perf_counter()
 		delta = end_time - start_time
 		self._info(self._labels.copy_finished.replace('#', f'{timedelta(seconds=delta)}'))
@@ -188,9 +168,3 @@ class Worker:
 		logging.warning(msg)
 		self._echo(msg)
 
-	def _error(self, ex):
-		'''Log and echo error'''
-		msg = f'{type(ex)}: {ex}'
-		logging.error(msg)
-		self._echo(f'{self._labels.error}: {msg}')
-		raise ex

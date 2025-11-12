@@ -30,6 +30,10 @@ class WorkThread(Thread):
 			kill = self._kill_event
 		)
 
+	def _error(self, ex):
+		'''Echo error message'''
+		self._gui.echo(f'{self._gui.labels.error} ({type(ex).__name__}): {ex}')
+
 	def run(self):
 		'''Run thread'''
 		error = False
@@ -37,10 +41,13 @@ class WorkThread(Thread):
 			try:
 				self._worker.copy_dir(src_path)
 			except Exception as ex:
-				logging.error(f'{type(ex)}: {ex}')
-				self._gui.echo(f'{self._gui.labels.error} ({type(ex).__name__}): {ex}')
+				logging.error(f'{ex} ({type(ex)})')
+				self._error(ex)
 				error = True
-		del self._worker
+		try:
+			del self._worker
+		except Exception as ex:
+			self._error(ex)
 		self._gui.finished(error)
 
 	def kill(self):

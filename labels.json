@@ -49,7 +49,7 @@
     "starting_robocopy": "Starte RoboCopy",
     "worker_killed": "Arbeitsprozes/Worker wurde beendet",
     "robocopy_returned": "RoboCopy gab folgenden Wert zurück (Returncode): #",
-    "returncode_0": "Keine Dateien wurden kopiert. Keine Fehler aufgetreten. Keine Dateien wurden übereinstimmen. Die Dateien existieren bereits im Zielverzeichnis; daher wurde der Kopiervorgang übersprungen.",
+    "returncode_0": "Es wurden keine Dateien kopiert. Es ist kein Fehler aufgetreten. Es gab keine Dateikonflikte. Die Dateien sind bereits im Zielverzeichnis vorhanden. Daher wurde der Kopiervorgang übersprungen.",
     "returncode_1": "Alle Dateien wurden erfolgreich kopiert",
     "returncode_2": "Es gibt einige zusätzliche Dateien im Zielverzeichnis, die nicht im Quellverzeichnis vorhanden sind. Es wurden keine Dateien kopiert.",
     "returncode_3": "Einige Dateien wurden kopiert. Zusätzliche Dateien waren vorhanden. Es ist kein Fehler aufgetreten.",
