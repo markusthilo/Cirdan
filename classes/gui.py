@@ -67,7 +67,7 @@ class Gui(Tk):
 		self._defs = Json(app_path / 'gui.json')
 		self.log_path = log
 		self._work_thread = None
-		self.title(f'Cirdan v{self.labels.version}')
+		self.title(f'Copy to Import/Remote Directory Accross Network v{self.labels.version}')
 		self.rowconfigure(0, weight=1)
 		self.columnconfigure(1, weight=1)
 		self.rowconfigure(5, weight=1)
