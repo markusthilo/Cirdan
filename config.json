@@ -4,44 +4,29 @@
     "log_path": "$HOME/Documents/_logs/",
     "mail_path": "$HOME/Documents/_mail/",
     "update_path": "$HOME/Documents/_dist/Cirdan/",
-    "domain": "polizei.berlin.de",
+    "domain": "placeholder.com",
     "destinations": {
-        "Importverzeichnis LKA 711": "LKA 711",
-        "Importverzeichnis LKA 712": "LKA 712",
-        "Importverzeichnis LKA 713": "LKA 713",
-        "Importverzeichnis LKA 714": "LKA 714",
-        "Importverzeichnis LKA 724": "LKA 724",
-        "Importverzeichnis DIR 3 IuK": "DIR 3",
-        "Importverzeichnis DIR 4 IuK": "DIR 4",
-        "Importverzeichnis DIR 5 IuK": "DIR 5",
-        "Importverzeichnis LKA 1 IuK": "LKA 1",
-        "Importverzeichnis LKA 2 IuK": "LKA 2",
-        "Importverzeichnis LKA 3 IuK": "LKA 3",
-        "Importverzeichnis LKA 4 IuK": "LKA 4",
-        "Importverzeichnis LKA 5 IuK": "LKA 5",
-        "Importverzeichnis LKA 8 IuK": "LKA 8",
-        "Importverzeichnis LKA KoSt ST 2": "LKA KoSt ST 2",
-        "Test-Importverzeichnis": "Testverzeichnis"
+        "Import directory 1": "import1",
+        "Import directory 2": "import2",
+        "Import directory 3": "import3"
     },
-    "default_destination": "Test-Importverzeichnis",
-    "settings_name": "settings.json",
     "log_name": "log.txt",
     "tsv_name": "md5.txt",
-    "trigger_name": "fertig.txt",
+    "trigger_name": "trigger.txt",
     "qualicheck_name": "qualicheck.txt",
     "mail_name": "CIRDAN",
     "max_path_len": 230,
-    "dir_regex": "^[0-9]{6}-([0-9]{4}|[0-9]{6})-[iSZ0-9][0-9]{5}$",
+    "dir_regex": "^[0-9]{6}-.*",
     "blacklist": [
         "*/Help/HTML5/",
         "*/Help/LicenseUpgrade/"
     ],
     "triggers": [
-        "fertig.txt",
+        "trigger.txt",
         "qualicheck.txt",
-        "verarbeitet.txt",
-        "fehler.txt",
+        "done.txt",
+        "error.txt",
         "start.txt",
-        "zu_loeschen.txt"
+        "delete.txt"
     ]
 }

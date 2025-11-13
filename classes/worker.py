@@ -134,7 +134,7 @@ class Worker:
 			elif path in bad_paths:
 				tsv += self._labels.bad_size
 			else:
-				tsv += 'OK'
+				tsv += self._labels.okay
 		tsv_name =  f'{now}_{self._config.tsv_name}'
 		self._config.log_path.joinpath(src_path.name, tsv_name).write_text(tsv, encoding='utf-8')
 		dst_path.joinpath(tsv_name).write_text(tsv, encoding='utf-8')
