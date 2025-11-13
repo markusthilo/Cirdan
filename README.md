@@ -1,6 +1,7 @@
 # Cirdan
 
 ## Copy to Import/Remote Directory Across Network
+<img width="542" height="392" alt="screenshot" src="https://github.com/markusthilo/Cirdan/blob/main/screenshot.png" />
 
 Copy directories to a fixed destination and build md5 hashes. Some criterias are checked while selecting the source directory.
 
@@ -29,6 +30,7 @@ Nuitka is needed to bild Windows executables. The Batch-Script `make-dist-bat` c
 Still testing. The author is not responsible for any malfunction and/or lost data.
 
 MIT License
+
 
 
 
