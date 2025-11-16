@@ -1,4 +1,5 @@
 {
+    "title": "Copy to Import/Remote Directory Accross Network",
     "local_path": "$HOME/AppData/Local/Cirdan/",
     "target_path": "$HOME/Documents/",
     "log_path": "$HOME/Documents/_logs/",
@@ -11,6 +12,8 @@
         "Import directory 3": "import3"
     },
     "log_name": "log.txt",
+    "lastlog_name": "lastlog.txt",
+    "crashlog_name": "crashlog.txt",
     "tsv_name": "md5.txt",
     "trigger_name": "trigger.txt",
     "qualicheck_name": "qualicheck.txt",

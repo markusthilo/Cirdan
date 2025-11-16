@@ -2,16 +2,21 @@
 # -*- coding: utf-8 -*-
 
 import logging
+from time import strftime
 
 class Logger:
 	'''Configure Logging'''
 
-	def __init__(self):
+	def __init__(self, config, labels):
 		'''Generate object to write log files'''
-		self._logger = logging.getLogger()
-		self._logger.setLevel(logging.DEBUG)
-		self._formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+		self.prefix = strftime('%y%m%d_%H%M%S_')
+		self._config = config
+		self._labels = labels
+		src_path = src_path.resolve()
+		remote_log_dir_path = self._config.log_path / src_path.name
 		self._handlers = dict()
+		self._logger = logging.getLogger()
+		self._formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 	def add(self, path, level):
 		'''Add log file'''
@@ -29,3 +34,12 @@ class Logger:
 		self.remove(old_path)
 		new_path.write_bytes(old_path.read_bytes())
 		old_path.unlink()
+
+	def error(self, ex):
+		'''Log error'''
+		logging.error(f'{type(ex).__name__}: {ex}')
+
+	def add_lastlog(self):
+		'''Add lastlog file'''
+		lastlog_path = self._config.local_path.joinpath / f'{self.prefix}{self._config.lastlog_name}'
+		logging.info(f'{self._labels.user} {self._labels.running} {self._config.title} v{self._config.version}')

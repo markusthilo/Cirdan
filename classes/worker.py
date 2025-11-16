@@ -15,7 +15,7 @@ from classes.jsonmail import JsonMail
 class Worker:
 	'''Main functionality'''
 
-	def __init__(self, app_path, config, labels, settings, local_log=None, kill=None, echo=print):
+	def __init__(self, app_path, config, labels, settings, logger=None, local_log=None, kill=None, echo=print):
 		'''Prepare copy process'''
 		self._app_path = app_path
 		self._config = config

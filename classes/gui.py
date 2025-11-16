@@ -57,7 +57,7 @@ class WorkThread(Thread):
 class Gui(Tk):
 	'''GUI look and feel'''
 
-	def __init__(self, app_path, config, labels, settings, log=None, source=None):
+	def __init__(self, app_path, config, labels, settings, logger=None, local_log=None, source=None):
 		'''Open application window'''
 		super().__init__()
 		self.app_path = app_path
