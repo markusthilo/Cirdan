@@ -16,7 +16,7 @@ class Settings:
 		except:
 			items = dict()
 			config.local_path.mkdir(parents=True, exist_ok=True)
-		self.destination = items['destination'] if 'destination' in items else ''
+		self.destination = items['destination'] if 'destination' in items and items['destination'] else next(iter(config.destinations))
 		self.qualicheck = items['qualicheck'] if 'qualicheck' in items else False
 		self.sendmail = items['sendmail'] if 'sendmail' in items else True
 		self.trigger = items['trigger'] if 'trigger' in items else True

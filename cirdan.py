@@ -18,16 +18,14 @@ from classes.config import Config
 from classes.settings import Settings
 from classes.logger import Logger
 from classes.pathhandler import PathHandler
+from classes.robocopy import RoboCopy
 from classes.worker import Worker
 from classes.gui import Gui
 
 __parent_path__ = Path(__file__).parent if Path(__executable__).name == 'python.exe' else Path(__executable__).parent
 
 if __name__ == '__main__':  # start here when run as application
-	labels = Json(__parent_path__ / 'labels.json')
-	labels.version = __version__
-	labels.user = getlogin()
-	argparser = ArgumentParser(prog=f'{labels.title} v{labels.version}', description=__description__)
+	argparser = ArgumentParser(description=__description__)
 	argparser.add_argument('-d', '--destination', type=str, metavar='STRING',
 		help='Destination to copy to')
 	argparser.add_argument('-g', '--gui', action='store_true',
@@ -45,6 +43,9 @@ if __name__ == '__main__':  # start here when run as application
 	argparser.add_argument('source', nargs='?', help='Source directory', type=str, metavar='DIRECTORY')
 	args = argparser.parse_args()
 	config = Config(__parent_path__)
+	labels = Json(__parent_path__ / 'labels.json')
+	labels.version = __version__
+	labels.user = getlogin()
 	settings = Settings(config)
 	if args.destination:
 		settings.destination = args.destination
@@ -57,7 +58,6 @@ if __name__ == '__main__':  # start here when run as application
 		Gui(__parent_path__, config, labels, settings, logger=logger, user_log=log_path, source=source_path).mainloop()
 		sys_exit()
 	logger = Logger(config, labels)
-	logger.add_lastlog()
 	try:
 		if not source_path:
 			raise FileNotFoundError(labels.missing_source_dir)
@@ -66,11 +66,13 @@ if __name__ == '__main__':  # start here when run as application
 			raise PermissionError(labels.bad_log_dir.replace('#', f'{config.log_path}'))
 		if not ph.is_accessable_dir(config.mail_path):
 			raise PermissionError(labels.bad_mail_dir.replace('#', f'{config.mail_path}'))
-		ph.check_source_path(source_path)
 		settings.qualicheck = args.qualicheck
 		settings.sendmail = args.sendmail
-		Worker(__parent_path__, config, labels, settings, logger=logger, user_log=log_path).copy_dir(source_path)
+		#Worker([source_path], config, labels, settings, RoboCopy(), logger, user_log=log_path).run()
 	except Exception as ex:
-		logging.error(f'{type(ex).__name__}: {ex}')
+		logger.error(ex)
 		raise ex
+	print(source_path, logger)
+	Worker([source_path], config, labels, settings, RoboCopy(), logger, user_log=log_path).run()
+
 	sys_exit()

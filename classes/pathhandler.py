@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import logging
 from re import compile as re_compile
 
 class PathHandler:
@@ -47,6 +48,7 @@ class PathHandler:
 
 	def check_source_path(self, src_path):
 		'''Check if source path is okay'''
+		src_path = src_path.resolve()
 		if not src_path.is_dir():
 			raise NotADirectoryError(self._labels.bad_source.replace('#', f'{src_path}'))
 		if not self._re.match(src_path.name):
@@ -57,10 +59,12 @@ class PathHandler:
 			raise PermissionError(self._labels.blacklisted_path.replace('#', f'{path}'))
 		if path := self.search_trigger_file(src_path):
 			raise PermissionError(self._labels.bad_file.replace('#', f'{path}'))
+		return src_path
 
 	def mk_destination(self, src_path, settings):
 		'''Create destination subdir'''
 		dst_path = self._config.target_path.joinpath(self._config.destinations[settings.destination], src_path.name)
+		logging.debug(f'Creating destination {dst_path}')
 		if dst_path.is_dir():
 			if path := self.search_trigger_file(dst_path):
 				raise OSError(self._labels.destination_blocked_by.replace('#', f'{path}'))
