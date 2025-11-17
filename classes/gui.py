@@ -12,6 +12,7 @@ from tkinter.messagebox import askyesno, showerror
 from tkinter.filedialog import askdirectory, asksaveasfilename
 from idlelib.tooltip import Hovertip
 from classes.worker import Worker
+from logger import Logger
 from classes.json import Json
 from classes.update import Update
 from classes.pathhandler import PathHandler
@@ -24,31 +25,21 @@ class WorkThread(Thread):
 		self._gui = gui
 		super().__init__()
 		self._kill_event = Event()
-		self._worker = Worker(gui.app_path, gui.config, gui.labels, gui.settings,
-			local_log = gui.log_path,
+		self._worker = Worker(
+			self._gui.source_paths,
+			self._gui.config,
+			self._gui.labels,
+			self._gui.settings,
+			self._gui.robocopy,
+			self._gui.logger,
+			user_log = self._gui.log_path,
 			echo = self._gui.echo,
 			kill = self._kill_event
 		)
 
-	def _error(self, ex):
-		'''Echo error message'''
-		self._gui.echo(f'{self._gui.labels.error} ({type(ex).__name__}): {ex}')
-
 	def run(self):
 		'''Run thread'''
-		error = False
-		for src_path in self._gui.source_paths:
-			try:
-				self._worker.copy_dir(src_path)
-			except Exception as ex:
-				logging.error(f'{ex} ({type(ex)})')
-				self._error(ex)
-				error = True
-		try:
-			del self._worker
-		except Exception as ex:
-			self._error(ex)
-		self._gui.finished(error)
+		self._gui.finished(self._worker.run())
 
 	def kill(self):
 		'''Kill thread'''
@@ -57,17 +48,19 @@ class WorkThread(Thread):
 class Gui(Tk):
 	'''GUI look and feel'''
 
-	def __init__(self, app_path, config, labels, settings, logger=None, local_log=None, source=None):
+	def __init__(self, config, labels, settings, user_log=None, source=None):
 		'''Open application window'''
 		super().__init__()
-		self.app_path = app_path
 		self.config = config
 		self.labels = labels
 		self.settings = settings
+		self.log_path = user_log
+		self.logger = Logger(self.config, self.labels)
+
+		#try:
+
 		self._defs = Json(app_path / 'gui.json')
-		self.log_path = log
-		self._work_thread = None
-		self.title(f'Copy to Import/Remote Directory Accross Network v{self.labels.version}')
+		self.title(f'{self.labels.title} v{self.labels.version}')
 		self.rowconfigure(0, weight=1)
 		self.columnconfigure(1, weight=1)
 		self.rowconfigure(5, weight=1)
@@ -167,21 +160,25 @@ class Gui(Tk):
 				)
 		if not self.destinations:
 			if self.settings.destination:
-				showerror(title=self.labels.error, message=self.labels.bad_destination.replace('#', self.settings.destination))
+				self._crash(self.labels.bad_destination.replace('#', self.settings.destination))
 			else:
-				showerror(title=self.labels.error, message=self.labels.no_destination)
-			self.destroy()
-			return
+				self._crash(self.labels.no_destination)
 		if not self._path_handler.is_accessable_dir(self.config.log_path):
-			showerror(title=self.labels.error, message=self.labels.bad_log_dir.replace('#', f'{self.config.log_path}'))
-			self.destroy()
-			return
+			self._crash(self.labels.bad_log_dir.replace('#', f'{self.config.log_path}'))
 		if not self._path_handler.is_accessable_dir(self.config.mail_path):
-			showerror(title=self.labels.error, message=self.labels.bad_mail_dir.replace('#', f'{self.config.mail_path}'))
-			self.destroy()
-			return
+			self._crash(self.labels.bad_mail_dir.replace('#', f'{self.config.mail_path}'))
+		self._work_thread = None
 		self._ignore_warning = False
 		self._init_warning()
+
+		#except exception as ex:
+		#	self._crash(ex)
+
+	def _crash(self, msg):
+		'''Handle critical error and terminate app'''
+		self.logger.crash(msg)
+		showerror(title=self.labels.error, message=msg)
+		self.destroy()
 
 	def _get_source_paths(self):
 		'''Read directory paths from text field'''

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.9.9_2025-11-16'
+__version__ = '0.9.9_2025-11-17'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@gmail.com'
 __status__ = 'Testing'
@@ -54,25 +54,21 @@ if __name__ == '__main__':  # start here when run as application
 	if args.user:
 		settings.user = args.user.strip('"\'')
 	source_path = Path(args.source.strip('"\'')) if args.source else None
-	if not source_path or args.gui:
-		Gui(__parent_path__, config, labels, settings, logger=logger, user_log=log_path, source=source_path).mainloop()
+	if source_path and not args.gui:
+		logger = Logger(config, labels)
+		try:
+			if not source_path:
+				raise FileNotFoundError(labels.missing_source_dir)
+			ph = PathHandler(config, labels)
+			if not ph.is_accessable_dir(config.log_path):
+				raise PermissionError(labels.bad_log_dir.replace('#', f'{config.log_path}'))
+			if not ph.is_accessable_dir(config.mail_path):
+				raise PermissionError(labels.bad_mail_dir.replace('#', f'{config.mail_path}'))
+			settings.qualicheck = args.qualicheck
+			settings.sendmail = args.sendmail
+			Worker([source_path], config, labels, settings, RoboCopy(), logger, user_log=log_path).run()
+		except Exception as ex:
+			logger.error(ex)
+			raise ex
 		sys_exit()
-	logger = Logger(config, labels)
-	try:
-		if not source_path:
-			raise FileNotFoundError(labels.missing_source_dir)
-		ph = PathHandler(config, labels)
-		if not ph.is_accessable_dir(config.log_path):
-			raise PermissionError(labels.bad_log_dir.replace('#', f'{config.log_path}'))
-		if not ph.is_accessable_dir(config.mail_path):
-			raise PermissionError(labels.bad_mail_dir.replace('#', f'{config.mail_path}'))
-		settings.qualicheck = args.qualicheck
-		settings.sendmail = args.sendmail
-		#Worker([source_path], config, labels, settings, RoboCopy(), logger, user_log=log_path).run()
-	except Exception as ex:
-		logger.error(ex)
-		raise ex
-	print(source_path, logger)
-	Worker([source_path], config, labels, settings, RoboCopy(), logger, user_log=log_path).run()
-
-	sys_exit()
+	Gui(config, labels, settings, user_log=log_path, source=source_path).mainloop()

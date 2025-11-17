@@ -9,7 +9,8 @@ class Config:
 
 	def __init__(self, app_path):
 		'''Read config file'''
-		with app_path.joinpath('config.json').open(encoding='utf-8') as fp:
+		self.app_path = app_path
+		with self.app_path.joinpath('config.json').open(encoding='utf-8') as fp:
 			for key, value in load(fp).items():
 				if key.endswith('_path'):
 					if value.startswith('$HOME/') or value.startswith('$HOME\\'):

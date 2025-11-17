@@ -138,14 +138,16 @@ class Worker:
 
 	def run(self):
 		'''Start copy process'''
+		errors = list()
 		for src_path in self._src_paths:
 			if self._kill_switch and self._kill_switch.is_set():
 				raise SystemExit(self._labels.worker_killed)
 			try:
 				self._logger.add_remote(src_path)
-				#self._copy_dir(src_path)
+				self._copy_dir(src_path)
 			except Exception as ex:
 				self._logger.error(ex)
-			self._copy_dir(src_path)
+				errors.append(ex)
 			self._logger.close_remote()
 		self._logger.close_user()
+		return errors
