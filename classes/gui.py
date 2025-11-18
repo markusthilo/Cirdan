@@ -12,10 +12,11 @@ from tkinter.messagebox import askyesno, showerror
 from tkinter.filedialog import askdirectory, asksaveasfilename
 from idlelib.tooltip import Hovertip
 from classes.worker import Worker
-from logger import Logger
+from classes.logger import Logger
 from classes.json import Json
 from classes.update import Update
 from classes.pathhandler import PathHandler
+from classes.robocopy import RoboCopy
 
 class WorkThread(Thread):
 	'''Thread that does the work while Tk is running the GUI'''
@@ -59,12 +60,12 @@ class Gui(Tk):
 
 		#try:
 
-		self._defs = Json(app_path / 'gui.json')
+		self._defs = Json(self.config.app_path / 'gui.json')
 		self.title(f'{self.labels.title} v{self.labels.version}')
 		self.rowconfigure(0, weight=1)
 		self.columnconfigure(1, weight=1)
 		self.rowconfigure(5, weight=1)
-		self.iconphoto(True, PhotoImage(file=self.app_path / self._defs.appicon))
+		self.iconphoto(True, PhotoImage(file=self.config.app_path / self._defs.appicon))
 		self.protocol('WM_DELETE_WINDOW', self._quit_app)
 		font = nametofont('TkTextFont').actual()
 		font_family = font['family']
@@ -150,7 +151,7 @@ class Gui(Tk):
 			message = self.labels.update_message
 		):
 			try:
-				update.download(self.app_path)
+				update.download(self.config.app_path)
 				self.destroy()
 				return
 			except Exception as ex:
@@ -167,6 +168,7 @@ class Gui(Tk):
 			self._crash(self.labels.bad_log_dir.replace('#', f'{self.config.log_path}'))
 		if not self._path_handler.is_accessable_dir(self.config.mail_path):
 			self._crash(self.labels.bad_mail_dir.replace('#', f'{self.config.mail_path}'))
+		self.robocopy = RoboCopy()
 		self._work_thread = None
 		self._ignore_warning = False
 		self._init_warning()
