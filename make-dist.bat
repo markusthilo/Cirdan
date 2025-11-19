@@ -18,3 +18,8 @@ call python -m nuitka --standalone download_app.py
 
 echo Distribution build complete!
 echo Files are available in the cirdan.dist directory.
+
+echo Writing Version number to file version.txt
+cirdan.dist\cirdan.exe -v > version.txt
+
+echo All done.

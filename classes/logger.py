@@ -12,13 +12,12 @@ class Logger:
 		self._config = config
 		self._labels = labels
 		self._echo = echo
-		self._prefix = strftime('%y%m%d_%H%M%S_')
+		self._lastlog_path = self._config.local_path.joinpath(self._config.lastlog_name)
 		self._remote = None
 		self._user = None
 		self._logger = logging.getLogger()
-		self._formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 		self._logger.setLevel(logging.DEBUG)
-		self._lastlog_path = self._config.local_path.joinpath(self._config.lastlog_name)
+		self._formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 		self._lastlog = self._add(self._lastlog_path, logging.DEBUG)
 		logging.info(f'{self._labels.starting} "{self._labels.title}" v{self._labels.version}, {self._labels.user_label} "{self._labels.user}"')
 
@@ -30,9 +29,13 @@ class Logger:
 		self._logger.addHandler(handler)
 		return handler
 
+	def get_ts(self):
+		'''Get timestamp'''
+		return strftime('%y%m%d_%H%M%S')
+
 	def add_remote(self, src_dir_path):
 		'''Add remote log file'''
-		self._remote_path = self._config.log_path.joinpath(src_dir_path.name, f'{self._prefix}{self._config.log_name}')
+		self._remote_path = self._config.log_path.joinpath(src_dir_path.name, f'{self.get_ts()}_{self._config.log_name}')
 		try:
 			self._remote_path.parent.mkdir(parents=True, exist_ok=True)
 			self._remote = self._add(self._remote_path, logging.DEBUG)
@@ -45,13 +48,14 @@ class Logger:
 		'''Close remote log file'''
 		if self._remote:
 			self._logger.removeHandler(self._remote)
+			self._remote.close()
 
 	def add_user(self, log_path, src_dir_paths):
 		'''Add user log file with given path'''
-		self._user_path = log_path
+		self._user_path = log_path.resolve()
 		self._tmp_path = None
 		for path in src_dir_paths:
-			if log_file_path.is_realtive_to(path):
+			if self._user_path.is_relative_to(path):
 				self._tmp_path = self._config.local_path.joinpath(self._config.tmplog_name)
 				log_path = self._tmp_path
 				break
@@ -63,6 +67,7 @@ class Logger:
 			return
 		logging.debug('Closing user log')
 		self._logger.removeHandler(self._user)
+		self._user.close()
 		if self._tmp_path:
 			try:
 				self._user_path.write_bytes(self._tmp_path.read_bytes())
@@ -93,12 +98,13 @@ class Logger:
 		logging.critical(msg)
 		self.close_remote()
 		self.close_user()
+		self._logger.removeHandler(self._lastlog)
+		self._lastlog.close()
 		logging.shutdown()
-		if self._lastlog:
-			self._config.log_path.join(f'{self._prefix}_{self._config.crashlog_name}').write_bytes(self._lastlog_path.read_bytes())
+		self._config.log_path.joinpath(f'{self.get_ts()}_{self._config.crashlog_name}').write_bytes(self._lastlog_path.read_bytes())
 
 	def write_tsv(self, tsv, dst_path):
 		'''Write TSV file'''
-		name = f'{self._prefix}{self._config.tsv_name}'
+		name = f'{self.get_ts()}_{self._config.tsv_name}'
 		self._remote_path.parent.joinpath(name).write_text(tsv, encoding='utf-8')
 		dst_path.joinpath(name).write_text(tsv, encoding='utf-8')

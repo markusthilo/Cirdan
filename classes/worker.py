@@ -39,11 +39,6 @@ class Worker:
 			except Exception as ex:
 				self._logger.error(ex)
 
-	def __del__(self):
-		'''Close log file handler'''
-		self._logger.close_remote()
-		self._logger.close_user()
-
 	def _copy_dir(self, src_path):
 		'''Copy directories'''
 		start_time = perf_counter()
@@ -93,7 +88,7 @@ class Worker:
 				continue
 			dst_size = dst_file_path.stat().st_size
 			if dst_size != src_size:
-				self._warning(self._labels.mismatching_sizes.replace('#', f'{src_file_path} => {src_size}, {dst_file_path} => {dst_size}'))
+				self._logger.warning(self._labels.mismatching_sizes.replace('#', f'{src_file_path} => {src_size}, {dst_file_path} => {dst_size}'))
 				bad_paths.append(src_file_path)
 		self._logger.info(self._labels.size_check_finished)
 		if hash_thread.is_alive():
@@ -122,16 +117,25 @@ class Worker:
 		if bad_paths:
 			raise BytesWarning(self._labels.error_sizes.replace('#', f'{len(bad_paths)}'))
 		if self._settings.trigger:
-			dst_path.joinpath(self._config.trigger_name).write_text(self._user, encoding='utf-8')
+			try:
+				dst_path.joinpath(self._config.trigger_name).write_text(self._user, encoding='utf-8')
+			except Exception as ex:
+				self._logger.error(ex)
 		if self._settings.sendmail and self._mail_address:
-			JsonMail(self._app_path / 'mail.json').send(
-				self._config.mail_path.joinpath(f'{self._config.mail_name}_{now}.json'),
-				to = self._mail_address,
-				id = src_path.name,
-				tsv = tsv
-			)
+			try:
+				JsonMail(self._config.app_path / 'mail.json').send(
+					self._config.mail_path.joinpath(f'{self._config.mail_name}_{self._logger.get_ts()}_{self._labels.user}.json'),
+					to = self._mail_address,
+					id = src_path.name,
+					tsv = tsv
+				)
+			except Exception as ex:
+				self._logger.error(ex)
 		if self._settings.qualicheck:
-			dst_path.joinpath(self._config.qualicheck_name).write_text(self._user, encoding='utf-8')
+			try:
+				dst_path.joinpath(self._config.qualicheck_name).write_text(self._user, encoding='utf-8')
+			except Exception as ex:
+				self._logger.error(ex)
 		end_time = perf_counter()
 		delta = end_time - start_time
 		self._logger.info(self._labels.copy_finished.replace('#', f'{timedelta(seconds=delta)}'))

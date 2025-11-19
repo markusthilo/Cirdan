@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '0.9.9_2025-11-18'
+__version__ = '0.9.9_2025-11-19'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@gmail.com'
 __status__ = 'Testing'
@@ -40,8 +40,13 @@ if __name__ == '__main__':  # start here when run as application
 		help='Send e-mail to user when copy process has finished')
 	argparser.add_argument('-u', '--user', type=str, metavar='USERNAME',
 		help='Username / e-mail-address without domain (e.g. john.doe)')
+	argparser.add_argument('-v', '--version', action='store_true',
+		help='Print version number')
 	argparser.add_argument('source', nargs='?', help='Source directory', type=str, metavar='DIRECTORY')
 	args = argparser.parse_args()
+	if args.version:
+		print(__version__)
+		sys_exit()
 	config = Config(__parent_path__)
 	labels = Json(__parent_path__ / 'labels.json')
 	labels.version = __version__

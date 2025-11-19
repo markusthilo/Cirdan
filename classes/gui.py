@@ -56,125 +56,122 @@ class Gui(Tk):
 		self.labels = labels
 		self.settings = settings
 		self.log_path = user_log
-		self.logger = Logger(self.config, self.labels)
-
-		#try:
-
-		self._defs = Json(self.config.app_path / 'gui.json')
-		self.title(f'{self.labels.title} v{self.labels.version}')
-		self.rowconfigure(0, weight=1)
-		self.columnconfigure(1, weight=1)
-		self.rowconfigure(5, weight=1)
-		self.iconphoto(True, PhotoImage(file=self.config.app_path / self._defs.appicon))
-		self.protocol('WM_DELETE_WINDOW', self._quit_app)
-		font = nametofont('TkTextFont').actual()
-		font_family = font['family']
-		font_size = font['size']
-		min_size_x = font_size * self._defs.x_factor
-		min_size_y = font_size * self._defs.y_factor
-		self.minsize(min_size_x , min_size_y)
-		self.geometry(f'{min_size_x}x{min_size_y}')
-		self.resizable(True, True)
-		self._pad = int(font_size * self._defs.pad_factor)
-		self._source_button = Button(self, text=self.labels.source_dir, command=self._select_dir)
-		self._source_button.grid(row=0, column=0, sticky='nw', ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
-		Hovertip(self._source_button, self.labels.source_tip)
-		self._source_text = ScrolledText(self, font=(font_family, font_size), padx=self._pad, pady=self._pad)
-		self._source_text.grid(row=0, column=1, sticky='nsew', ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
-		if source:
-			self._source_text.insert('end', f'{source}\n')
-		label = Label(self, text=self.labels.user_label)
-		label.grid(row=1, column=0, sticky='w', padx=self._pad, pady=self._pad)
-		Hovertip(label, self.labels.user_tip)
-		frame = Frame(self)
-		frame.grid(row=1, column=1, sticky='w', padx=self._pad)
-		self.user = StringVar(value=self.settings.user)
-		Entry(frame, textvariable=self.user, width=self._defs.user_width).pack(side='left', anchor='w')
-		Label(frame, text=f'@{self.config.domain}').pack(side='right', anchor='w')
-		label = Label(self, text=self.labels.destination)
-		label.grid(row=2, column=0, sticky='w', padx=self._pad)
-		Hovertip(label, self.labels.destination_tip)
-		self._path_handler = PathHandler(config, labels)
-		self.destinations = tuple(
-			dst for dst in self.config.destinations
-			if self._path_handler.is_accessable_dir(self.config.target_path.joinpath(self.config.destinations[dst]))
-		)
-		self.destination = StringVar()
-		if len(self.destinations) == 1:
-			self.settings.destination = self.destinations[0]
-			self.destination.set(self.destinations[0])
-			Label(self, text=self.destinations[0]).grid(row=2, column=1, sticky='w', padx=self._pad)
-		elif len(self.destinations) > 1:
-			if not self.settings.destination:
+		self.logger = Logger(self.config, self.labels, echo=self.echo)
+		try:
+			self._defs = Json(self.config.app_path / 'gui.json')
+			self.title(f'{self.labels.title} v{self.labels.version}')
+			self.rowconfigure(0, weight=1)
+			self.columnconfigure(1, weight=1)
+			self.rowconfigure(5, weight=1)
+			self.iconphoto(True, PhotoImage(file=self.config.app_path / self._defs.appicon))
+			self.protocol('WM_DELETE_WINDOW', self._quit_app)
+			font = nametofont('TkTextFont').actual()
+			font_family = font['family']
+			font_size = font['size']
+			min_size_x = font_size * self._defs.x_factor
+			min_size_y = font_size * self._defs.y_factor
+			self.minsize(min_size_x , min_size_y)
+			self.geometry(f'{min_size_x}x{min_size_y}')
+			self.resizable(True, True)
+			self._pad = int(font_size * self._defs.pad_factor)
+			self._source_button = Button(self, text=self.labels.source_dir, command=self._select_dir)
+			self._source_button.grid(row=0, column=0, sticky='nw', ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
+			Hovertip(self._source_button, self.labels.source_tip)
+			self._source_text = ScrolledText(self, font=(font_family, font_size), padx=self._pad, pady=self._pad)
+			self._source_text.grid(row=0, column=1, sticky='nsew', ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
+			if source:
+				self._source_text.insert('end', f'{source}\n')
+			label = Label(self, text=self.labels.user_label)
+			label.grid(row=1, column=0, sticky='w', padx=self._pad, pady=self._pad)
+			Hovertip(label, self.labels.user_tip)
+			frame = Frame(self)
+			frame.grid(row=1, column=1, sticky='w', padx=self._pad)
+			self.user = StringVar(value=self.settings.user)
+			Entry(frame, textvariable=self.user, width=self._defs.user_width).pack(side='left', anchor='w')
+			Label(frame, text=f'@{self.config.domain}').pack(side='right', anchor='w')
+			label = Label(self, text=self.labels.destination)
+			label.grid(row=2, column=0, sticky='w', padx=self._pad)
+			Hovertip(label, self.labels.destination_tip)
+			self._path_handler = PathHandler(config, labels)
+			self.destinations = tuple(
+				dst for dst in self.config.destinations
+				if self._path_handler.is_accessable_dir(self.config.target_path.joinpath(self.config.destinations[dst]))
+			)
+			self.destination = StringVar()
+			if len(self.destinations) == 1:
 				self.settings.destination = self.destinations[0]
-			OptionMenu(self, self.destination, self.settings.destination, *self.destinations
-				).grid(row=2, column=1, sticky='w', padx=self._pad)
-		Label(self, text=self.labels.options).grid(row=3, column=0, sticky='nw', padx=self._pad, pady=(self._pad, 0))
-		frame = Frame(self)
-		frame.grid(row=3, column=1, sticky='w', pady=(self._pad, 0))
-		self.write_trigger = BooleanVar(value=self.settings.trigger)
-		button = Checkbutton(frame, text=self.labels.trigger_button, variable=self.write_trigger)
-		button.grid(row=0, column=0, sticky='w', padx=self._pad)
-		Hovertip(button, self.labels.trigger_tip)
-		self.send_mail = BooleanVar(value=self.settings.sendmail)
-		button = Checkbutton(frame, text=self.labels.sendmail_button, variable=self.send_mail)
-		button.grid(row=0, column=1, sticky='w', padx=self._pad)
-		Hovertip(button, self.labels.sendmail_tip)
-		self.write_qualicheck = BooleanVar(value=self.settings.qualicheck)
-		button = Checkbutton(frame, text=self.labels.qualicheck_button, variable=self.write_qualicheck)
-		button.grid(row=1, column=0, sticky='w', padx=self._pad)
-		Hovertip(button, self.labels.qualicheck_tip)
-		self.write_log = BooleanVar(value=bool(self.log_path))
-		button = Checkbutton(frame, text=self.labels.log_button, variable=self.write_log, comman=self._select_log)
-		button.grid(row=1, column=1, sticky='w', padx=self._pad)
-		Hovertip(button, self.labels.log_tip)
-		self._exec_button = Button(self, text=self.labels.start_button, command=self._execute)
-		self._exec_button.grid(row=4, column=1, sticky='e', padx=self._pad, pady=self._pad)
-		Hovertip(self._exec_button, self.labels.start_tip)
-		self._info_text = ScrolledText(self, font=(font_family, font_size), padx=self._pad, pady=self._pad)
-		self._info_text.grid(row=5, column=0, columnspan=2, sticky='nsew',
-			ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
-		self._info_text.bind('<Key>', lambda dummy: 'break')
-		self._info_text.configure(state='disabled')
-		self._info_fg = self._info_text.cget('foreground')
-		self._info_bg = self._info_text.cget('background')
-		self._info_newline = True
-		self._info_label = Label(self)
-		self._info_label.grid(row=6, column=0, sticky='w', padx=self._pad, pady=self._pad)
-		self._label_fg = self._info_label.cget('foreground')
-		self._label_bg = self._info_label.cget('background')
-		self._quit_button = Button(self, text=self.labels.quit, command=self._quit_app)
-		self._quit_button.grid(row=6, column=1, sticky='e', padx=self._pad, pady=self._pad)
-		update = Update(self.labels.version, self.config.update_path)
-		if update.new_version and askyesno(
-			title = self.labels.update_title.replace('#', update.new_version),
-			message = self.labels.update_message
-		):
-			try:
-				update.download(self.config.app_path)
-				self.destroy()
-				return
-			except Exception as ex:
-				showerror(
-					title = self.labels.error,
-					message= f'{self.labels.update_error}:\n{type(ex).__name__}: {ex}'
-				)
-		if not self.destinations:
-			if self.settings.destination:
-				self._crash(self.labels.bad_destination.replace('#', self.settings.destination))
-			else:
-				self._crash(self.labels.no_destination)
-		if not self._path_handler.is_accessable_dir(self.config.log_path):
-			self._crash(self.labels.bad_log_dir.replace('#', f'{self.config.log_path}'))
-		if not self._path_handler.is_accessable_dir(self.config.mail_path):
-			self._crash(self.labels.bad_mail_dir.replace('#', f'{self.config.mail_path}'))
-		self.robocopy = RoboCopy()
-		self._work_thread = None
-		self._ignore_warning = False
-		self._init_warning()
-
-		#except exception as ex:
-		#	self._crash(ex)
+				self.destination.set(self.destinations[0])
+				Label(self, text=self.destinations[0]).grid(row=2, column=1, sticky='w', padx=self._pad)
+			elif len(self.destinations) > 1:
+				if not self.settings.destination:
+					self.settings.destination = self.destinations[0]
+				OptionMenu(self, self.destination, self.settings.destination, *self.destinations
+					).grid(row=2, column=1, sticky='w', padx=self._pad)
+			Label(self, text=self.labels.options).grid(row=3, column=0, sticky='nw', padx=self._pad, pady=(self._pad, 0))
+			frame = Frame(self)
+			frame.grid(row=3, column=1, sticky='w', pady=(self._pad, 0))
+			self.write_trigger = BooleanVar(value=self.settings.trigger)
+			button = Checkbutton(frame, text=self.labels.trigger_button, variable=self.write_trigger)
+			button.grid(row=0, column=0, sticky='w', padx=self._pad)
+			Hovertip(button, self.labels.trigger_tip)
+			self.send_mail = BooleanVar(value=self.settings.sendmail)
+			button = Checkbutton(frame, text=self.labels.sendmail_button, variable=self.send_mail)
+			button.grid(row=0, column=1, sticky='w', padx=self._pad)
+			Hovertip(button, self.labels.sendmail_tip)
+			self.write_qualicheck = BooleanVar(value=self.settings.qualicheck)
+			button = Checkbutton(frame, text=self.labels.qualicheck_button, variable=self.write_qualicheck)
+			button.grid(row=1, column=0, sticky='w', padx=self._pad)
+			Hovertip(button, self.labels.qualicheck_tip)
+			self.write_log = BooleanVar(value=bool(self.log_path))
+			button = Checkbutton(frame, text=self.labels.log_button, variable=self.write_log, comman=self._select_log)
+			button.grid(row=1, column=1, sticky='w', padx=self._pad)
+			Hovertip(button, self.labels.log_tip)
+			self._exec_button = Button(self, text=self.labels.start_button, command=self._execute)
+			self._exec_button.grid(row=4, column=1, sticky='e', padx=self._pad, pady=self._pad)
+			Hovertip(self._exec_button, self.labels.start_tip)
+			self._info_text = ScrolledText(self, font=(font_family, font_size), padx=self._pad, pady=self._pad)
+			self._info_text.grid(row=5, column=0, columnspan=2, sticky='nsew',
+				ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
+			self._info_text.bind('<Key>', lambda dummy: 'break')
+			self._info_text.configure(state='disabled')
+			self._info_fg = self._info_text.cget('foreground')
+			self._info_bg = self._info_text.cget('background')
+			self._info_newline = True
+			self._info_label = Label(self)
+			self._info_label.grid(row=6, column=0, sticky='w', padx=self._pad, pady=self._pad)
+			self._label_fg = self._info_label.cget('foreground')
+			self._label_bg = self._info_label.cget('background')
+			self._quit_button = Button(self, text=self.labels.quit, command=self._quit_app)
+			self._quit_button.grid(row=6, column=1, sticky='e', padx=self._pad, pady=self._pad)
+			update = Update(self.labels.version, self.config.update_path)
+			if update.new_version and askyesno(
+				title = self.labels.update_title.replace('#', update.new_version),
+				message = self.labels.update_message
+			):
+				try:
+					update.download(self.config.app_path)
+					self.destroy()
+					return
+				except Exception as ex:
+					showerror(
+						title = self.labels.error,
+						message= f'{self.labels.update_error}:\n{type(ex).__name__}: {ex}'
+					)
+			if not self.destinations:
+				if self.settings.destination:
+					self._crash(self.labels.bad_destination.replace('#', self.settings.destination))
+				else:
+					self._crash(self.labels.no_destination)
+			if not self._path_handler.is_accessable_dir(self.config.log_path):
+				self._crash(self.labels.bad_log_dir.replace('#', f'{self.config.log_path}'))
+			if not self._path_handler.is_accessable_dir(self.config.mail_path):
+				self._crash(self.labels.bad_mail_dir.replace('#', f'{self.config.mail_path}'))
+			self.robocopy = RoboCopy()
+			self._work_thread = None
+			self._ignore_warning = False
+			self._init_warning()
+		except Exception as ex:
+			self._crash(ex)
 
 	def _crash(self, msg):
 		'''Handle critical error and terminate app'''
@@ -277,6 +274,7 @@ class Gui(Tk):
 
 	def _execute(self):
 		'''Start copy process / worker'''
+		self._clear_info()
 		self.source_paths, bad_paths = self._get_source_paths()
 		if bad_paths:
 			showerror(title=self.labels.error, message=f'{self.labels.bad_sources}: {"\n ".join(bad_paths)}')
@@ -297,7 +295,6 @@ class Gui(Tk):
 		self._source_button.configure(state='disabled')
 		self._source_text.configure(state='disabled')
 		self._exec_button.configure(state='disabled')
-		self._clear_info()
 		self._work_thread = WorkThread(self).start()
 
 	def _init_warning(self):
