@@ -10,6 +10,7 @@
         "Import directory 2": "import2",
         "Import directory 3": "import3"
     },
+    "settings_name": "settings.json",
     "log_name": "log.txt",
     "lastlog_name": "lastlog.txt",
     "tmplog_name": "tmplog.txt",

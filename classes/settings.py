@@ -8,7 +8,7 @@ class Settings:
 
 	def __init__(self, config):
 		'''Generate object for setting, try to load from JSON file'''
-		self._path = config.local_path / 'settings.json'
+		self._path = config.local_path / config.settings_name
 		self._keys = ('destination', 'qualicheck', 'sendmail', 'trigger', 'user')
 		try:
 			with self._path.open(encoding='utf-8') as fp:
