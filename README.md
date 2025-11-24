@@ -25,7 +25,7 @@ JSON files are used to store configuration (not touched by application):
 
 By default user settings are stored in `%AppData%\Local\Cirdan\settings.json`.
 
-Nuitka is needed to bild Windows executables. The Batch-Script `make-dist-bat` can be used. Check if paths need to be adapted.
+The batch script `make-dist.bat` uses Nuitka to build Windows executables. `python make_pzinst.py` can be used to build executables with PyInstaller. Check the scripts if paths need to be adapted.
 
 Still testing. The author is not responsible for any malfunction and/or lost data.
 

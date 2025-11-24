@@ -143,20 +143,21 @@ class Gui(Tk):
 			self._label_bg = self._info_label.cget('background')
 			self._quit_button = Button(self, text=self.labels.quit, command=self._quit_app)
 			self._quit_button.grid(row=6, column=1, sticky='e', padx=self._pad, pady=self._pad)
-			update = Update(self.labels.version, self.config.update_path)
-			if update.new_version and askyesno(
-				title = self.labels.update_title.replace('#', update.new_version),
-				message = self.labels.update_message
-			):
-				try:
-					update.download(self.config.app_path)
-					self.destroy()
-					return
-				except Exception as ex:
-					showerror(
-						title = self.labels.error,
-						message= f'{self.labels.update_error}:\n{type(ex).__name__}: {ex}'
-					)
+			if not self.config.app_path.resolve().drive.startswith('\\\\'):
+				update = Update(self.labels.version, self.config.update_path)
+				if update.new_version and askyesno(
+					title = self.labels.update_title.replace('#', update.new_version),
+					message = self.labels.update_message
+				):
+					try:
+						update.download(self.config.app_path)
+						self.destroy()
+						return
+					except Exception as ex:
+						showerror(
+							title = self.labels.error,
+							message= f'{self.labels.update_error}:\n{type(ex).__name__}: {ex}'
+						)
 			if not self.destinations:
 				if self.settings.destination:
 					self._crash(self.labels.bad_destination.replace('#', self.settings.destination))

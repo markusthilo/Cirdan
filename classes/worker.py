@@ -92,7 +92,7 @@ class Worker:
 				bad_paths.append(src_file_path)
 		self._logger.info(self._labels.size_check_finished)
 		if hash_thread.is_alive():
-			self._info(self._labels.hashing_in_progress)
+			self._logger.info(self._labels.hashing_in_progress)
 			index = 0
 			while hash_thread.is_alive():
 				self._echo(f'{"|/-\\"[index]}  ', end='\r')
