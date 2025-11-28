@@ -6,15 +6,15 @@
     },
     "mail_meta": {
         "val_id": "0001",
-        "uuid": "d8657443-d42a-4158-9898-7fe677c8e3d1"
+        "uuid": "placeholder"
     },
     "mail_content": {
-        "From": "MSD-Netz-Support@polizei.berlin.de",
-        "FromDisplayName": "MSD Netz Support",
-        "FromPersonalNr": "24521844",
-        "ReplyTo": "MSD-Netz-Support@polizei.berlin.de",
-        "To": "markus.thilo@polizei.berlin.de",
-        "Subject": "Cirdan: Kopieren von # ins Import-Verzeichnis wurde durchgeführt",
-        "Body": "Hallo Nutzer,\n\ndie folgenden Dateien wurden ins Import-Verzeichnis kopiert:\n\n"
+        "From": "markus.thilo@gmail.com",
+        "FromDisplayName": "Support Team",
+        "FromPersonalNr": "712",
+        "ReplyTo": "markus.thilo@gmail.com",
+        "To": "john.d@placeholder.net",
+        "Subject": "Cirdan: Copied # into import directory",
+        "Body": "Hello User,\n\nThe following files have been copied into the import directory:\n\n"
     }
 }
