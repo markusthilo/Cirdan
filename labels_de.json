@@ -28,7 +28,7 @@
     "missing_source_dir": "Quellverzeichnis fehlt",
     "bad_source": "Ungültiges Quellverzeichnis: #",
     "path_too_long": "Pfad ist zu lang: #",
-    "blacklisted_path": "Pfad ist auf der Blacklist: #",
+    "blacklisted_path": "Dateipfad ist nicht erlaubt (Blacklist): #",
     "bad_file": "Verbotene Datei: #",
     "bad_sources": "Ungültige(s) Quellverzeichnis(se):\n#",
     "destination_blocked_by": "Zielverzeichnis ist blockiert durch Trigger-Datei: #",

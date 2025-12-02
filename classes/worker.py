@@ -29,10 +29,13 @@ class Worker:
 		self._src_paths = list()
 		logging.debug('Initializing worker')
 		for path in src_paths:
-			try:
-				self._src_paths.append(self._path_handler.check_source_path(path))
-			except Exception as ex:
-				self._logger.error(ex)
+			res = self._path_handler.check_source_path(path)
+			if isinstance(res, Path):
+				self._src_paths.append(res)
+			elif isinstance(res, Warning):
+				self._logger.warning(res)
+			else:
+				self._logger.error(res)
 		if user_log:
 			try:
 				self._logger.add_user(user_log, self._src_paths)

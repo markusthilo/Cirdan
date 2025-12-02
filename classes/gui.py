@@ -198,15 +198,22 @@ class Gui(Tk):
 		'''Add directory into field'''
 		if not dir_path:
 			return
-		dir_path = dir_path.resolve()
 		self.echo(self.labels.checking_source.replace('#', f'{dir_path}'), end='\r')
-		try:
-			self._path_handler.check_source_path(dir_path)
-		except Exception as ex:
+		res = self._path_handler.check_source_path(dir_path)
+		if isinstance(res, Path):
+			dir_path = res
+		elif isinstance(res, Warning):
+			if not self._ignore_warning and not askyesno(title=self.labels.warning, message=res):
+				self._ignore_warning = True
+				return
+			self._ignore_warning = False
+		
+		else:
 			self.echo('', end='\r')
-			showerror(title=self.labels.error, message=f'{type(ex).__name__}: {ex}')
+			showerror(title=self.labels.error, message=f'{type(res).__name__}: {res}')
 			return
-		self.echo('', end='\r')
+		
+		#self.echo('', end='\r')
 		old_paths, bad_paths = self._get_source_paths()
 		if old_paths and path in old_paths:
 			return

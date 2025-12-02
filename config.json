@@ -22,8 +22,8 @@
     "max_path_len": 230,
     "dir_regex": "^[0-9]{6}-.*",
     "blacklist": [
-        "*/Help/HTML5/",
-        "*/Help/LicenseUpgrade/"
+        "*/forbidden.txt",
+        "*/not_allowed/*"
     ],
     "triggers": [
         "trigger.txt",

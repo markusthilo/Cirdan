@@ -23,7 +23,7 @@ class PathHandler:
 			return False
 		return True
 
-	def get_too_long_path(self, src_path):
+	def search_too_long_path(self, src_path):
 		'''Check if path length is okay'''
 		max_len = self._config.max_path_len
 		for abs_path in src_path.rglob('*'):
@@ -32,7 +32,7 @@ class PathHandler:
 			if len(f'{rel_path}') > max_len:
 				return rel_path
 
-	def get_blacklisted(self, src_path):
+	def search_blacklisted(self, src_path):
 		'''Get blacklisted path'''
 		for path in src_path.rglob('*'):
 			for pattern in self._config.blacklist:
@@ -48,17 +48,20 @@ class PathHandler:
 
 	def check_source_path(self, src_path):
 		'''Check if source path is okay'''
-		src_path = src_path.resolve()
+		try:
+			src_path = src_path.resolve()
+		except Exception as ex:
+			return OSError(self._labels.bad_source.replace('#', f'{src_path}'))
 		if not src_path.is_dir():
-			raise NotADirectoryError(self._labels.bad_source.replace('#', f'{src_path}'))
+			return NotADirectoryError(self._labels.bad_source.replace('#', f'{src_path}'))
 		if not self._re.match(src_path.name):
-			raise PermissionError(self._labels.bad_source.replace('#', f'{src_path}'))
-		if path := self.get_too_long_path(src_path):
-			raise PermissionError(self._labels.path_too_long.replace('#', f'{path}'))
-		if path := self.get_blacklisted(src_path):
-			raise PermissionError(self._labels.blacklisted_path.replace('#', f'{path}'))
+			return PermissionError(self._labels.bad_source.replace('#', f'{src_path}'))
 		if path := self.search_trigger_file(src_path):
-			raise PermissionError(self._labels.bad_file.replace('#', f'{path}'))
+			return PermissionError(self._labels.bad_file.replace('#', f'{path}'))
+		if path := self.get_too_long_path(src_path):
+			return Warning(self._labels.path_too_long.replace('#', f'{path}'))
+		if path := self.get_blacklisted(src_path):
+			return Warning(self._labels.blacklisted_path.replace('#', f'{path}'))
 		return src_path
 
 	def mk_destination(self, src_path, settings):
