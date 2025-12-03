@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '1.0.1_2025-12-02'
+__version__ = '1.0.1_2025-12-03'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@gmail.com'
 __status__ = 'Testing'
@@ -38,6 +38,8 @@ if __name__ == '__main__':  # start here when run as application
 		help='Trigger qualicheck when the entire process has finished')
 	argparser.add_argument('-s', '--sendmail', action='store_true',
 		help='Send e-mail to user when copy process has finished')
+	argparser.add_argument('-t', '--tolerant', action='store_true',
+		help='Ignore encounter of blacklisted paths')
 	argparser.add_argument('-u', '--user', type=str, metavar='USERNAME',
 		help='Username / e-mail-address without domain (e.g. john.doe)')
 	argparser.add_argument('-v', '--version', action='store_true',
@@ -48,7 +50,7 @@ if __name__ == '__main__':  # start here when run as application
 		print(__version__)
 		sys_exit()
 	config = Config(__parent_path__)
-	labels = Json(__parent_path__ / 'labels.json')
+	labels = Json(config.labels_path)
 	labels.version = __version__
 	labels.user = getlogin()
 	settings = Settings(config)
@@ -59,21 +61,21 @@ if __name__ == '__main__':  # start here when run as application
 	if args.user:
 		settings.user = args.user.strip('"\'')
 	source_path = Path(args.source.strip('"\'')).resolve() if args.source else None
+	settings.tolerant = args.tolerant
 	if source_path and not args.gui:
 		logger = Logger(config, labels)
-		try:
-			if not source_path:
-				raise FileNotFoundError(labels.missing_source_dir)
-			ph = PathHandler(config, labels)
-			if not ph.is_accessable_dir(config.log_path):
-				raise PermissionError(labels.bad_log_dir.replace('#', f'{config.log_path}'))
-			if not ph.is_accessable_dir(config.mail_path):
-				raise PermissionError(labels.bad_mail_dir.replace('#', f'{config.mail_path}'))
-			settings.qualicheck = args.qualicheck
-			settings.sendmail = args.sendmail
-			Worker([source_path], config, labels, settings, RoboCopy(), logger, user_log=log_path).run()
-		except Exception as ex:
-			logger.error(ex)
-			raise ex
-		sys_exit()
+		if not source_path:
+			logger.error(labels.missing_source_dir)
+			sys_exit(1)
+		ph = PathHandler(config, labels)
+		if not ph.is_accessable_dir(config.log_path):
+			logger.error(labels.bad_log_dir.replace('#', f'{config.log_path}'))
+			sys_exit(1)
+		if not ph.is_accessable_dir(config.mail_path):
+			logger.error(labels.bad_mail_dir.replace('#', f'{config.mail_path}'))
+			sys_exit(1)
+		settings.qualicheck = args.qualicheck
+		settings.sendmail = args.sendmail
+		Worker([source_path], config, labels, settings, RoboCopy(), logger, user_log=log_path).run()
+		sys_exit(0)
 	Gui(config, labels, settings, user_log=log_path, source=source_path).mainloop()

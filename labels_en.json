@@ -37,6 +37,8 @@
 	"update_error": "The new version  could not be copied or downloaded",
     "quit": "Exit",
     "warning": "Warning",
+    "ask_ignore": "Continue anyway?",
+    "are_you_sure": "Are you sure???",
     "select_dir": "Select the source directory",
     "logfile": "Log File",
     "allfiles": "All Files",

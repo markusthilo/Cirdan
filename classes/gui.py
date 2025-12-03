@@ -8,7 +8,7 @@ from tkinter import Tk, PhotoImage, StringVar, BooleanVar
 from tkinter.font import nametofont
 from tkinter.ttk import Frame, Label, Entry, Button, Checkbutton, OptionMenu
 from tkinter.scrolledtext import ScrolledText
-from tkinter.messagebox import askyesno, showerror
+from tkinter.messagebox import askyesno, showerror, showwarning, askyesnocancel
 from tkinter.filedialog import askdirectory, asksaveasfilename
 from idlelib.tooltip import Hovertip
 from classes.worker import Worker
@@ -154,10 +154,8 @@ class Gui(Tk):
 						self.destroy()
 						return
 					except Exception as ex:
-						showerror(
-							title = self.labels.error,
-							message= f'{self.labels.update_error}:\n{type(ex).__name__}: {ex}'
-						)
+						msg = self.logger.error(ex)
+						showerror(parent=self, title=self.labels.error, message=f'{self.labels.update_error}:\n{msg}')
 			if not self.destinations:
 				if self.settings.destination:
 					self._crash(self.labels.bad_destination.replace('#', self.settings.destination))
@@ -169,15 +167,14 @@ class Gui(Tk):
 				self._crash(self.labels.bad_mail_dir.replace('#', f'{self.config.mail_path}'))
 			self.robocopy = RoboCopy()
 			self._work_thread = None
-			self._ignore_warning = False
 			self._init_warning()
 		except Exception as ex:
 			self._crash(ex)
 
-	def _crash(self, msg):
+	def _crash(self, arg):
 		'''Handle critical error and terminate app'''
-		self.logger.crash(msg)
-		showerror(title=self.labels.error, message=msg)
+		msg = self.logger.crash(arg)
+		showerror(parent=self, title=self.labels.error, message=msg)
 		self.destroy()
 
 	def _get_source_paths(self):
@@ -199,25 +196,31 @@ class Gui(Tk):
 		if not dir_path:
 			return
 		self.echo(self.labels.checking_source.replace('#', f'{dir_path}'), end='\r')
-		res = self._path_handler.check_source_path(dir_path)
-		if isinstance(res, Path):
-			dir_path = res
-		elif isinstance(res, Warning):
-			if not self._ignore_warning and not askyesno(title=self.labels.warning, message=res):
-				self._ignore_warning = True
-				return
-			self._ignore_warning = False
-		
-		else:
-			self.echo('', end='\r')
-			showerror(title=self.labels.error, message=f'{type(res).__name__}: {res}')
+		self.echo('', end='\r')
+		path, ex = self._path_handler.check_source_path(dir_path)
+		if isinstance(ex, Warning):
+
+			msg = self.logger.warning(ex)
+			showwarning(parent=self, title=self.labels.warning, message=msg)
 			return
-		
-		#self.echo('', end='\r')
+
+			if not askyesno(title=self.labels.warning, message=self.labels.ask_ignore):
+				self.settings.tolerant = False
+				return
+			if not askyesno(title=self.labels.warning, message=self.labels.are_you_sure):
+				self.settings.tolerant = False
+				return
+
+			self.settings.tolerant = True
+
+		elif ex:
+			msg = self.logger.error(ex)
+			showerror(parent=self, title=self.labels.error, message=msg)
+			return
 		old_paths, bad_paths = self._get_source_paths()
 		if old_paths and path in old_paths:
 			return
-		self._source_text.insert('end', f'{dir_path}\n')
+		self._source_text.insert('end', f'{path}\n')
 
 	def _select_dir(self):
 		'''Select directory to add into field'''
@@ -341,10 +344,11 @@ class Gui(Tk):
 		self._source_text.delete('1.0', 'end')
 		self.write_log.set(False)
 		self.log_path = None
+		self.settings.tolerant = False
+		self._work_thread = None
 		self._source_button.configure(state='normal')
 		self._exec_button.configure(state='normal')
 		self._quit_button.configure(state='normal')
-		self._work_thread = None
 
 	def _quit_app(self):
 		'''Quit app, ask when copy processs is running'''

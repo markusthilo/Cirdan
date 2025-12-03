@@ -51,18 +51,18 @@ class PathHandler:
 		try:
 			src_path = src_path.resolve()
 		except Exception as ex:
-			return OSError(self._labels.bad_source.replace('#', f'{src_path}'))
+			return None, OSError(self._labels.bad_source.replace('#', f'{src_path}'))
 		if not src_path.is_dir():
-			return NotADirectoryError(self._labels.bad_source.replace('#', f'{src_path}'))
+			return src_path, NotADirectoryError(self._labels.bad_source.replace('#', f'{src_path}'))
 		if not self._re.match(src_path.name):
-			return PermissionError(self._labels.bad_source.replace('#', f'{src_path}'))
+			return src_path, PermissionError(self._labels.bad_source.replace('#', f'{src_path}'))
 		if path := self.search_trigger_file(src_path):
-			return PermissionError(self._labels.bad_file.replace('#', f'{path}'))
-		if path := self.get_too_long_path(src_path):
-			return Warning(self._labels.path_too_long.replace('#', f'{path}'))
-		if path := self.get_blacklisted(src_path):
-			return Warning(self._labels.blacklisted_path.replace('#', f'{path}'))
-		return src_path
+			return src_path, PermissionError(self._labels.bad_file.replace('#', f'{path}'))
+		if path := self.search_too_long_path(src_path):
+			return src_path, OSError(self._labels.path_too_long.replace('#', f'{path}'))
+		if path := self.search_blacklisted(src_path):
+			return src_path, Warning(self._labels.blacklisted_path.replace('#', f'{path}'))
+		return src_path, None
 
 	def mk_destination(self, src_path, settings):
 		'''Create destination subdir'''

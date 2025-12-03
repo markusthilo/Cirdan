@@ -37,6 +37,8 @@
 	"update_error": "Die neue Version konnte nicht kopiert bzw. heruntergeladen werden",
     "quit": "Beenden",
     "warning": "Warnung",
+    "ask_ignore": "Trotzdem fortfahren?",
+    "are_you_sure": "Sind Sie sicher???",
     "select_dir": "Wähle das Quellverzeichnis aus",
     "logfile": "Protokolldatei",
     "allfiles": "Alle Dateien",

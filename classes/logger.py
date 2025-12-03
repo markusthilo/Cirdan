@@ -75,25 +75,36 @@ class Logger:
 			except Exception as ex:
 				self.error(ex)
 
-	def info(self, msg):
+	def _decode(self, arg):
+		'''Decode argument (Exception or text)'''
+		if isinstance(arg, Exception):
+			return f'{type(arg).__name__}: {arg}'
+		return f'{arg}'
+
+	def info(self, arg):
 		'''Echo message abd log info'''
+		msg = self._decode(arg)
 		self._echo(msg)
 		logging.info(msg)
+		return msg
 
-	def warning(self, msg):
+	def warning(self, arg):
 		'''Echo message and log warning'''
+		msg = self._decode(arg)
 		self._echo(msg)
 		logging.warning(msg)
+		return msg
 
-	def error(self, ex):
+	def error(self, arg):
 		'''Log error'''
-		msg = f'{type(ex).__name__}: {ex}'
+		msg = self._decode(arg)
 		self._echo(f'ERROR: {msg}')
 		logging.error(msg)
+		return msg
 
-	def crash(self, ex):
+	def crash(self, arg):
 		'''Close all logs on crash and try to copy crashlog'''
-		msg = f'{type(ex).__name__}: {ex}'
+		msg = self._decode(arg)
 		self._echo(f'CRITICAL: {msg}')
 		logging.critical(msg)
 		self.close_remote()
@@ -102,6 +113,7 @@ class Logger:
 		self._lastlog.close()
 		logging.shutdown()
 		self._config.log_path.joinpath(f'{self.get_ts()}_{self._config.crashlog_name}').write_bytes(self._lastlog_path.read_bytes())
+		return msg
 
 	def write_tsv(self, tsv, dst_path):
 		'''Write TSV file'''
