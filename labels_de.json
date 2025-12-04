@@ -28,7 +28,7 @@
     "missing_source_dir": "Quellverzeichnis fehlt",
     "bad_source": "Ungültiges Quellverzeichnis: #",
     "path_too_long": "Pfad ist zu lang: #",
-    "blacklisted_path": "Dateipfad ist nicht erlaubt (Blacklist): #",
+
     "bad_file": "Verbotene Datei: #",
     "bad_sources": "Ungültige(s) Quellverzeichnis(se):\n#",
     "destination_blocked_by": "Zielverzeichnis ist blockiert durch Trigger-Datei: #",
@@ -37,8 +37,16 @@
 	"update_error": "Die neue Version konnte nicht kopiert bzw. heruntergeladen werden",
     "quit": "Beenden",
     "warning": "Warnung",
+    "blacklisted_path": "Dateipfad ist nicht erlaubt (Blacklist): #",
+    "ask_delete_file": "\n\nSoll die Datei gelöscht werden?",
+    "ask_delete_dir": "\n\nSoll der Verzeichnispfad vollständig gelöscht werden?",
+    "ask_delete": "#\n\nwird gelöscht!\n\nWirklich löchen?",
+    "unable_delete": "# konnte nicht gelöscht werden",
+
     "ask_ignore": "Trotzdem fortfahren?",
-    "are_you_sure": "Sind Sie sicher???",
+    "are_you_sure": "Sind Sie sicher?",
+
+
     "select_dir": "Wähle das Quellverzeichnis aus",
     "logfile": "Protokolldatei",
     "allfiles": "Alle Dateien",

@@ -4,6 +4,7 @@
 import logging
 from threading import Thread, Event
 from pathlib import Path
+from shutil import rmtree
 from tkinter import Tk, PhotoImage, StringVar, BooleanVar
 from tkinter.font import nametofont
 from tkinter.ttk import Frame, Label, Entry, Button, Checkbutton, OptionMenu
@@ -197,26 +198,45 @@ class Gui(Tk):
 			return
 		self.echo(self.labels.checking_source.replace('#', f'{dir_path}'), end='\r')
 		self.echo('', end='\r')
-		path, ex = self._path_handler.check_source_path(dir_path)
-		if isinstance(ex, Warning):
-
-			msg = self.logger.warning(ex)
-			showwarning(parent=self, title=self.labels.warning, message=msg)
-			return
-
-			if not askyesno(title=self.labels.warning, message=self.labels.ask_ignore):
-				self.settings.tolerant = False
+		while True:
+			path, ex = self._path_handler.check_source_path(dir_path)
+			if isinstance(ex, Warning):
+				is_file = path.is_file()
+				msg = self.logger.warning(f'{ex}')
+				msg += self.labels.ask_delete_file if is_file else self.labels.ask_delete_dir
+				res = askyesnocancel(parent=self, title=self.labels.warning, message=msg)
+				if res:
+					if askyesno(parent=self, title=self.labels.warning, message=self.labels.ask_delete.replace('#', f'{path}')):
+						try:
+							path.unlink()
+						except:
+							try:
+								rmtree(path)
+							except:
+								msg = self.logger.error(self.labels.unable_delete.replace('#', f'{path}'))
+								showerror(parent=self, title=self.labels.error, message=msg)
+								return
+					else:
+						return
+				elif res is False:
+					if askyesno(parent=self, title=self.labels.warning, message=self.labels.ask_ignore):
+						if not askyesno(title=self.labels.warning, message=self.labels.are_you_sure):
+							self.settings.tolerant = False
+							return
+						else:
+							self.settings.tolerant = True
+					else:
+						return
+				else:
+					return
+			elif ex:
+				msg = self.logger.error(ex)
+				showerror(parent=self, title=self.labels.error, message=msg)
 				return
-			if not askyesno(title=self.labels.warning, message=self.labels.are_you_sure):
-				self.settings.tolerant = False
-				return
 
-			self.settings.tolerant = True
+		print(path, self.settings.tolerant)
+		return
 
-		elif ex:
-			msg = self.logger.error(ex)
-			showerror(parent=self, title=self.labels.error, message=msg)
-			return
 		old_paths, bad_paths = self._get_source_paths()
 		if old_paths and path in old_paths:
 			return

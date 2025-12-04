@@ -91,7 +91,7 @@ class Logger:
 	def warning(self, arg):
 		'''Echo message and log warning'''
 		msg = self._decode(arg)
-		self._echo(msg)
+		self._echo(f'WARNING: {msg}')
 		logging.warning(msg)
 		return msg
 

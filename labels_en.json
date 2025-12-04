@@ -28,7 +28,7 @@
     "missing_source_dir": "Source directory missing",
     "bad_source": "Invalid source directory: #",
     "path_too_long": "Path is too long: #",
-    "blacklisted_path": "Path is on the blacklist: #",
+
     "bad_file": "Forbidden file: #",
     "bad_sources": "Invalid source directory(ies):\n#",
     "destination_blocked_by": "Destination directory is blocked by trigger file: #",
@@ -37,8 +37,16 @@
 	"update_error": "The new version  could not be copied or downloaded",
     "quit": "Exit",
     "warning": "Warning",
+    "blacklisted_path": "Path is on the blacklist: #",
+    "ask_delete_file": "Delete file?",
+    "ask_delete_dir": "Completely delete directory tree?",
+    "ask_delete": "#\n\nis going to be deleted!\n\nAre you sure?",
+    "unable_delete": "Failed to delete #",
+
     "ask_ignore": "Continue anyway?",
-    "are_you_sure": "Are you sure???",
+    "are_you_sure": "Are you sure?",
+
+
     "select_dir": "Select the source directory",
     "logfile": "Log File",
     "allfiles": "All Files",
