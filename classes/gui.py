@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import logging
 from threading import Thread, Event
-from shutil import rmtree
 from tkinter import Tk, PhotoImage, StringVar, BooleanVar
 from tkinter.font import nametofont
 from tkinter.ttk import Frame, Label, Entry, Button, Checkbutton, OptionMenu
@@ -13,7 +11,7 @@ from tkinter.filedialog import askdirectory, asksaveasfilename
 from idlelib.tooltip import Hovertip
 from classes.worker import Worker
 from classes.logger import Logger
-from classes.paths import Path
+from classes.paths import Path, Source
 from classes.json import Json
 from classes.update import Update
 from classes.robocopy import RoboCopy
@@ -92,10 +90,9 @@ class Gui(Tk):
 			label = Label(self, text=self.labels.destination)
 			label.grid(row=2, column=0, sticky='w', padx=self._pad)
 			Hovertip(label, self.labels.destination_tip)
-			self._path_handler = PathHandler(config, labels)
 			self.destinations = tuple(
 				dst for dst in self.config.destinations
-				if self._path_handler.is_accessable_dir(self.config.target_path.joinpath(self.config.destinations[dst]))
+				if self.config.target_path.joinpath(self.config.destinations[dst]).is_accessable_dir()
 			)
 			self.destination = StringVar()
 			if len(self.destinations) == 1:
@@ -161,11 +158,12 @@ class Gui(Tk):
 					self._crash(self.labels.bad_destination.replace('#', self.settings.destination))
 				else:
 					self._crash(self.labels.no_destination)
-			if not self._path_handler.is_accessable_dir(self.config.log_path):
+			if not self.config.log_path.is_accessable_dir():
 				self._crash(self.labels.bad_log_dir.replace('#', f'{self.config.log_path}'))
-			if not self._path_handler.is_accessable_dir(self.config.mail_path):
+			if not self.config.mail_path.is_accessable_dir():
 				self._crash(self.labels.bad_mail_dir.replace('#', f'{self.config.mail_path}'))
 			self.robocopy = RoboCopy()
+			self.settings.tolerant = False
 			self._work_thread = None
 			self._init_warning()
 		except Exception as ex:
@@ -195,51 +193,45 @@ class Gui(Tk):
 		'''Add directory into field'''
 		if not dir_path:
 			return
-		self.echo(self.labels.checking_source.replace('#', f'{dir_path}'), end='\r')
-		self.echo('', end='\r')
-		while True:
-			path, ex = self._path_handler.check_source_path(dir_path)
-			if isinstance(ex, Warning):
-				is_file = path.is_file()
-				msg = self.logger.warning(f'{ex}')
-				msg += self.labels.ask_delete_file if is_file else self.labels.ask_delete_dir
-				res = askyesnocancel(parent=self, title=self.labels.warning, message=msg)
-				if res:
-					if askyesno(parent=self, title=self.labels.warning, message=self.labels.ask_delete.replace('#', f'{path}')):
-						try:
-							path.unlink()
-						except:
-							try:
-								rmtree(path)
-							except:
-								msg = self.logger.error(self.labels.unable_delete.replace('#', f'{path}'))
-								showerror(parent=self, title=self.labels.error, message=msg)
-								return
-					else:
-						return
-				elif res is False:
-					if askyesno(parent=self, title=self.labels.warning, message=self.labels.ask_ignore):
-						if not askyesno(title=self.labels.warning, message=self.labels.are_you_sure):
-							self.settings.tolerant = False
-							return
-						else:
-							self.settings.tolerant = True
-					else:
-						return
-				else:
-					return
-			elif ex:
-				msg = self.logger.error(ex)
-				showerror(parent=self, title=self.labels.error, message=msg)
-				return
-
-		print(path, self.settings.tolerant)
-		return
-
-		old_paths, bad_paths = self._get_source_paths()
-		if old_paths and path in old_paths:
+		#self.echo(self.labels.checking_source.replace('#', f'{dir_path}'), end='\r')
+		#self.echo('', end='\r')
+		self.logger.info(self.labels.checking_source.replace('#', f'{dir_path}'))
+		source = Source(dir_path)
+		pattern, match = source.search(self.config.source_whitelist)
+		if not match:
+			showerror(
+				parent = self,
+				title = self.labels.error,
+				message = self.logger.error(self._labels.bad_source.replace('#', f'{source.path}'))
+			)
 			return
-		self._source_text.insert('end', f'{path}\n')
+		if too_long := source.too_long(self.config.max_path_length):
+			showerror(
+				parent = self,
+				title = self.labels.error,
+				message =  self.logger.error(self._labels.path_too_long.replace('#', too_long))
+			)
+			return
+		if not self.settings.tolerant:
+			pattern, match = source.search(self.config.source_blacklist)
+			if match:
+				showwarning(
+					parent = self,
+					title = self.labels.warning,
+					message = self.logger.warning(self._labels.blacklisted.replace('#1', match).replace('#2', f'{pattern}'))
+				)
+				if not askyesno(parent=self, title=self.labels.warning, message=self._labels.ask_ignore):
+					self.settings.tolerant = False
+					return
+				if not askyesno(title=self.labels.warning, message=self.labels.are_you_sure):
+					self.settings.tolerant = False
+					return
+				self.settings.tolerant = True
+		old_paths, bad_paths = self._get_source_paths()
+		if old_paths and source.path in old_paths:
+			return
+		self._source_text.insert('end', f'{source.path}\n')
+		self._clear_info()
 
 	def _select_dir(self):
 		'''Select directory to add into field'''

@@ -28,14 +28,12 @@
     "missing_source": "Source directory missing",
     "bad_source": "Invalid source directory: #",
     "path_too_long": "Path is too long: #",
-    "blacklisted": "Path is restricted by blacklist: #1 (regex pattern: \"#2\")",
-    
-
-    "bad_file": "Forbidden file: #",
-    "bad_sources": "Invalid source directory(ies):\n#",
-    "destination_blocked_by": "Destination directory is blocked by trigger file: #",
+    "blacklisted": "Path is restricted by blacklist: #1 / regex pattern: \"#2\"",
+    "no_sources": "No source directories to copy",
+    "log_error": "Error while creating log file: #",
     "no_destination": "No valid destination directory",
     "bad_destination": "Invalid destination directory: #",
+    "destination_blocked_by": "Destination directory is blocked by trigger file: #",
 	"update_error": "The new version  could not be copied or downloaded",
     "quit": "Exit",
     "warning": "Warning",
@@ -45,8 +43,8 @@
     "ask_delete": "#\n\nis going to be deleted!\n\nAre you sure?",
     "unable_delete": "Failed to delete #",
 
-    "ask_ignore": "Continue anyway?",
-    "are_you_sure": "Are you sure?",
+    "ask_ignore": "Continue ignoring blacklist?",
+    "are_you_sure": "Are you sure? Problems are to be expected.",
 
 
     "select_dir": "Select the source directory",

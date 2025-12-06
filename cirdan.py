@@ -59,7 +59,7 @@ if __name__ == '__main__':  # start here when run as application
 	settings.trigger = not args.notrigger
 	if args.user:
 		settings.user = args.user.strip('"\'')
-	source_path = Path(args.source.strip('"\'')).resolve() if args.source else None
+	source_path = Path(args.source.strip('"\'')) if args.source else None
 	settings.tolerant = args.tolerant
 	if source_path and not args.gui:
 		logger = Logger(config, labels)
@@ -74,6 +74,11 @@ if __name__ == '__main__':  # start here when run as application
 			sys_exit(1)
 		settings.qualicheck = args.qualicheck
 		settings.sendmail = args.sendmail
-		Worker([source_path], config, labels, settings, RoboCopy(), logger, user_log=log_path).run()
+		try:
+			settings.save()
+		except Exception as ex:
+			logger.warning(ex)
+		if Worker([source_path], config, labels, settings, RoboCopy(), logger, user_log=log_path).run():
+			sys_exit(1)
 		sys_exit(0)
 	Gui(config, labels, settings, user_log=log_path, source=source_path).mainloop()

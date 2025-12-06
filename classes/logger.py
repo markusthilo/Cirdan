@@ -50,12 +50,12 @@ class Logger:
 			self._logger.removeHandler(self._remote)
 			self._remote.close()
 
-	def add_user(self, log_path, src_dir_paths):
+	def add_user(self, log_path, sources):
 		'''Add user log file with given path if not inside path to copy'''
 		self._user_path = log_path.resolve()
 		self._tmp_path = None
-		for path in src_dir_paths:
-			if self._user_path.is_relative_to(path):
+		for source in sources:
+			if self._user_path.is_relative_to(source.path):
 				self._tmp_path = self._config.local_path.joinpath(self._config.tmplog_name)
 				log_path = self._tmp_path
 				break

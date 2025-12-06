@@ -49,7 +49,7 @@ class RegEx:
 					return regex.pattern, item
 		return None, None
 
-class SourcePath:
+class Source:
 	'''Source path to copy'''
 
 	def __init__(self, src_dir):
@@ -72,12 +72,12 @@ class SourcePath:
 			if len(sub) > max_len:
 				return sub
 
-class DestinationPath:
+class Destination:
 	'''Destination path to copy to'''
 
-	def __init__(self, src_path, dst_root_path):
+	def __init__(self, source, dst_root_path):
 		'''Create destination subdir'''
-		self.path = dst_root_path.joinpath(dst_root_path, src_path.name)
+		self.path = dst_root_path.joinpath(dst_root_path, source.path.name)
 		if self.path.is_dir():
 			self._subs = tuple(path.str() for path in self.path.rrglob('*'))
 		elif self.path.exists():

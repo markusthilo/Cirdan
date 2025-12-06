@@ -25,7 +25,7 @@
     ],
     "max_path_length": 230,
     "source_blacklist": [
-        "^[^/]*/(?!EAV[0-9A-Z]{9})(?![^/]*pdf).*",
+        "^[^/]*/(?!EAV[0-9A-Z]{9})(?![^/]*\\.pdf).*$",
         ".*/forbidden.txt$",
         ".*/not_allowed/.*"
     ],

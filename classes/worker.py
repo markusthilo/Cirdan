@@ -4,7 +4,7 @@
 import logging
 from time import sleep, perf_counter
 from datetime import timedelta
-from classes.paths import SourcePath, DestinationPath
+from classes.paths import Source, Destination
 from classes.hash import HashThread
 from classes.size import Size
 from classes.jsonmail import JsonMail 
@@ -14,54 +14,31 @@ class Worker:
 
 	def __init__(self, src_paths, config, labels, settings, robocopy, logger, user_log=None, kill=None, echo=print):
 		'''Prepare copy process'''
+		self._src_paths = src_paths
 		self._config = config
 		self._labels = labels
 		self._settings = settings
 		self._robocopy = robocopy
 		self._logger = logger
+		self._user_log = user_log
 		self._kill_switch = kill
 		self._echo = echo
 		self._mail_address = f'{self._settings.user}@{self._config.domain}' if self._settings.user else None
 		self._user = f'{self._labels.user} / {self._mail_address}' if self._mail_address else self._labels.user
-		self.source_paths = list()
 		self.errors = list()
-		logging.debug('Initializing worker')
-		for path in src_paths:
-			source = SourcePath(path)
-			pattern, match = source.search(self._config.source_whitelist)
-			if not match:
-				msg = self._labels.bad_source.replace('#', f'{source.path}')
-				self._logger.error(msg)
-				self.errors.append(msg)
-				continue
-			if too_long := source.too_long(self._config.max_path_length):
-				msg = self._labels.path_too_long.replace('#', too_long)
-				self._logger.error(msg)
-				self.errors.append(msg)
-				continue
-			if not self._settings.tolerant:
-				pattern, match = source.search(self._config.source_blacklist)
-				if match:
-					msg = self._labels.blacklisted.replace('#1', match).replace('#2', f'{pattern}')
-					self._logger.error(msg)
-					self.errors.append(msg)
-					continue
-			self.source_paths.append(source)
-		if user_log:
-			try:
-				self._logger.add_user(user_log, self.source_paths)
-			except Exception as ex:
-				self._logger.error(ex)
 
-	def _copy_dir(self, src_path):
-		'''Copy directories'''
+	def _error(self, arg):
+		'''Handle error'''
+		self.errors.append(self._logger.error(arg))
+
+	def _copy(self, source, destination):
+		'''Copy directory'''
 		start_time = perf_counter()
-		dst_path = self._path_handler.mk_destination(src_path, self._settings)
-		self._logger.info(f'{self._labels.reading_structure} {src_path}')
+		self._logger.info(f'{self._labels.reading_structure} {source.path}')
 		src_file_paths = list()
 		src_file_sizes = list()
 		total_bytes = 0
-		for path in src_path.rglob('*'):	# analyze root structure
+		for path in source.path.rglob('*'):	# analyze root structure
 			if path.is_file():
 				size = path.stat().st_size
 				src_file_paths.append(path)
@@ -70,9 +47,8 @@ class Worker:
 		hash_thread = HashThread(src_file_paths)
 		self._logger.info(self._labels.starting_hashing.replace('#', f'{len(src_file_paths)}'))
 		hash_thread.start()
-		dst_path = self._config.target_path.joinpath(self._config.destinations[self._settings.destination], src_path.name)
-		self._logger.info(f'{self._labels.starting_robocopy}: {src_path} -> {dst_path}, {Size(total_bytes).readable()}')
-		for line in self._robocopy.copy_dir(src_path, dst_path):
+		self._logger.info(f'{self._labels.starting_robocopy}: {source.path} -> {destination.path}, {Size(total_bytes).readable()}')
+		for line in self._robocopy.copy_dir(source.path, destination.path):
 			if line.endswith('%'):
 				self._echo(line, end='\r')
 			else:
@@ -95,7 +71,7 @@ class Worker:
 		total = len(src_file_paths)
 		for cnt, (src_file_path, src_size) in enumerate(zip(src_file_paths, src_file_sizes), start=1):
 			self._echo(f'{int(100*cnt/total)}%', end='\r')
-			dst_file_path = dst_path.joinpath(src_file_path.relative_to(src_path))
+			dst_file_path = destination.path.joinpath(src_file_path.relative_to(source.path))
 			if not dst_file_path.exists():
 				self._logger.warning(self._labels.missing_file.replace('#', f'{src_file_path}'))
 				missing_paths.append(src_file_path)
@@ -118,56 +94,94 @@ class Worker:
 		self._logger.info(self._labels.hashing_finished)
 		tsv = self._labels.tsv_head
 		for path, md5 in hash_thread.get_hashes():
-			tsv += f'\n{path.relative_to(src_path.parent)}\t{md5}\t'
+			tsv += f'\n{path.relative_to(source.path.parent)}\t{md5}\t'
 			if path in missing_paths:
 				tsv += self._labels.missing
 			elif path in bad_paths:
 				tsv += self._labels.bad_size
 			else:
 				tsv += self._labels.okay
-		self._logger.write_tsv(tsv, dst_path)
+		self._logger.write_tsv(tsv, destination.path)
 		if missing_paths:
-			raise FileNotFoundError(self._labels.error_missing.replace('#', f'{len(missing_paths)}'))
+			self._error(self._labels.error_missing.replace('#', f'{len(missing_paths)}'))
 		if bad_paths:
-			raise BytesWarning(self._labels.error_sizes.replace('#', f'{len(bad_paths)}'))
-		if self._settings.trigger:
-			try:
-				dst_path.joinpath(self._config.trigger_name).write_text(self._user, encoding='utf-8')
-			except Exception as ex:
-				self._logger.error(ex)
-		if self._settings.sendmail and self._mail_address:
-			try:
-				JsonMail(self._config.app_path / 'mail.json').send(
-					self._config.mail_path.joinpath(f'{self._config.mail_name}_{self._logger.get_ts()}_{self._labels.user}.json'),
-					to = self._mail_address,
-					id = src_path.name,
-					tsv = tsv
-				)
-			except Exception as ex:
-				self._logger.error(ex)
-		if self._settings.qualicheck:
-			try:
-				dst_path.joinpath(self._config.qualicheck_name).write_text(self._user, encoding='utf-8')
-			except Exception as ex:
-				self._logger.error(ex)
-		end_time = perf_counter()
-		delta = end_time - start_time
-		self._logger.info(self._labels.copy_finished.replace('#', f'{timedelta(seconds=delta)}'))
+			self._error(self._labels.error_sizes.replace('#', f'{len(bad_paths)}'))
+		time_delta = perf_counter() - start_time
+		self._logger.info(self._labels.copy_finished.replace('#', f'{timedelta(seconds=time_delta)}'))
 
 	def run(self):
 		'''Start copy process'''
-		print(self.source_paths)
-		print(self.errors)
-		return
-		for src_path in self.source_paths:
+		logging.debug('Running worker')
+		sources = list()
+		for src_path in self._src_paths:
+			source = Source(src_path)
+			pattern, match = source.search(self._config.source_whitelist)
+			if not match:
+				self._error(self._labels.bad_source.replace('#', f'{source.path}'))
+				continue
+			if too_long := source.too_long(self._config.max_path_length):
+				self._error(self._labels.path_too_long.replace('#', too_long))
+				continue
+			if not self._settings.tolerant:
+				pattern, match = source.search(self._config.source_blacklist)
+				if match:
+					self._error(self._labels.blacklisted.replace('#1', match).replace('#2', f'{pattern}'))
+					continue
+			sources.append(source)
+		if not sources:
+			self._error(self._labels.no_sources)
+			return self.errors
+		if self._user_log:
+			try:
+				self._logger.add_user(self._user_log, sources)
+			except Exception as ex:
+				self._logger.warning(self._labels.user_log_error.replace('#', f'{ex}'))
+		self._destination_root_path = self._config.target_path.joinpath(self._config.destinations[self._settings.destination])
+		if not self._destination_root_path.is_accessable_dir():
+			self._error(self._labels.bad_destination.replace('#', f'{self._destination_root_path}'))
+			return
+		for source in sources:
 			if self._kill_switch and self._kill_switch.is_set():
 				raise SystemExit(self._labels.worker_killed)
 			try:
-				self._logger.add_remote(src_path)
-				self._copy_dir(src_path)
+				destination = Destination(source, self._destination_root_path)
 			except Exception as ex:
-				self._logger.error(ex)
-				errors.append(ex)
-			self._logger.close_remote()
-		self._logger.close_user()
-		return errors
+				self._error(ex)
+				continue
+			try:
+				self._logger.add_remote(src_path)
+			except Exception as ex:
+				self._error(self._labels.log_error.replace('#', f'{ex}'))
+			try:
+				self._copy(source, destination)
+			except Exception as ex:
+				self._error(ex)
+			if self._settings.trigger:
+				try:
+					destination.path.joinpath(self._config.trigger_name).write_text(self._user, encoding='utf-8')
+				except Exception as ex:
+					self._error(ex)
+			if self._settings.qualicheck:
+				try:
+					destination.path.joinpath(self._config.qualicheck_name).write_text(self._user, encoding='utf-8')
+				except Exception as ex:
+					self._error(ex)
+			if self._settings.sendmail and self._mail_address:
+				try:
+					JsonMail(self._config.app_path / 'mail.json').send(
+						self._config.mail_path.joinpath(f'{self._config.mail_name}_{self._logger.get_ts()}_{self._labels.user}.json'),
+						to = self._mail_address,
+						id = source.path.name,
+						tsv = tsv
+					)
+				except Exception as ex:
+					self._error(ex)
+			try:
+				self._logger.close_remote()
+			except Exception as ex:
+				self._logger.warning(ex)
+		try:
+			self._logger.close_user()
+		except Exception as ex:
+			self._logger.warning(ex)
+		return self.errors

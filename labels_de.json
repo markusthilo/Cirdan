@@ -28,14 +28,12 @@
     "missing_source": "Quellverzeichnis fehlt",
     "bad_source": "Ungültiges Quellverzeichnis: #",
     "path_too_long": "Pfad ist zu lang: #",
-    "blacklisted": "Unerlaubter Pfad (Blacklist): #1 (RegEx-Muster: \"#2\")",
-    
-
-    "bad_file": "Verbotene Datei: #",
-    "bad_sources": "Ungültige(s) Quellverzeichnis(se):\n#",
-    "destination_blocked_by": "Zielverzeichnis ist blockiert durch Trigger-Datei: #",
+    "blacklisted": "Unerlaubter Pfad (Blacklist): #1 / RegEx-Muster: \"#2\"",
+    "no_sources": "Keine zu kopierenden Quellverzeichnisse",
+    "log_error": "Fehler beim Erzeugen einer Protokolldatei: #",
     "no_destination": "Kein gültiges Zielverzeichnis",
     "bad_destination": "Ungültiges Zielverzeichnis: #",
+    "destination_blocked_by": "Zielverzeichnis ist blockiert durch Trigger-Datei: #",
 	"update_error": "Die neue Version konnte nicht kopiert bzw. heruntergeladen werden",
     "quit": "Beenden",
     "warning": "Warnung",
@@ -45,8 +43,8 @@
     "ask_delete": "#\n\nwird gelöscht!\n\nWirklich löchen?",
     "unable_delete": "# konnte nicht gelöscht werden",
 
-    "ask_ignore": "Trotzdem fortfahren?",
-    "are_you_sure": "Sind Sie sicher?",
+    "ask_ignore": "Fortfahren und Blacklist ignorieren?",
+    "are_you_sure": "Sind Sie sicher? Probleme sind zu erwarten!",
 
 
     "select_dir": "Wähle das Quellverzeichnis aus",
