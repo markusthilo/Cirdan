@@ -20,21 +20,21 @@
     "trigger_name": "trigger.txt",
     "qualicheck_name": "qualicheck.txt",
     "mail_name": "CIRDAN",
-    "max_path_len": 230,
     "source_whitelist": [
-        "^[0-9]{6}-[^/]/EAV[0-9A-Z]{9}.*"
+        "^[0-9]{6}-[^/]*/EAV[0-9A-Z]{9}.*"
     ],
+    "max_path_length": 230,
     "source_blacklist": [
-        "^[^/]*/(?!.*\\.pdf$).*$",
-        "*/forbidden.txt",
-        "*/not_allowed/*"
+        "^[^/]*/(?!EAV[0-9A-Z]{9})(?![^/]*pdf).*",
+        ".*/forbidden.txt$",
+        ".*/not_allowed/.*"
     ],
     "destination_blacklist": [
-        "[^/]*/trigger.txt",
-        "[^/]*/qualicheck.txt",
-        "[^/]*/done.txt",
-        "[^/]*/error.txt",
-        "[^/]*/start.txt",
-        "[^/]*/delete.txt"
+        "^[^/]*/trigger.txt",
+        "^[^/]*/qualicheck.txt",
+        "^[^/]*/done.txt",
+        "^[^/]*/error.txt",
+        "^[^/]*/start.txt",
+        "^[^/]*/delete.txt"
     ]
 }

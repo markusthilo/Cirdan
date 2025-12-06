@@ -25,9 +25,11 @@
     "error": "Error",
     "missing_name": "Missing user / missing email address",
     "checking_source": "Checking source directory #",
-    "missing_source_dir": "Source directory missing",
+    "missing_source": "Source directory missing",
     "bad_source": "Invalid source directory: #",
     "path_too_long": "Path is too long: #",
+    "blacklisted": "Path is restricted by blacklist: #1 (regex pattern: \"#2\")",
+    
 
     "bad_file": "Forbidden file: #",
     "bad_sources": "Invalid source directory(ies):\n#",

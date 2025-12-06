@@ -25,9 +25,11 @@
     "error": "Fehler",
     "missing_name": "Fehlender Bearbeiter / fehlende E-Mail-Adresse",
     "checking_source": "Prüfe Quellverzeichnis #",
-    "missing_source_dir": "Quellverzeichnis fehlt",
+    "missing_source": "Quellverzeichnis fehlt",
     "bad_source": "Ungültiges Quellverzeichnis: #",
     "path_too_long": "Pfad ist zu lang: #",
+    "blacklisted": "Unerlaubter Pfad (Blacklist): #1 (RegEx-Muster: \"#2\")",
+    
 
     "bad_file": "Verbotene Datei: #",
     "bad_sources": "Ungültige(s) Quellverzeichnis(se):\n#",

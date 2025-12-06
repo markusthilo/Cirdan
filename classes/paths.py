@@ -39,20 +39,22 @@ class RegEx:
 
 	def __init__(self, patterns):
 		'''Set up checker'''
-		self._compiled = (re_compile(pattern) for pattern in patterns)
+		self._compiled = tuple(re_compile(pattern) for pattern in patterns)
 
 	def search(self, iterable):
 		'''Return first matching item'''
 		for item in iterable:
 			for regex in self._compiled:
 				if regex.search(item):
-					return item
+					return regex.pattern, item
+		return None, None
 
 class SourcePath:
 	'''Source path to copy'''
 
-	def __init__(self, src_path):
+	def __init__(self, src_dir):
 		'''Set up checker'''
+		src_path = src_dir if isinstance(src_dir, Path) else Path(src_dir)
 		self.path = src_path.lookup()
 		self._subs = tuple(path.str() for path in self.path.rrglob('*')) if self.path else tuple()
 
@@ -62,14 +64,13 @@ class SourcePath:
 
 	def search(self, patterns):
 		'''Return first path that matches a pattern'''
-		res = RegEx(patterns).search(self._subs)
-		return Path(res) if res else None
+		return RegEx(patterns).search(self._subs)
 
-	def check_len(self, max_len):
+	def too_long(self, max_len):
 		'''Return path that violates given path length (in chars)'''
 		for sub in self._subs:
 			if len(sub) > max_len:
-				return Path(sub)
+				return sub
 
 class DestinationPath:
 	'''Destination path to copy to'''

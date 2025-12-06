@@ -2,11 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import logging
-from pathlib import Path
 from time import sleep, perf_counter
 from datetime import timedelta
-from os import getlogin
-from classes.pathhandler import PathHandler
+from classes.paths import SourcePath, DestinationPath
 from classes.hash import HashThread
 from classes.size import Size
 from classes.jsonmail import JsonMail 
@@ -25,24 +23,33 @@ class Worker:
 		self._echo = echo
 		self._mail_address = f'{self._settings.user}@{self._config.domain}' if self._settings.user else None
 		self._user = f'{self._labels.user} / {self._mail_address}' if self._mail_address else self._labels.user
-		self._path_handler = PathHandler(self._config, self._labels)
-		self._src_paths = list()
+		self.source_paths = list()
+		self.errors = list()
 		logging.debug('Initializing worker')
 		for path in src_paths:
-			src_path, ex = self._path_handler.check_source_path(path)
-			if isinstance(ex, Warning):
-				if self._settings.tolerant:
-					self._logger.warning(ex)
-				else:
-					self._logger.error(ex)
-					raise ex
-			elif ex:
-				self._logger.error(ex)
-				raise ex
-			self._src_paths.append(src_path)
+			source = SourcePath(path)
+			pattern, match = source.search(self._config.source_whitelist)
+			if not match:
+				msg = self._labels.bad_source.replace('#', f'{source.path}')
+				self._logger.error(msg)
+				self.errors.append(msg)
+				continue
+			if too_long := source.too_long(self._config.max_path_length):
+				msg = self._labels.path_too_long.replace('#', too_long)
+				self._logger.error(msg)
+				self.errors.append(msg)
+				continue
+			if not self._settings.tolerant:
+				pattern, match = source.search(self._config.source_blacklist)
+				if match:
+					msg = self._labels.blacklisted.replace('#1', match).replace('#2', f'{pattern}')
+					self._logger.error(msg)
+					self.errors.append(msg)
+					continue
+			self.source_paths.append(source)
 		if user_log:
 			try:
-				self._logger.add_user(user_log, self._src_paths)
+				self._logger.add_user(user_log, self.source_paths)
 			except Exception as ex:
 				self._logger.error(ex)
 
@@ -149,8 +156,10 @@ class Worker:
 
 	def run(self):
 		'''Start copy process'''
-		errors = list()
-		for src_path in self._src_paths:
+		print(self.source_paths)
+		print(self.errors)
+		return
+		for src_path in self.source_paths:
 			if self._kill_switch and self._kill_switch.is_set():
 				raise SystemExit(self._labels.worker_killed)
 			try:

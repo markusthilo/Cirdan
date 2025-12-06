@@ -3,7 +3,6 @@
 
 import logging
 from threading import Thread, Event
-from pathlib import Path
 from shutil import rmtree
 from tkinter import Tk, PhotoImage, StringVar, BooleanVar
 from tkinter.font import nametofont
@@ -14,9 +13,9 @@ from tkinter.filedialog import askdirectory, asksaveasfilename
 from idlelib.tooltip import Hovertip
 from classes.worker import Worker
 from classes.logger import Logger
+from classes.paths import Path
 from classes.json import Json
 from classes.update import Update
-from classes.pathhandler import PathHandler
 from classes.robocopy import RoboCopy
 
 class WorkThread(Thread):

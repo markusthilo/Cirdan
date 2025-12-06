@@ -51,7 +51,7 @@ class Logger:
 			self._remote.close()
 
 	def add_user(self, log_path, src_dir_paths):
-		'''Add user log file with given path'''
+		'''Add user log file with given path if not inside path to copy'''
 		self._user_path = log_path.resolve()
 		self._tmp_path = None
 		for path in src_dir_paths:

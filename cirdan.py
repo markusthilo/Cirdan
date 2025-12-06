@@ -12,12 +12,11 @@ from sys import executable as __executable__
 from sys import exit as sys_exit
 from os import getlogin
 from argparse import ArgumentParser
-from pathlib import Path
+from classes.paths import Path
 from classes.json import Json
 from classes.config import Config
 from classes.settings import Settings
 from classes.logger import Logger
-from classes.pathhandler import PathHandler
 from classes.robocopy import RoboCopy
 from classes.worker import Worker
 from classes.gui import Gui
@@ -67,11 +66,10 @@ if __name__ == '__main__':  # start here when run as application
 		if not source_path:
 			logger.error(labels.missing_source_dir)
 			sys_exit(1)
-		ph = PathHandler(config, labels)
-		if not ph.is_accessable_dir(config.log_path):
+		if not config.log_path.is_accessable_dir():
 			logger.error(labels.bad_log_dir.replace('#', f'{config.log_path}'))
 			sys_exit(1)
-		if not ph.is_accessable_dir(config.mail_path):
+		if not config.mail_path.is_accessable_dir():
 			logger.error(labels.bad_mail_dir.replace('#', f'{config.mail_path}'))
 			sys_exit(1)
 		settings.qualicheck = args.qualicheck
