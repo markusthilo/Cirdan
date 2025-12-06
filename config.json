@@ -21,17 +21,20 @@
     "qualicheck_name": "qualicheck.txt",
     "mail_name": "CIRDAN",
     "max_path_len": 230,
-    "dir_regex": "^[0-9]{6}-.*",
-    "blacklist": [
+    "source_whitelist": [
+        "^[0-9]{6}-[^/]/EAV[0-9A-Z]{9}.*"
+    ],
+    "source_blacklist": [
+        "^[^/]*/(?!.*\\.pdf$).*$",
         "*/forbidden.txt",
         "*/not_allowed/*"
     ],
-    "triggers": [
-        "trigger.txt",
-        "qualicheck.txt",
-        "done.txt",
-        "error.txt",
-        "start.txt",
-        "delete.txt"
+    "destination_blacklist": [
+        "[^/]*/trigger.txt",
+        "[^/]*/qualicheck.txt",
+        "[^/]*/done.txt",
+        "[^/]*/error.txt",
+        "[^/]*/start.txt",
+        "[^/]*/delete.txt"
     ]
 }
