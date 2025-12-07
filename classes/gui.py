@@ -11,7 +11,7 @@ from tkinter.filedialog import askdirectory, asksaveasfilename
 from idlelib.tooltip import Hovertip
 from classes.worker import Worker
 from classes.logger import Logger
-from classes.paths import Path, Source
+from classes.paths import Path, PathTree
 from classes.json import Json
 from classes.update import Update
 from classes.robocopy import RoboCopy
@@ -163,7 +163,6 @@ class Gui(Tk):
 			if not self.config.mail_path.is_accessable_dir():
 				self._crash(self.labels.bad_mail_dir.replace('#', f'{self.config.mail_path}'))
 			self.robocopy = RoboCopy()
-			self.settings.tolerant = False
 			self._work_thread = None
 			self._init_warning()
 		except Exception as ex:
@@ -189,49 +188,48 @@ class Gui(Tk):
 					bad_paths.add(stripped)
 		return good_paths, bad_paths
 
-	def _add_dir(self, dir_path):
+	def _add_dir(self, src_dir):
 		'''Add directory into field'''
-		if not dir_path:
+		if not src_dir:
 			return
-		#self.echo(self.labels.checking_source.replace('#', f'{dir_path}'), end='\r')
-		#self.echo('', end='\r')
-		self.logger.info(self.labels.checking_source.replace('#', f'{dir_path}'))
-		source = Source(dir_path)
-		pattern, match = source.search(self.config.source_whitelist)
+		self._clear_info()
+		source = PathTree(src_dir)
+		old_paths, bad_paths = self._get_source_paths()
+		if old_paths and source.path in old_paths:
+			self.logger.info(self.labels.already_added.replace('#', f'{source}'))
+			return
+		self.logger.info(self.labels.checking_source.replace('#', f'{source}'))
+		match, pattern = source.search(self.config.source_whitelist)
 		if not match:
 			showerror(
 				parent = self,
 				title = self.labels.error,
-				message = self.logger.error(self._labels.bad_source.replace('#', f'{source.path}'))
+				message = self.logger.error(self.labels.bad_source.replace('#', f'{source}'))
 			)
 			return
-		if too_long := source.too_long(self.config.max_path_length):
-			showerror(
-				parent = self,
-				title = self.labels.error,
-				message =  self.logger.error(self._labels.path_too_long.replace('#', too_long))
+		match, length = source.too_long(self.config.max_path_length)
+		if match:
+			msd = self.logger.warning(self.labels.path_too_long.replace(
+					'#1', f'{match}').replace(
+					'#2', f'{length}').replace(
+					'#3', f'{self._config.max_path_length}')
 			)
+			showerror(parent=self, title=self.labels.error, message=msg)
 			return
 		if not self.settings.tolerant:
-			pattern, match = source.search(self.config.source_blacklist)
+			match, pattern = source.search(self.config.source_blacklist)
 			if match:
-				showwarning(
-					parent = self,
-					title = self.labels.warning,
-					message = self.logger.warning(self._labels.blacklisted.replace('#1', match).replace('#2', f'{pattern}'))
-				)
-				if not askyesno(parent=self, title=self.labels.warning, message=self._labels.ask_ignore):
+				msg = self.logger.warning(self.labels.blacklisted.replace('#1', f'{match}').replace('#2', f'{pattern}'))
+				showwarning(parent=self, title=self.labels.warning, message=msg)
+				if not askyesno(parent=self, title=self.labels.warning, message=self.labels.ask_ignore):
 					self.settings.tolerant = False
 					return
 				if not askyesno(title=self.labels.warning, message=self.labels.are_you_sure):
 					self.settings.tolerant = False
 					return
 				self.settings.tolerant = True
-		old_paths, bad_paths = self._get_source_paths()
-		if old_paths and source.path in old_paths:
-			return
-		self._source_text.insert('end', f'{source.path}\n')
-		self._clear_info()
+		self._source_text.insert('end', f'{source}\n')
+		self.logger.info(self.labels.inserted.replace('#', f'{source}'))
 
 	def _select_dir(self):
 		'''Select directory to add into field'''
@@ -301,7 +299,7 @@ class Gui(Tk):
 		if bad_paths:
 			showerror(title=self.labels.error, message=f'{self.labels.bad_sources}: {"\n ".join(bad_paths)}')
 		if not self.source_paths:
-			showerror(title=self.labels.error, message=self.labels.missing_source_dir)
+			showerror(title=self.labels.error, message=self.labels.missing_source)
 			return
 		self._get_settings()
 		if not self.settings.user:

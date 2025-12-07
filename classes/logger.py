@@ -3,6 +3,8 @@
 
 import logging
 from time import strftime
+from traceback import format_exc
+from sys import exc_info
 
 class Logger:
 	'''Configure Logging'''
@@ -78,7 +80,8 @@ class Logger:
 	def _decode(self, arg):
 		'''Decode argument (Exception or text)'''
 		if isinstance(arg, Exception):
-			return f'{type(arg).__name__}: {arg}'
+			ex_type, ex_text, traceback = exc_info()
+			return f'{ex_type.__name__}: {ex_text}\n{format_exc().strip()}'
 		return f'{arg}'
 
 	def info(self, arg):
@@ -115,8 +118,8 @@ class Logger:
 		self._config.log_path.joinpath(f'{self.get_ts()}_{self._config.crashlog_name}').write_bytes(self._lastlog_path.read_bytes())
 		return msg
 
-	def write_tsv(self, tsv, dst_path):
+	def write_tsv(self, tsv, destination):
 		'''Write TSV file'''
 		name = f'{self.get_ts()}_{self._config.tsv_name}'
 		self._remote_path.parent.joinpath(name).write_text(tsv, encoding='utf-8')
-		dst_path.joinpath(name).write_text(tsv, encoding='utf-8')
+		destination.write_text_file(name, tsv)

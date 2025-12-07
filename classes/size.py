@@ -2,7 +2,11 @@
 # -*- coding: utf-8 -*-
 
 class Size(int):
-	'''Copy functionality'''
+	'''Bytes using int'''
+
+	def __add__(self, other):
+		'''Add two Size objects'''
+		return Size(int.__add__(self, other))
 
 	def readable(self, format_k='{iec} / {si}', format_b='{b} byte(s)'):
 		'''Genereate readable size string,

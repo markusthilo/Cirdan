@@ -43,7 +43,7 @@ class RoboCopy:
 
 	def copy_dir(self, src, dst):
 		'''Copy recursivly a directory'''
-		return self._yield([src, dst] + ['/e'] + self._copy_args)
+		return self._yield([f'{src}', f'{dst}'] + ['/e'] + self._copy_args)
 
 	def mirror_dir(self, src, dst):
 		'''Empty destination directory and copy source into it'''

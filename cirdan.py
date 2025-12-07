@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '1.1.0_2025-12-06'
+__version__ = '1.1.0_2025-12-07'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@gmail.com'
 __status__ = 'Testing'
@@ -59,7 +59,7 @@ if __name__ == '__main__':  # start here when run as application
 	settings.trigger = not args.notrigger
 	if args.user:
 		settings.user = args.user.strip('"\'')
-	source_path = Path(args.source.strip('"\'')) if args.source else None
+	source_path = Path(args.source.strip('"\'')).resolve() if args.source else None
 	settings.tolerant = args.tolerant
 	if source_path and not args.gui:
 		logger = Logger(config, labels)

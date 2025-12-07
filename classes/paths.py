@@ -1,22 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from pathlib import Path
+from pathlib import Path as PathlibPath
 from re import compile as re_compile
 from re import Pattern as RePattern
 
-class Path(Path):
+class Path(PathlibPath):
 	'''Methods to check and create paths'''
 
 	def str(self):
 		'''Return string representation with slashes'''
 		return str(self).replace('\\', '/')
-
-	def lookup(self):
-		'''Return resolved path if existing, else None'''
-		path = self.resolve()
-		if path.exists():
-			return path
 
 	def is_accessable_dir(self):
 		'''Check if path is accessable'''
@@ -46,47 +40,65 @@ class RegEx:
 		for item in iterable:
 			for regex in self._compiled:
 				if regex.search(item):
-					return regex.pattern, item
+					return item, regex.pattern
 		return None, None
 
-class Source:
-	'''Source path to copy'''
+class PathTree:
+	'''Tree of paths'''
 
-	def __init__(self, src_dir):
-		'''Set up checker'''
-		src_path = src_dir if isinstance(src_dir, Path) else Path(src_dir)
-		self.path = src_path.lookup()
-		self._subs = tuple(path.str() for path in self.path.rrglob('*')) if self.path else tuple()
+	def __init__(self, root):
+		'''Set up tree'''
+		self.path = Path(root).resolve()
+		self.name = self.path.name
+		self.parent = self.path.parent
+		self._subs = tuple(path.str() for path in self.path.rrglob('*'))
 
-	def exists(self):
-		'''Return True if path exists'''
-		return bool(self.path)
+	def __str__(self):
+		'''Return string representation'''
+		return str(self.path)
+
+	def __repr__(self):
+		'''Return string representation'''
+		return f"Tree('{self.path}')"
+
+	def walk(self):
+		'''Return all paths in tree'''
+		return self.path.rglob('*')
+
+	def get_relative(self, path):
+		'''Return path relative to root'''
+		return path.relative_to(self.path)
+
+	def joinpath(self, *args):
+		'''Join path with root'''
+		return self.path.joinpath(*args)
+
+	def is_accessable_dir(self):
+		'''Check if path is an excisting, accessable directory'''
+		return self.path.is_accessable_dir()
 
 	def search(self, patterns):
 		'''Return first path that matches a pattern'''
-		return RegEx(patterns).search(self._subs)
+		match, pattern = RegEx(patterns).search(self._subs)
+		if match:
+			return self.path.parent / match, pattern
+		return None, None
 
 	def too_long(self, max_len):
 		'''Return path that violates given path length (in chars)'''
 		for sub in self._subs:
-			if len(sub) > max_len:
-				return sub
+			length = len(sub)
+			if length > max_len:
+				return self.path.parent / sub, length
+		return None, None
 
-class Destination:
-	'''Destination path to copy to'''
-
-	def __init__(self, source, dst_root_path):
-		'''Create destination subdir'''
-		self.path = dst_root_path.joinpath(dst_root_path, source.path.name)
-		if self.path.is_dir():
-			self._subs = tuple(path.str() for path in self.path.rrglob('*'))
-		elif self.path.exists():
-			raise FileExistsError(f'{self.path} is a file')
-		else:
+	def mk(self):
+		'''Create directory'''
+		if not self.path.is_accessable_dir():
 			self.path.mkdir(parents=True)
-			self._subs = tuple()
+			return True
+		return False
 
-	def search(self, patterns):
-		'''Return first path that matches a pattern'''
-		res = RegEx(patterns).search(self._subs)
-		return Path(res) if res else None
+	def write_text_file(self, filename, text):
+		'''Write text to file'''
+		return self.path.joinpath(filename).write_text(text, encoding='utf-8')
