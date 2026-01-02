@@ -101,13 +101,7 @@ class Worker:
 				tsv += self._labels.bad_size
 			else:
 				tsv += self._labels.okay
-		self._logger.write_tsv(tsv, destination)
-		if missing_paths:
-			self._error(self._labels.error_missing.replace('#', f'{len(missing_paths)}'))
-		if bad_paths:
-			self._error(self._labels.error_sizes.replace('#', f'{len(bad_paths)}'))
-		time_delta = perf_counter() - start_time
-		self._logger.info(self._labels.copy_finished.replace('#', f'{timedelta(seconds=time_delta)}'))
+		return tsv
 
 	def run(self):
 		'''Start copy process'''
@@ -164,9 +158,16 @@ class Worker:
 			except Exception as ex:
 				self._error(self._labels.log_error.replace('#', f'{ex}'))
 			try:
-				self._copy(source, destination)
+				tsv = self._copy(source, destination)
 			except Exception as ex:
 				self._error(ex)
+			self._logger.write_tsv(tsv, destination)
+			if missing_paths:
+				self._error(self._labels.error_missing.replace('#', f'{len(missing_paths)}'))
+			if bad_paths:
+				self._error(self._labels.error_sizes.replace('#', f'{len(bad_paths)}'))
+			time_delta = perf_counter() - start_time
+			self._logger.info(self._labels.copy_finished.replace('#', f'{timedelta(seconds=time_delta)}'))
 			if self._settings.trigger:
 				try:
 					destination.write_text_file(self._config.trigger_name, self._user)
