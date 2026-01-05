@@ -101,7 +101,7 @@ class Worker:
 				tsv += self._labels.bad_size
 			else:
 				tsv += self._labels.okay
-		return tsv
+		return tsv, missing_paths, bad_paths
 
 	def run(self):
 		'''Start copy process'''
@@ -158,7 +158,7 @@ class Worker:
 			except Exception as ex:
 				self._error(self._labels.log_error.replace('#', f'{ex}'))
 			try:
-				tsv = self._copy(source, destination)
+				tsv, missing_paths, bad_paths = self._copy(source, destination)
 			except Exception as ex:
 				self._error(ex)
 			self._logger.write_tsv(tsv, destination)
