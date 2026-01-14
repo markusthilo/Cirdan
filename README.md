@@ -1,3 +1,6 @@
+> [!NOTE]
+> Migrated to https://codeberg.org/markusthilo/Cirdan
+
 # Cirdan
 
 ## Copy to Import/Remote Directory Across Network
@@ -30,6 +33,7 @@ The batch script `make-dist.bat` uses Nuitka to build Windows executables. `pyth
 Still testing. The author is not responsible for any malfunction and/or lost data.
 
 MIT License
+
 
 
 
