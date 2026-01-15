@@ -33,7 +33,6 @@ class Worker:
 
 	def _copy(self, source, destination):
 		'''Copy directory'''
-		start_time = perf_counter()
 		self._logger.info(f'{self._labels.reading_structure} {source}')
 		src_file_paths = list()
 		src_file_sizes = list()
@@ -105,6 +104,7 @@ class Worker:
 
 	def run(self):
 		'''Start copy process'''
+		start_time = perf_counter()
 		logging.debug('Running worker')
 		sources = list()
 		for src_path in self._src_paths:
@@ -148,8 +148,8 @@ class Worker:
 			except Exception as ex:
 				self._error(ex)
 				continue
-			if new:
-				match, pattern = destination.search(self._config.source_blacklist)
+			if not new:
+				match, pattern = destination.search(self._config.destination_blacklist)
 				if match:
 					self._error(self._labels.destination_blocked_by.replace('#1', f'{match}').replace('#2', f'{pattern}'))
 					continue

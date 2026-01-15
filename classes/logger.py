@@ -14,6 +14,7 @@ class Logger:
 		self._config = config
 		self._labels = labels
 		self._echo = echo
+		self._config.local_path.mkdir(parents=True, exist_ok=True)
 		self._lastlog_path = self._config.local_path.joinpath(self._config.lastlog_name)
 		self._remote = None
 		self._user = None
@@ -115,8 +116,10 @@ class Logger:
 		self._logger.removeHandler(self._lastlog)
 		self._lastlog.close()
 		logging.shutdown()
-		self._config.log_path.joinpath(f'{self.get_ts()}_{self._config.crashlog_name}').write_bytes(self._lastlog_path.read_bytes())
-		return msg
+		try:
+			self._config.log_path.joinpath(f'{self.get_ts()}_{self._config.crashlog_name}').write_bytes(self._lastlog_path.read_bytes())
+		finally:
+			return msg
 
 	def write_tsv(self, tsv, destination):
 		'''Write TSV file'''
