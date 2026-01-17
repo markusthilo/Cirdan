@@ -80,7 +80,9 @@ class Logger:
 
 	def _decode(self, arg):
 		'''Decode argument (Exception or text)'''
-		if isinstance(arg, Exception):
+		if isinstance(arg, RuntimeError):
+			return f'{arg}'
+		if not arg or isinstance(arg, Exception):
 			ex_type, ex_text, traceback = exc_info()
 			return f'{ex_type.__name__}: {ex_text}\n{format_exc().strip()}'
 		return f'{arg}'
@@ -92,23 +94,23 @@ class Logger:
 		logging.info(msg)
 		return msg
 
-	def warning(self, arg):
+	def warning(self, *arg):
 		'''Echo message and log warning'''
-		msg = self._decode(arg)
+		msg = self._decode(*arg)
 		self._echo(f'WARNING: {msg}')
 		logging.warning(msg)
 		return msg
 
-	def error(self, arg):
+	def error(self, *arg):
 		'''Log error'''
-		msg = self._decode(arg)
+		msg = self._decode(*arg)
 		self._echo(f'ERROR: {msg}')
 		logging.error(msg)
 		return msg
 
-	def crash(self, arg):
+	def crash(self, *arg):
 		'''Close all logs on crash and try to copy crashlog'''
-		msg = self._decode(arg)
+		msg = self._decode(*arg)
 		self._echo(f'CRITICAL: {msg}')
 		logging.critical(msg)
 		self.close_remote()

@@ -90,10 +90,13 @@ class Gui(Tk):
 			label = Label(self, text=self.labels.destination)
 			label.grid(row=2, column=0, sticky='w', padx=self._pad)
 			Hovertip(label, self.labels.destination_tip)
-			self.destinations = tuple(
-				dst for dst in self.config.destinations
-				if self.config.target_path.joinpath(self.config.destinations[dst]).is_accessable_dir()
-			)
+			try:
+				self.destinations = tuple(
+					dst for dst in self.config.destinations
+					if self.config.target_path.joinpath(self.config.destinations[dst]).is_accessable_dir()
+				)
+			except:
+				self.destinations = ()
 			self.destination = StringVar()
 			if len(self.destinations) == 1:
 				self.settings.destination = self.destinations[0]
@@ -140,7 +143,7 @@ class Gui(Tk):
 			self._label_bg = self._info_label.cget('background')
 			self._quit_button = Button(self, text=self.labels.quit, command=self._quit_app)
 			self._quit_button.grid(row=6, column=1, sticky='e', padx=self._pad, pady=self._pad)
-			if not self.config.app_path.resolve().drive.startswith('\\\\'):
+			if not self.config.app_path.resolve().drive.startswith('\\\\'):	# check for updates
 				update = Update(self.labels.version, self.config.update_path)
 				if update.new_version and askyesno(
 					title = self.labels.update_title.replace('#', update.new_version),
@@ -153,26 +156,22 @@ class Gui(Tk):
 					except Exception as ex:
 						msg = self.logger.error(ex)
 						showerror(parent=self, title=self.labels.error, message=f'{self.labels.update_error}:\n{msg}')
+			if not self.config.log_path.is_accessable_dir():
+				raise RuntimeError(self.labels.bad_log_dir.replace('#', f'{self.config.log_path}'))
+			if not self.config.mail_path.is_accessable_dir():
+				raise RuntimeError(self.labels.bad_mail_dir.replace('#', f'{self.config.mail_path}'))
 			if not self.destinations:
 				if self.settings.destination:
-					self._crash(self.labels.bad_destination.replace('#', self.settings.destination))
+					raise RuntimeError(self.labels.bad_destination.replace('#', self.settings.destination))
 				else:
-					self._crash(self.labels.no_destination)
-			if not self.config.log_path.is_accessable_dir():
-				self._crash(self.labels.bad_log_dir.replace('#', f'{self.config.log_path}'))
-			if not self.config.mail_path.is_accessable_dir():
-				self._crash(self.labels.bad_mail_dir.replace('#', f'{self.config.mail_path}'))
+					raise RuntimeError(self.labels.no_destination)
 			self.robocopy = RoboCopy()
 			self._work_thread = None
 			self._init_warning()
 		except Exception as ex:
-			self._crash(ex)
-
-	def _crash(self, arg):
-		'''Handle critical error and terminate app'''
-		msg = self.logger.crash(arg)
-		showerror(parent=self, title=self.labels.error, message=msg)
-		self.destroy()
+			msg = self.logger.crash(ex)
+			showerror(parent=self, title=self.labels.error, message=msg)
+			self.destroy()
 
 	def _get_source_paths(self):
 		'''Read directory paths from text field'''

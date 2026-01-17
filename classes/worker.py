@@ -145,8 +145,8 @@ class Worker:
 			destination = PathTree(self._destination_root_path / source.name)
 			try:
 				new = destination.mk()
-			except Exception as ex:
-				self._error(ex)
+			except:
+				self._error()
 				continue
 			if not new:
 				match, pattern = destination.search(self._config.destination_blacklist)
@@ -159,8 +159,8 @@ class Worker:
 				self._error(self._labels.log_error.replace('#', f'{ex}'))
 			try:
 				tsv, missing_paths, bad_paths = self._copy(source, destination)
-			except Exception as ex:
-				self._error(ex)
+			except:
+				self._error()
 			self._logger.write_tsv(tsv, destination)
 			if missing_paths:
 				self._error(self._labels.error_missing.replace('#', f'{len(missing_paths)}'))
