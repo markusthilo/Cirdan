@@ -4,7 +4,7 @@
 from json import load
 
 class Json:
-	'''JSOM file to Object'''
+	'''JSON file to Object'''
 
 	def __init__(self, path):
 		'''Read JSON file an buld object'''

@@ -24,7 +24,8 @@ if __name__ == '__main__':  # start here when run as application
 		'appicon.png',
 		'config.json',
 		'gui.json',
-		'labels.json',
+		'labels_de.json',
+		'labels_en,json',
 		'mail.json',
 		'LICENSE',
 		'README.md'

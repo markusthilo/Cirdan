@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '1.1.1_2026-01-17'
+__version__ = '1.1.1_2026-01-21'
 __license__ = 'GPL-3'
-__email__ = 'markus.thilo@gmail.com'
+__email__ = 'markus.thilo@ecosia.eu'
 __status__ = 'Testing'
 __description__ = 'Custom upload/copy tool using RoboCopy'
 

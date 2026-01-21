@@ -21,7 +21,7 @@
     "qualicheck_name": "qualicheck.txt",
     "mail_name": "CIRDAN",
     "source_whitelist": [
-        "^[0-9]{6}-[^/]*/EAV[0-9A-Z]{9}.*"
+        "^[0-9]{6}-.*"
     ],
     "max_path_length": 230,
     "source_blacklist": [
