@@ -47,6 +47,11 @@ class WorkThread(Thread):
 class Gui(Tk):
 	'''GUI look and feel'''
 
+	@staticmethod
+	def startup_error(msg):
+		'''Window showing startup error'''
+		showerror(title='Critical error on startup', message=msg)
+
 	def __init__(self, config, labels, settings, user_log=None, source=None):
 		'''Open application window'''
 		super().__init__()
@@ -90,23 +95,12 @@ class Gui(Tk):
 			label = Label(self, text=self.labels.destination)
 			label.grid(row=2, column=0, sticky='w', padx=self._pad)
 			Hovertip(label, self.labels.destination_tip)
-			try:
-				self.destinations = tuple(
-					dst for dst in self.config.destinations
-					if self.config.target_path.joinpath(self.config.destinations[dst]).is_accessable_dir()
-				)
-			except:
-				self.destinations = ()
-			self.destination = StringVar()
-			if len(self.destinations) == 1:
-				self.settings.destination = self.destinations[0]
-				self.destination.set(self.destinations[0])
-				Label(self, text=self.destinations[0]).grid(row=2, column=1, sticky='w', padx=self._pad)
-			elif len(self.destinations) > 1:
-				if not self.settings.destination:
-					self.settings.destination = self.destinations[0]
-				OptionMenu(self, self.destination, self.settings.destination, *self.destinations
+			self.destination = StringVar(value=self.settings.destination)
+			if len(self.config.reachable_dsts) > 1:
+				OptionMenu(self, self.destination, self.settings.destination, *self.config.reachable_dsts
 					).grid(row=2, column=1, sticky='w', padx=self._pad)
+			else:
+				Label(self, text=self.settings.destination).grid(row=2, column=1, sticky='w', padx=self._pad)
 			Label(self, text=self.labels.options).grid(row=3, column=0, sticky='nw', padx=self._pad, pady=(self._pad, 0))
 			frame = Frame(self)
 			frame.grid(row=3, column=1, sticky='w', pady=(self._pad, 0))
@@ -156,15 +150,6 @@ class Gui(Tk):
 					except Exception as ex:
 						msg = self.logger.error(ex)
 						showerror(parent=self, title=self.labels.error, message=f'{self.labels.update_error}:\n{msg}')
-			if not self.config.log_path.is_accessable_dir():
-				raise RuntimeError(self.labels.bad_log_dir.replace('#', f'{self.config.log_path}'))
-			if not self.config.mail_path.is_accessable_dir():
-				raise RuntimeError(self.labels.bad_mail_dir.replace('#', f'{self.config.mail_path}'))
-			if not self.destinations:
-				if self.settings.destination:
-					raise RuntimeError(self.labels.bad_destination.replace('#', self.settings.destination))
-				else:
-					raise RuntimeError(self.labels.no_destination)
 			self.robocopy = RoboCopy()
 			self._work_thread = None
 			self._init_warning()

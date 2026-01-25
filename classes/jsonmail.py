@@ -12,7 +12,7 @@ class JsonMail:
 		with file_path.open(encoding='utf-8') as fp:
 			self._mail = {key: value for key, value in load(fp).items()}
 
-	def send(self, path, to='markus.thilo@polizei.berlin.de', id='TEST', tsv='TEST'):
+	def send(self, path, to='markus.thilo@eclipso.eu', id='TEST', tsv='TEST'):
 		'''Write mail to directory observed by mail daemon'''
 		mail = self._mail.copy()
 		mail['mail_content']['To'] = to

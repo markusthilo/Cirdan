@@ -37,6 +37,7 @@ class Worker:
 		src_file_paths = list()
 		src_file_sizes = list()
 		total_bytes = Size(0)
+		self._logger.info(self._labels.checking_source.replace('#', f'{source}'))
 		for path in source.walk():	# analyze root structure
 			if path.is_file():
 				size = path.stat().st_size

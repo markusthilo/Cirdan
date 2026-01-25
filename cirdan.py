@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '1.1.1_2026-01-21'
+__version__ = '1.1.2_2026-01-25'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@ecosia.eu'
 __status__ = 'Testing'
@@ -10,6 +10,7 @@ __description__ = 'Custom upload/copy tool using RoboCopy'
 
 from sys import executable as __executable__
 from sys import exit as sys_exit
+from traceback import format_exc
 from os import getlogin
 from argparse import ArgumentParser
 from classes.paths import Path
@@ -48,20 +49,40 @@ if __name__ == '__main__':  # start here when run as application
 	if args.version:
 		print(__version__)
 		sys_exit()
-	config = Config(__parent_path__)
-	labels = Json(config.labels_path)
-	labels.version = __version__
-	labels.user = getlogin()
-	settings = Settings(config)
-	if args.destination:
-		settings.destination = args.destination
-	log_path = Path(args.log.strip('"\'')) if args.log else None
-	settings.trigger = not args.notrigger
-	if args.user:
-		settings.user = args.user.strip('"\'')
-	source_path = Path(args.source.strip('"\'')).resolve() if args.source else None
-	settings.tolerant = args.tolerant
-	if source_path and not args.gui:
+	try:	# handle startup error
+		config = Config(__parent_path__)
+		labels = Json(config.labels_path)
+		labels.version = __version__
+		labels.user = getlogin()
+		settings = Settings(config)
+		if args.destination:
+			settings.destination = args.destination
+		log_path = Path(args.log.strip('"\'')) if args.log else None
+		settings.trigger = not args.notrigger
+		if args.user:
+			settings.user = args.user.strip('"\'')
+		source_path = Path(args.source.strip('"\'')).resolve() if args.source else None
+		settings.tolerant = args.tolerant
+		config.reachable_dsts = tuple(
+			dst for dst in config.destinations
+			if config.target_path.joinpath(config.destinations[dst]).is_accessable_dir()
+		)
+		if not config.reachable_dsts:
+			raise NotADirectoryError(f'Unable to find or reach subdirectories of {config.target_path}')
+		if settings.destination and not settings.destination in config.reachable_dsts:
+			settings.destination = None
+		if not settings.destination and config.reachable_dsts:
+			settings.destination = config.reachable_dsts[0]
+		if not config.log_path.is_accessable_dir():
+			raise NotADirectoryError(f'Unable to find or reach log directory {config.log_path}')
+		if not config.mail_path.is_accessable_dir():
+			raise NotADirectoryError(f'Unable to find or reach mail directories of {config.mail_path}')
+	except Exception as ex:
+		if args.source and not args.gui:	# error on cli
+			raise ex
+		Gui.startup_error(f'{ex}\n\n{format_exc().strip()}')	# show error message in window
+		sys_exit(1)
+	if source_path and not args.gui:	# no gui
 		logger = Logger(config, labels)
 		if not source_path:
 			logger.error(labels.missing_source_dir)
@@ -81,4 +102,4 @@ if __name__ == '__main__':  # start here when run as application
 		if Worker([source_path], config, labels, settings, RoboCopy(), logger, user_log=log_path).run():
 			sys_exit(1)
 		sys_exit(0)
-	Gui(config, labels, settings, user_log=log_path, source=source_path).mainloop()
+	Gui(config, labels, settings, user_log=log_path, source=source_path).mainloop()	# launch gui window 

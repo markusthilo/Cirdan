@@ -1,8 +1,6 @@
 {
     "title": "Copy to Import/Remote Directory Accross Network",
     "starting": "Starte",
-    "bad_log_dir": "Ungültiges Protokollverzeichnis: #",
-    "bad_mail_dir": "Ungültiges E-Mail-Verzeichnis: #",
     "source_dir": "Quellverzeichnis",
     "source_tip": "Füge das zu kopierende Verzeichnis hinzu (POLIKS-Vorgangsnummer).",
     "user_label": "Bearbeiter:",
@@ -32,7 +30,6 @@
     "blacklisted": "Unerlaubter Pfad (Blacklist): #1 / RegEx-Muster: \"#2\"",
     "no_sources": "Keine zu kopierenden Quellverzeichnisse",
     "log_error": "Fehler beim Erzeugen einer Protokolldatei: #",
-    "no_destination": "Kein gültiges Zielverzeichnis",
     "bad_destination": "Ungültiges Zielverzeichnis: #",
     "destination_blocked_by": "Zielverzeichnis ist blockiert durch verbotenen Pfad (Blacklist): #1 / RegEx-Muster: \"#2\"",
 	"update_error": "Die neue Version konnte nicht kopiert bzw. heruntergeladen werden",
