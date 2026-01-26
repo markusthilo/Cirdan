@@ -50,7 +50,7 @@ class Gui(Tk):
 	@staticmethod
 	def startup_error(msg):
 		'''Window showing startup error'''
-		showerror(title='Critical error on startup', message=msg)
+		showerror(title='Cirdan - Critical error on startup', message=msg)
 
 	def __init__(self, config, labels, settings, user_log=None, source=None):
 		'''Open application window'''

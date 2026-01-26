@@ -120,8 +120,9 @@ class Logger:
 		logging.shutdown()
 		try:
 			self._config.log_path.joinpath(f'{self.get_ts()}_{self._config.crashlog_name}').write_bytes(self._lastlog_path.read_bytes())
-		finally:
-			return msg
+		except:
+			pass
+		return msg
 
 	def write_tsv(self, tsv, destination):
 		'''Write TSV file'''
