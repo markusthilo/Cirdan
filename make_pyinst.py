@@ -21,7 +21,6 @@ if __name__ == '__main__':	# start here
 		'--onedir',
         '--windowed',
 		'--icon', 'appicon.ico',
-		'--distpath', './',
 		'--noconfirm',
 		'cirdan.py'
 	])
@@ -30,12 +29,18 @@ if __name__ == '__main__':	# start here
 	#	'--noconfirm',
 	#	'download_app.py'
 	#])
-	#move('dist/cirdan', 'cirdan.dist')
+
+	move('dist/cirdan/cirdan.exe', './')
+	move('dist/cirdan/_internal/', './')
 	#move('dist/download_app', 'download_app.dist')
-	#rmtree('build')
+	
 	#remove('cirdan.spec')
 	#remove('download_app.spec')
 	with open('version.txt', 'w') as f:
 		print(__version__, file=f)
 	remove('cirdan.spec')
+	rmtree('build')
+	rmtree('dist')
+	rmtree('__pycache__')
+	rmtree('classes/__pycache__')
 	print('Done!')
