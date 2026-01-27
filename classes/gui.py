@@ -52,14 +52,14 @@ class Gui(Tk):
 		'''Window showing startup error'''
 		showerror(title='Cirdan - Critical error on startup', message=msg)
 
-	def __init__(self, config, labels, settings, user_log=None, source=None):
+	def __init__(self, config, labels, settings, logger, user_log=None, source=None):
 		'''Open application window'''
 		super().__init__()
 		self.config = config
 		self.labels = labels
 		self.settings = settings
 		self.log_path = user_log
-		self.logger = Logger(self.config, self.labels, echo=self.echo)
+		self.logger = logger
 		try:
 			self._defs = Json(self.config.app_path / 'gui.json')
 			self.title(f'{self.labels.title} v{self.labels.version}')
@@ -131,6 +131,7 @@ class Gui(Tk):
 			self._info_fg = self._info_text.cget('foreground')
 			self._info_bg = self._info_text.cget('background')
 			self._info_newline = True
+			self.logger.set_echo(self.echo)
 			self._info_label = Label(self)
 			self._info_label.grid(row=6, column=0, sticky='w', padx=self._pad, pady=self._pad)
 			self._label_fg = self._info_label.cget('foreground')

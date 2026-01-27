@@ -24,7 +24,7 @@ class Worker:
 		self._kill_switch = kill
 		self._echo = echo
 		self._mail_address = f'{self._settings.user}@{self._config.domain}' if self._settings.user else None
-		self._user = f'{self._labels.user} / {self._mail_address}' if self._mail_address else self._labels.user
+		self._user = f'{self._logger.login} / {self._mail_address}' if self._mail_address else self._logger.login
 		self.errors = list()
 
 	def _error(self, arg):
@@ -182,7 +182,7 @@ class Worker:
 			if self._settings.sendmail and self._mail_address:
 				try:
 					JsonMail(self._config.app_path / 'mail.json').send(
-						self._config.mail_path.joinpath(f'{self._config.mail_name}_{self._logger.get_ts()}_{self._labels.user}.json'),
+						self._config.mail_path.joinpath(f'{self._config.mail_name}_{self._logger.get_ts()}_{self._logger.login}.json'),
 						to = self._mail_address,
 						id = source.name,
 						tsv = tsv

@@ -3,6 +3,7 @@
 
 import logging
 from time import strftime
+from os import getlogin
 from traceback import format_exc
 from sys import exc_info
 
@@ -22,7 +23,8 @@ class Logger:
 		self._logger.setLevel(logging.DEBUG)
 		self._formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 		self._lastlog = self._add(self._lastlog_path, logging.DEBUG)
-		logging.info(f'{self._labels.starting} "{self._labels.title}" v{self._labels.version}, {self._labels.user_label} "{self._labels.user}"')
+		self.login = getlogin()
+		logging.info(f'{self._labels.starting} "{self._labels.title}" v{self._labels.version}, {self._labels.user_label} "{self.login}"')
 
 	def _add(self, path, level):
 		'''Add log file'''
@@ -31,6 +33,10 @@ class Logger:
 		handler.setLevel(level)
 		self._logger.addHandler(handler)
 		return handler
+
+	def set_echo(self, method):
+		'''Set how to echo messages'''
+		self._echo = method
 
 	def get_ts(self):
 		'''Get timestamp'''
@@ -45,7 +51,7 @@ class Logger:
 		except Exception as ex:
 			self.crash(ex)
 		else:
-			logging.info(f'{self._labels.user_label} {self._labels.user}, {self._labels.source_dir}: {src_dir_path}')
+			logging.info(f'{self._labels.user_label} {self.login}, {self._labels.source_dir}: {src_dir_path}')
 
 	def close_remote(self):
 		'''Close remote log file'''
@@ -84,7 +90,7 @@ class Logger:
 			return f'{arg}'
 		if not arg or isinstance(arg, Exception):
 			ex_type, ex_text, traceback = exc_info()
-			return f'{ex_type.__name__}: {ex_text}\n{format_exc().strip()}'
+			return f'{ex_text}\n\n{format_exc().strip()}'
 		return f'{arg}'
 
 	def info(self, arg):
@@ -119,7 +125,7 @@ class Logger:
 		self._lastlog.close()
 		logging.shutdown()
 		try:
-			self._config.log_path.joinpath(f'{self.get_ts()}_{self._config.crashlog_name}').write_bytes(self._lastlog_path.read_bytes())
+			self._config.log_path.joinpath(f'{self.get_ts()}_{self.login}_{self._config.crashlog_name}').write_bytes(self._lastlog_path.read_bytes())
 		except:
 			pass
 		return msg
