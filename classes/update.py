@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from re import sub
+from sys import executable
 from subprocess import Popen
 
 class Update:

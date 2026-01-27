@@ -14,7 +14,7 @@ if __name__ == '__main__':  # start here when run as application
 	try:
 		Popen(
 			[dst_path / 'cirdan.exe'] if Path(executable).name == Path(__file__)
-				else ['python', self.dst_path / 'cirdan.py'],
+				else ['python', dst_path / 'cirdan.py'],
 			start_new_session=True
 		)
 	except Exception as ex:
