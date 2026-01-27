@@ -4,7 +4,7 @@
     "target_path": "$HOME/Documents/",
     "log_path": "$HOME/Documents/_logs/",
     "mail_path": "$HOME/Documents/_mail/",
-    "update_path": "$HOME/Documents/_dist/Cirdan/",
+    "update_path": "P:/Cirdan/",
     "domain": "placeholder.com",
     "destinations": {
         "Import directory 1": "import1",
