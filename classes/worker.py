@@ -44,8 +44,9 @@ class Worker:
 				src_file_paths.append(path)
 				src_file_sizes.append(size)
 				total_bytes += size
+		total_files = len(src_file_paths)
 		hash_thread = HashThread(src_file_paths)
-		self._logger.info(self._labels.starting_hashing.replace('#', f'{len(src_file_paths)}'))
+		self._logger.info(self._labels.starting_hashing.replace('#', f'{total_files}'))
 		hash_thread.start()
 		self._logger.info(f'{self._labels.starting_robocopy}: {source} -> {destination}, {total_bytes.readable()}')
 		for line in self._robocopy.copy_dir(source, destination):
@@ -68,9 +69,9 @@ class Worker:
 		self._logger.info(self._labels.starting_size_check)
 		missing_paths = list()
 		bad_paths = list()
-		total = len(src_file_paths)
+
 		for cnt, (src_file_path, src_size) in enumerate(zip(src_file_paths, src_file_sizes), start=1):
-			self._echo(f'{int(100*cnt/total)}%', end='\r')
+			self._echo(f'{int(100*cnt/total_files)}%', end='\r')
 			dst_file_path = destination.joinpath(source.get_relative(src_file_path))
 			if not dst_file_path.exists():
 				self._logger.warning(self._labels.missing_file.replace('#', f'{src_file_path}'))
