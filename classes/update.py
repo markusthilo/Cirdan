@@ -1,33 +1,41 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from re import sub
+from datetime import datetime
+from pathlib import Path
 from sys import executable
 from subprocess import Popen
 
 class Update:
 	'''Check for new version and start download if available'''
 
+	@staticmethod
+	def _int(string):
+		'''Convert version string into an integer'''
+		try:
+			version, date = string.split('_')
+			return (
+				sum(i * p for i, p in zip((int(i) for i in version.split('.', 2)), (10000000000, 100000000, 1000000)))
+				+ int(datetime.fromisoformat(date).timestamp() / 86400)
+			)
+		except:
+			return 0
+
 	def __init__(self, this_version, src_path):
 		'''Check for newer version'''
 		self._src_path = src_path
 		try:
-			new_version = self._src_path.joinpath('version.txt').read_text(encoding='utf-8')
+			new_version = self._src_path.joinpath('version.txt').read_text(encoding='utf-8').strip()
 		except:
 			self.new_version = None
 			return
 		self.new_version = new_version if self._int(new_version) > self._int(this_version) else None
 
-	def _int(self, string):
-		return int(sub(r'[^0-9]', '', string))
-
 	def download(self, install_path):
 		'''Launch update downloader'''
-		exe_path = self._src_path / 'downloader' / 'cirdan-downloader.exe'
-		cmd = [f'{exe_path}'] if exe_path.is_file() else ['python', self._src_path / 'downloader' / 'downloader.py']
-		return Popen(
-			cmd + [self._src_path, install_path],
-			start_new_session=True
-		)
+		cmd = ['python', self._src_path / 'downloader.py'] if Path(executable).name.startswith('python') else [self._src_path / 'downloader.exe']
+		cmd.append(self._src_path)
+		cmd.append(install_path)
+		return Popen(cmd, start_new_session=True)
 
 

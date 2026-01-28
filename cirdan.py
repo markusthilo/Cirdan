@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '1.1.2_2026-01-27'
+__version__ = '1.1.2_2026-01-28'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@ecosia.eu'
 __status__ = 'Testing'
@@ -21,7 +21,7 @@ from classes.robocopy import RoboCopy
 from classes.worker import Worker
 from classes.gui import Gui
 
-__parent_path__ = Path(__file__).parent if Path(__executable__).name == 'python.exe' else Path(__executable__).parent
+__parent_path__ = Path(__file__).parent if Path(__executable__).name.startswith('python') else Path(__executable__).parent
 
 if __name__ == '__main__':  # start here when run as application
 	argparser = ArgumentParser(description=__description__)
