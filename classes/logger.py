@@ -4,6 +4,7 @@
 import logging
 from time import strftime
 from os import getlogin
+from platform import node
 from traceback import format_exc
 from sys import exc_info
 
@@ -24,7 +25,9 @@ class Logger:
 		self._formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 		self._lastlog = self._add(self._lastlog_path, logging.DEBUG)
 		self.login = getlogin()
-		logging.info(f'{self._labels.starting} "{self._labels.title}" v{self._labels.version}, {self._labels.user_label} "{self.login}"')
+		self.node = node()
+		self.basic_info = f'{self._labels.hostanme}: {self.node}, {self._labels.username}: {self.login}, {self._labels.title} v{self._labels.version}'
+		logging.debug(f'{self.basic_info} {self._labels.launched}')
 
 	def _add(self, path, level):
 		'''Add log file'''
@@ -42,16 +45,18 @@ class Logger:
 		'''Get timestamp'''
 		return strftime('%y%m%d_%H%M%S')
 
-	def add_remote(self, src_dir_path):
+	def add_remote(self, src_dir_path, dst_root_path):
 		'''Add remote log file'''
-		self._remote_path = self._config.log_path.joinpath(src_dir_path.name, f'{self.get_ts()}_{self._config.log_name}')
+		msg = f'{self.basic_info}, {self._labels.source_dir}: {src_dir_path}, {self._lables.destination}: {dst_root_path}'
+		self._remote_path = self._config.log_path.joinpath(f'{dst_root_path.name}', f'{self.get_ts()}_{self.login}_{self._config.remote_name}')
 		try:
 			self._remote_path.parent.mkdir(parents=True, exist_ok=True)
 			self._remote = self._add(self._remote_path, logging.DEBUG)
-		except Exception as ex:
+			logging.debug(msg)
+		except:
 			self.crash(ex)
 		else:
-			logging.info(f'{self._labels.user_label} {self.login}, {self._labels.source_dir}: {src_dir_path}')
+			pass ####################### working
 
 	def close_remote(self):
 		'''Close remote log file'''

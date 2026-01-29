@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '1.2.0_2026-01-28'
+__version__ = '1.2.0_2026-01-29'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@proton.me'
 __status__ = 'Testing'
-__description__ = 'Custom upload/copy tool using RoboCopy'
+__description__ = 'Custom upload/copy tool using Robocopy'
 
 from sys import executable as __executable__
 from sys import exit as sys_exit

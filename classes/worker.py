@@ -132,19 +132,19 @@ class Worker:
 		if not sources:
 			self._error(self._labels.no_sources)
 			return self.errors
+		destination_root_path = self._config.target_path.joinpath(self._config.destinations[self._settings.destination])
 		if self._user_log:
 			try:
 				self._logger.add_user(self._user_log, sources)
 			except Exception as ex:
 				self._logger.warning(self._labels.log_error.replace('#', f'{ex}'))
-		self._destination_root_path = self._config.target_path.joinpath(self._config.destinations[self._settings.destination])
-		if not self._destination_root_path.is_accessable_dir():
-			self._error(self._labels.bad_destination.replace('#', f'{self._destination_root_path}'))
+		if not destination_root_path.is_accessable_dir():
+			self._error(self._labels.bad_destination.replace('#', f'{destination_root_path}'))
 			return
 		for source in sources:
 			if self._kill_switch and self._kill_switch.is_set():
 				raise SystemExit(self._labels.worker_killed)
-			destination = PathTree(self._destination_root_path / source.name)
+			destination = PathTree(destination_root_path / source.name)
 			try:
 				new = destination.mk()
 			except:
@@ -156,7 +156,7 @@ class Worker:
 					self._error(self._labels.destination_blocked_by.replace('#1', f'{match}').replace('#2', f'{pattern}'))
 					continue
 			try:
-				self._logger.add_remote(src_path)
+				self._logger.add_remote(src_path, destination_root_path)
 			except Exception as ex:
 				self._error(self._labels.log_error.replace('#', f'{ex}'))
 			try:
