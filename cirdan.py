@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '1.2.0_2026-01-29'
+__version__ = '1.2.0_2026-01-30'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@proton.me'
 __status__ = 'Testing'
@@ -35,12 +35,10 @@ if __name__ == '__main__':  # start here when run as application
 		help='Do not triggedr further process to handle/move uploaded data')
 	argparser.add_argument('-q', '--qualicheck', action='store_true',
 		help='Trigger qualicheck when the entire process has finished')
-	argparser.add_argument('-s', '--sendmail', action='store_true',
-		help='Send e-mail to user when copy process has finished')
+	argparser.add_argument('-s', '--sendmail', type=str, metavar='STRING',
+		help='Send e-mail when copy process has finished, argument is address without domain (e.g. john.doe for john.doe@example.net)')
 	argparser.add_argument('-t', '--tolerant', action='store_true',
 		help='Ignore encounter of blacklisted paths')
-	argparser.add_argument('-u', '--user', type=str, metavar='USERNAME',
-		help='Username / e-mail-address without domain (e.g. john.doe)')
 	argparser.add_argument('-v', '--version', action='store_true',
 		help='Print version number')
 	argparser.add_argument('source', nargs='?', help='Source directory', type=str, metavar='DIRECTORY')
@@ -62,10 +60,6 @@ if __name__ == '__main__':  # start here when run as application
 		settings = Settings(config)
 		if args.destination:
 			settings.destination = args.destination
-		log_path = Path(args.log.strip('"\'')) if args.log else None
-		settings.trigger = not args.notrigger
-		if args.user:
-			settings.user = args.user.strip('"\'')
 		source_path = Path(args.source.strip('"\'')).resolve() if args.source else None
 		settings.tolerant = args.tolerant
 		config.reachable_dsts = tuple(
@@ -87,7 +81,15 @@ if __name__ == '__main__':  # start here when run as application
 		if not args.source or args.gui:
 			Gui.startup_error(msg)	# show error message in window
 		sys_exit(1)
+	log_path = Path(args.log.strip('"\'')) if args.log else None
 	if source_path and not args.gui:	# no gui
+		settings.trigger = not args.notrigger
+		settings.qualicheck = args.qualicheck
+		if args.sendmail:
+			settings.sendmail = True
+			settings.user = args.sendmail.strip('"\'')
+		if settings.sendmail and not settings.user:
+			settings.sendmail = False
 		if not source_path:
 			logger.crash(labels.missing_source_dir)
 			sys_exit(1)
@@ -97,12 +99,12 @@ if __name__ == '__main__':  # start here when run as application
 		if not config.mail_path.is_accessable_dir():
 			logger.crash(labels.bad_mail_dir.replace('#', f'{config.mail_path}'))
 			sys_exit(1)
-		settings.qualicheck = args.qualicheck
-		settings.sendmail = args.sendmail
 		try:
 			settings.save()
 		except Exception as ex:
 			logger.warning(ex)
+		if not args.sendmail:
+			settings.sendmail = False
 		if Worker([source_path], config, labels, settings, RoboCopy(), logger, user_log=log_path).run():
 			sys_exit(1)
 		sys_exit(0)

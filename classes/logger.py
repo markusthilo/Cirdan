@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import logging
-from time import strftime
 from os import getlogin
 from platform import node
 from traceback import format_exc
@@ -41,22 +40,30 @@ class Logger:
 		'''Set how to echo messages'''
 		self._echo = method
 
-	def get_ts(self):
-		'''Get timestamp'''
-		return strftime('%y%m%d_%H%M%S')
-
 	def add_remote(self, src_dir_path, dst_root_path):
 		'''Add remote log file'''
-		msg = f'{self.basic_info}, {self._labels.source_dir}: {src_dir_path}, {self._lables.destination}: {dst_root_path}'
-		self._remote_path = self._config.log_path.joinpath(f'{dst_root_path.name}', f'{self.get_ts()}_{self.login}_{self._config.remote_name}')
+		msg = f'{self.basic_info}, {self._labels.source_dir}: {src_dir_path}, {self._labels.destination}: {dst_root_path}'
+		self._remote_path = self._config.log_path.joinpath(f'{dst_root_path.name}', src_dir_path.name, self._config.log_name).timed()
 		try:
 			self._remote_path.parent.mkdir(parents=True, exist_ok=True)
 			self._remote = self._add(self._remote_path, logging.DEBUG)
 			logging.debug(msg)
 		except:
-			self.crash(ex)
-		else:
-			pass ####################### working
+			try:
+				self.warning(self._labels.log_error.replace('#', f'{ex}'))
+			except:
+				pass
+			try:
+				self._remote.close()
+			except:
+				path
+			self._remote_path = self._config.log_path.joinpath(f'{dst_root_path.name}', f'{src_dir_path.name}_{self._config.log_name}').timed()
+			try:
+				self._remote_path.parent.mkdir(parents=True, exist_ok=True)
+				self._remote = self._add(self._remote_path, logging.DEBUG)
+				logging.debug(msg)
+			except:
+				return self.error(self._labels.log_error.replace('#', f'{ex}'))
 
 	def close_remote(self):
 		'''Close remote log file'''
@@ -130,13 +137,7 @@ class Logger:
 		self._lastlog.close()
 		logging.shutdown()
 		try:
-			self._config.log_path.joinpath(f'{self.get_ts()}_{self.login}_{self._config.crashlog_name}').write_bytes(self._lastlog_path.read_bytes())
+			self._config.log_path.joinpath(f'{self.login}_{self._config.crashlog_name}').timed().write_bytes(self._lastlog_path.read_bytes())
 		except:
 			pass
 		return msg
-
-	def write_tsv(self, tsv, destination):
-		'''Write TSV file'''
-		name = f'{self.get_ts()}_{self._config.tsv_name}'
-		self._remote_path.parent.joinpath(name).write_text(tsv, encoding='utf-8')
-		destination.write_text_file(name, tsv)

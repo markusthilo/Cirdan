@@ -24,7 +24,7 @@ class Worker:
 		self._kill_switch = kill
 		self._echo = echo
 		self._mail_address = f'{self._settings.user}@{self._config.domain}' if self._settings.user else None
-		self._user = f'{self._logger.login} / {self._mail_address}' if self._mail_address else self._logger.login
+		self._id = f'{self._labels.username}: {self._logger.login}\n{self._labels.hostanme}: {self._logger.node}'
 		self.errors = list()
 
 	def _error(self, arg):
@@ -102,7 +102,7 @@ class Worker:
 				tsv += self._labels.bad_size
 			else:
 				tsv += self._labels.okay
-		return tsv, missing_paths, bad_paths
+		return tsv, total_bytes, total_files, missing_paths, bad_paths
 
 	def run(self):
 		'''Start copy process'''
@@ -155,15 +155,13 @@ class Worker:
 				if match:
 					self._error(self._labels.destination_blocked_by.replace('#1', f'{match}').replace('#2', f'{pattern}'))
 					continue
+			if error := self._logger.add_remote(src_path, destination_root_path):
+				self.errors.append(error)
 			try:
-				self._logger.add_remote(src_path, destination_root_path)
-			except Exception as ex:
-				self._error(self._labels.log_error.replace('#', f'{ex}'))
-			try:
-				tsv, missing_paths, bad_paths = self._copy(source, destination)
+				tsv, total_bytes, total_files, missing_paths, bad_paths = self._copy(source, destination)
 			except:
 				self._error()
-			self._logger.write_tsv(tsv, destination)
+			destination.write_timed_text_file(self._config.tsv_name, tsv)
 			if missing_paths:
 				self._error(self._labels.error_missing.replace('#', f'{len(missing_paths)}'))
 			if bad_paths:
@@ -172,21 +170,21 @@ class Worker:
 			self._logger.info(self._labels.copy_finished.replace('#', f'{timedelta(seconds=time_delta)}'))
 			if self._settings.trigger:
 				try:
-					destination.write_text_file(self._config.trigger_name, self._user)
+					destination.write_text_file(self._config.trigger_name, self._id)
 				except Exception as ex:
 					self._error(ex)
 			if self._settings.qualicheck:
 				try:
-					destination.write_text_file(self._config.qualicheck_name, self._user)
+					destination.write_text_file(self._config.qualicheck_name, self._id)
 				except Exception as ex:
 					self._error(ex)
 			if self._settings.sendmail and self._mail_address:
 				try:
-					JsonMail(self._config.app_path / 'mail.json').send(
-						self._config.mail_path.joinpath(f'{self._config.mail_name}_{self._logger.get_ts()}_{self._logger.login}.json'),
-						to = self._mail_address,
-						id = source.name,
-						tsv = tsv
+					JsonMail(self._config.mail_templet_path).send(
+						self._config.mail_path.joinpath(self._config.mail_name).timed(fmt=f'%s_%t_{self._logger.login}%x'),
+						self._settings.user,
+						f'{source}',
+						(f'{source}', total_bytes.readable(), total_files, missing_paths, bad_paths)
 					)
 				except Exception as ex:
 					self._error(ex)

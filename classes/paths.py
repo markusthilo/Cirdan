@@ -2,11 +2,17 @@
 # -*- coding: utf-8 -*-
 
 from pathlib import Path as PathlibPath
+from time import strftime
 from re import compile as re_compile
-from re import Pattern as RePattern
 
 class Path(PathlibPath):
 	'''Methods to check and create paths'''
+
+	def timed(self, fmt='%t_%n'):
+		'''Return path with timestamp added to name'''
+		return self.with_name(
+			fmt.replace('%t', strftime('%y%m%d_%H%M%S')).replace('%n', self.name).replace('%s', self.stem).replace('%x', self.suffix)
+		)
 
 	def str(self):
 		'''Return string representation with slashes'''
@@ -102,3 +108,7 @@ class PathTree:
 	def write_text_file(self, filename, text):
 		'''Write text to file'''
 		return self.path.joinpath(filename).write_text(text, encoding='utf-8')
+
+	def write_timed_text_file(self, filename, text):
+		'''Write text to file'''
+		return self.path.joinpath(filename).timed().write_text(text, encoding='utf-8')

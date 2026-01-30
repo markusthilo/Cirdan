@@ -288,7 +288,7 @@ class Gui(Tk):
 			showerror(title=self.labels.error, message=self.labels.missing_source)
 			return
 		self._get_settings()
-		if not self.settings.user:
+		if self.settings.sendmail and not self.settings.user:
 			showerror(title=self.labels.error, message=self.labels.missing_name)
 			return
 		if not self.settings.destination in self.config.destinations:

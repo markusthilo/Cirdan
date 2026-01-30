@@ -9,12 +9,12 @@
         "uuid": "placeholder"
     },
     "mail_content": {
-        "From": "markus.thilo@gmail.com",
+        "From": "markus.thilo@example.net",
         "FromDisplayName": "Support Team",
-        "FromPersonalNr": "712",
-        "ReplyTo": "markus.thilo@gmail.com",
-        "To": "john.d@placeholder.net",
+        "FromPersonalNr": "0001",
+        "ReplyTo": "markus.thilo@example.net",
+        "To": "#@example.net",
         "Subject": "Cirdan: Copied # into import directory",
-        "Body": "Hello User,\n\nThe following files have been copied into the import directory:\n\n"
+        "Body": "Hello User,\n\nThe upload has finished.\n\nSource: #\nTotal bytes: #\nTotal files: #\nNot copied: #\nCurrupted files: #\n\nRegards,\nCirdan\n"
     }
 }
