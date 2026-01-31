@@ -65,6 +65,11 @@ class Logger:
 			except:
 				return self.error(self._labels.log_error.replace('#', f'{ex}'))
 
+	def get_remote_parent(self):
+		'''Get parent of remote log file'''
+		if self._remote:
+			return self._remote_path.parent
+
 	def close_remote(self):
 		'''Close remote log file'''
 		if self._remote:
@@ -91,12 +96,11 @@ class Logger:
 		self._user.close()
 		if self._tmp_path:
 			try:
-				self._user_path.write_bytes(self._tmp_path.read_bytes())
-				self._tmp_path.unlink()
-			except Exception as ex:
-				self.error(ex)
+				self._tmp_path.move(self._user_path)
+			except:
+				self.error()
 
-	def _decode(self, arg):
+	def _decode(self, *arg):
 		'''Decode argument (Exception or text)'''
 		if isinstance(arg, RuntimeError):
 			return f'{arg}'

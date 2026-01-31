@@ -10,19 +10,22 @@ class HashThread(Thread):
 	@staticmethod
 	def md5(path):
 		'''Calculate md5 hash of file'''
-		with path.open('rb') as fh:
-			return file_digest(fh, 'md5').hexdigest()
+		try:
+			with path.open('rb') as fh:
+				return file_digest(fh, 'md5').hexdigest()
+		except:
+			return '#####'
 
-	def __init__(self, file_paths):
+	def __init__(self, parent_path, rel_paths):
 		'''Generate object to calculate hashes'''
 		super().__init__()
-		self.file_paths = file_paths
+		self._parent_path = parent_path
+		self._rel_paths = rel_paths
 
 	def run(self):
 		'''Calculate hashes'''
-		self.hashes = [self.md5(path) for path in self.file_paths]
+		self._hashes = [self.md5(self._parent_path / path) for path in self._rel_paths]
 
 	def get_hashes(self):
-		'''Return relative paths and hashes'''
-		for path, md5 in zip(self.file_paths, self.hashes):
-			yield path, md5
+		'''Return calculated hashes'''
+		return self._hashes

@@ -4,9 +4,21 @@
 from pathlib import Path as PathlibPath
 from time import strftime
 from re import compile as re_compile
+from classes.size import Size
 
 class Path(PathlibPath):
 	'''Methods to check and create paths'''
+
+	if not hasattr(PathlibPath, 'move'):
+		def tmove(self, destination):
+			'''Add move method if not exists (Python < 3.14)'''
+			destination.write_bytes(self.read_bytes())
+			self.unlink()
+			return destination
+
+	def str(self):
+		'''Return string representation with slashes'''
+		return str(self).replace('\\', '/')
 
 	def timed(self, fmt='%t_%n'):
 		'''Return path with timestamp added to name'''
@@ -14,9 +26,9 @@ class Path(PathlibPath):
 			fmt.replace('%t', strftime('%y%m%d_%H%M%S')).replace('%n', self.name).replace('%s', self.stem).replace('%x', self.suffix)
 		)
 
-	def str(self):
-		'''Return string representation with slashes'''
-		return str(self).replace('\\', '/')
+	def get_filesize(self):
+		'''Return size of file'''
+		return Size(self.stat().st_size)
 
 	def is_accessable_dir(self):
 		'''Check if path is accessable'''
@@ -34,81 +46,64 @@ class Path(PathlibPath):
 		for path in resolved.rglob(pattern, case_sensitive=case_sensitive, recurse_symlinks=recurse_symlinks):
 			yield path.relative_to(resolved.parent)
 
-class RegEx:
-	'''Regular expression for iterable data'''
-
-	def __init__(self, patterns):
-		'''Set up checker'''
-		self._compiled = tuple(re_compile(pattern) for pattern in patterns)
-
-	def search(self, iterable):
-		'''Return first matching item'''
-		for item in iterable:
-			for regex in self._compiled:
-				if regex.search(item):
-					return item, regex.pattern
-		return None, None
-
-class PathTree:
+class PathTree(Path):
 	'''Tree of paths'''
-
-	def __init__(self, root):
-		'''Set up tree'''
-		self.path = Path(root).resolve()
-		self.name = self.path.name
-		self.parent = self.path.parent
-		self._subs = tuple(path.str() for path in self.path.rrglob('*'))
-
-	def __str__(self):
-		'''Return string representation'''
-		return str(self.path)
-
-	def __repr__(self):
-		'''Return string representation'''
-		return f"Tree('{self.path}')"
-
-	def walk(self):
-		'''Return all paths in tree'''
-		return self.path.rglob('*')
-
-	def get_relative(self, path):
-		'''Return path relative to root'''
-		return path.relative_to(self.path)
-
-	def joinpath(self, *args):
-		'''Join path with root'''
-		return self.path.joinpath(*args)
-
-	def is_accessable_dir(self):
-		'''Check if path is an excisting, accessable directory'''
-		return self.path.is_accessable_dir()
 
 	def search(self, patterns):
 		'''Return first path that matches a pattern'''
-		match, pattern = RegEx(patterns).search(self._subs)
-		if match:
-			return self.path.parent / match, pattern
+		compiled = tuple(re_compile(pattern) for pattern in patterns)
+		for rel_path in self.rrglob('*'):
+			rel_str = rel_path.str()
+			for regex in compiled:
+				if regex.search(rel_str):
+					return self.parent / rel_path, regex.pattern
 		return None, None
 
 	def too_long(self, max_len):
 		'''Return path that violates given path length (in chars)'''
-		for sub in self._subs:
-			length = len(sub)
+		for rel_path in self.rrglob('*'):
+			length = len(rel_path.str())
 			if length > max_len:
-				return self.path.parent / sub, length
+				return self.parent / rel_path, length
 		return None, None
+
+	def walk_files(self):
+		'''Find all files, get raletive paths and file sizes'''
+		self.rel_file_paths = list()
+		self.file_sizes = list()
+		self.total_files = 0
+		self.total_bytes = Size(0)
+		for rel_path in self.rrglob('*'):
+			path = self.parent / rel_path
+			if path.is_file():
+				self.rel_file_paths.append(rel_path)
+				size = path.get_filesize()
+				self.file_sizes.append(size)
+				self.total_files += 1
+				self.total_bytes += size
+		return self.total_files
+
+	def get_rel_paths_sizes(self):
+		'''Return relative paths and file sizes'''
+		yield from zip(self.rel_file_paths, self.file_sizes)
 
 	def mk(self):
 		'''Create directory'''
-		if not self.path.is_accessable_dir():
-			self.path.mkdir(parents=True)
+		if not self.is_accessable_dir():
+			self.mkdir(parents=True)
 			return True
 		return False
 
+	def check_file(self, rel_path):
+		'''Check if file exists and return size'''
+		path = self.parent / rel_path
+		if path.is_file():
+			return path.get_filesize()
+
 	def write_text_file(self, filename, text):
 		'''Write text to file'''
-		return self.path.joinpath(filename).write_text(text, encoding='utf-8')
+		return self.joinpath(filename).write_text(text, encoding='utf-8')
 
 	def write_timed_text_file(self, filename, text):
 		'''Write text to file'''
-		return self.path.joinpath(filename).timed().write_text(text, encoding='utf-8')
+		return self.joinpath(filename).timed().write_text(text, encoding='utf-8')
