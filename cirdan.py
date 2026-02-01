@@ -8,8 +8,7 @@ __email__ = 'markus.thilo@proton.me'
 __status__ = 'Testing'
 __description__ = 'Custom upload/copy tool using Robocopy'
 
-from sys import executable as __executable__
-from sys import exit as sys_exit
+from sys import executable as __executable__, exit
 from traceback import format_exc
 from argparse import ArgumentParser
 from classes.paths import Path
@@ -45,7 +44,7 @@ if __name__ == '__main__':  # start here when run as application
 	args = argparser.parse_args()
 	if args.version:
 		print(__version__)
-		sys_exit()
+		exit()
 	try:	# handle startup error
 		config = Config(__parent_path__)
 		labels = Json(config.labels_path)
@@ -55,12 +54,12 @@ if __name__ == '__main__':  # start here when run as application
 		if args.source and not args.gui:	# error on cli
 			raise ex
 		Gui.startup_error(f'{ex}\n\n{format_exc().strip()}')	# show error message in window
-		sys_exit(1)
+		exit(1)
 	try:
 		settings = Settings(config)
 		if args.destination:
 			settings.destination = args.destination
-		source_path = Path(args.source.strip('"\'')).resolve() if args.source else None
+		source_path = Path(args.source.strip('"\'')).resolve() if args.source else None	# strip " or ' because of power shell bug
 		settings.tolerant = args.tolerant
 		config.reachable_dsts = tuple(
 			dst for dst in config.destinations
@@ -80,7 +79,7 @@ if __name__ == '__main__':  # start here when run as application
 		msg = logger.crash(ex)
 		if not args.source or args.gui:
 			Gui.startup_error(msg)	# show error message in window
-		sys_exit(1)
+		exit(1)
 	log_path = Path(args.log.strip('"\'')) if args.log else None
 	if source_path and not args.gui:	# no gui
 		settings.trigger = not args.notrigger
@@ -90,15 +89,12 @@ if __name__ == '__main__':  # start here when run as application
 			settings.user = args.sendmail.strip('"\'')
 		if settings.sendmail and not settings.user:
 			settings.sendmail = False
-		if not source_path:
-			logger.crash(labels.missing_source_dir)
-			sys_exit(1)
 		if not config.log_path.is_accessable_dir():
 			logger.crash(labels.bad_log_dir.replace('#', f'{config.log_path}'))
-			sys_exit(1)
+			exit(1)
 		if not config.mail_path.is_accessable_dir():
 			logger.crash(labels.bad_mail_dir.replace('#', f'{config.mail_path}'))
-			sys_exit(1)
+			exit(1)
 		try:
 			settings.save()
 		except Exception as ex:
@@ -106,6 +102,6 @@ if __name__ == '__main__':  # start here when run as application
 		if not args.sendmail:
 			settings.sendmail = False
 		if Worker([source_path], config, labels, settings, RoboCopy(), logger, user_log=log_path).run():
-			sys_exit(1)
-		sys_exit(0)
+			exit(1)
+		exit(0)
 	Gui(config, labels, settings, logger, user_log=log_path, source=source_path).mainloop()	# launch gui window 

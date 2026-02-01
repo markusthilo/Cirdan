@@ -1,5 +1,5 @@
 {
-    "labels_path": "$APP/labels_de.json",
+    "labels_path": "$APP/labels_en.json",
     "mail_templet_path": "$APP/mail_example.json",
     "local_path": "$HOME/AppData/Local/Cirdan/",
     "target_path": "$HOME/Documents/",

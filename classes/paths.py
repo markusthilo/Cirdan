@@ -9,8 +9,14 @@ from classes.size import Size
 class Path(PathlibPath):
 	'''Methods to check and create paths'''
 
-	if not hasattr(PathlibPath, 'move'):
-		def tmove(self, destination):
+	if not hasattr(PathlibPath, 'copy'):	# check if pathlib.Path has copy method
+		def copy(self, destination):
+			'''Add copy method if not exists (Python < 3.14)'''
+			destination.write_bytes(self.read_bytes())
+			return destination
+
+	if not hasattr(PathlibPath, 'move'):	# check if pathlib.Path has move method
+		def move(self, destination):
 			'''Add move method if not exists (Python < 3.14)'''
 			destination.write_bytes(self.read_bytes())
 			self.unlink()
@@ -31,7 +37,7 @@ class Path(PathlibPath):
 		return Size(self.stat().st_size)
 
 	def is_accessable_dir(self):
-		'''Check if path is accessable'''
+		'''Check if path is accessable (necessary due to bad results with .is_dir() in AD environment)'''
 		if not self.is_dir():
 			return False
 		try:
@@ -45,6 +51,10 @@ class Path(PathlibPath):
 		resolved = self.resolve()
 		for path in resolved.rglob(pattern, case_sensitive=case_sensitive, recurse_symlinks=recurse_symlinks):
 			yield path.relative_to(resolved.parent)
+
+	def open_w(self):
+		'''Open file to write utf-8 text'''
+		return self.open(mode='w', encoding='utf-8')
 
 class PathTree(Path):
 	'''Tree of paths'''
@@ -103,7 +113,3 @@ class PathTree(Path):
 	def write_text_file(self, filename, text):
 		'''Write text to file'''
 		return self.joinpath(filename).write_text(text, encoding='utf-8')
-
-	def write_timed_text_file(self, filename, text):
-		'''Write text to file'''
-		return self.joinpath(filename).timed().write_text(text, encoding='utf-8')

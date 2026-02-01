@@ -10,7 +10,7 @@ from tkinter.messagebox import askyesno, showerror, showwarning, askyesnocancel
 from tkinter.filedialog import askdirectory, asksaveasfilename
 from idlelib.tooltip import Hovertip
 from classes.worker import Worker
-from classes.logger import Logger
+from classes.logger import Logger as Log
 from classes.paths import Path, PathTree
 from classes.json import Json
 from classes.update import Update
@@ -151,12 +151,12 @@ class Gui(Tk):
 						update.download(self.config.app_path)
 						self.destroy()
 						return
-					except Exception as ex:
-						msg = self.logger.error(ex)
+					except:
+						msg = Log.error()
 						showerror(parent=self, title=self.labels.error, message=f'{self.labels.update_error}:\n{msg}')
 			self._init_warning()
-		except Exception as ex:
-			msg = self.logger.crash(ex)
+		except:
+			msg = self.logger.crash()
 			showerror(parent=self, title=self.labels.error, message=msg)
 			self.destroy()
 
@@ -179,23 +179,23 @@ class Gui(Tk):
 		if not src_dir:
 			return
 		self._clear_info()
-		source = PathTree(src_dir)
+		source = PathTree(src_dir.resolve())
 		old_paths, bad_paths = self._get_source_paths()
-		if old_paths and source.path in old_paths:
-			self.logger.info(self.labels.already_added.replace('#', f'{source}'))
+		if old_paths and source in old_paths:
+			Log.info(self.labels.already_added.replace('#', f'{source}'))
 			return
-		self.logger.info(self.labels.checking_source.replace('#', f'{source}'))
+		Log.info(self.labels.checking_source.replace('#', f'{source}'))
 		match, pattern = source.search(self.config.source_whitelist)
 		if not match:
 			showerror(
 				parent = self,
 				title = self.labels.error,
-				message = self.logger.error(self.labels.bad_source.replace('#', f'{source}'))
+				message = Log.error(self.labels.bad_source.replace('#', f'{source}'))
 			)
 			return
 		match, length = source.too_long(self.config.max_path_length)
 		if match:
-			msd = self.logger.warning(self.labels.path_too_long.replace(
+			msg = Log.warning(self.labels.path_too_long.replace(
 					'#1', f'{match}').replace(
 					'#2', f'{length}').replace(
 					'#3', f'{self._config.max_path_length}')
@@ -205,7 +205,7 @@ class Gui(Tk):
 		if not self.settings.tolerant:
 			match, pattern = source.search(self.config.source_blacklist)
 			if match:
-				msg = self.logger.warning(self.labels.blacklisted.replace('#1', f'{match}').replace('#2', f'{pattern}'))
+				msg = Log.warning(self.labels.blacklisted.replace('#1', f'{match}').replace('#2', f'{pattern}'))
 				showwarning(parent=self, title=self.labels.warning, message=msg)
 				if not askyesno(parent=self, title=self.labels.warning, message=self.labels.ask_ignore):
 					self.settings.tolerant = False
@@ -215,7 +215,7 @@ class Gui(Tk):
 					return
 				self.settings.tolerant = True
 		self._source_text.insert('end', f'{source}\n')
-		self.logger.info(self.labels.inserted.replace('#', f'{source}'))
+		Log.info(self.labels.inserted.replace('#', f'{source}'))
 
 	def _select_dir(self):
 		'''Select directory to add into field'''
@@ -324,14 +324,17 @@ class Gui(Tk):
 			self._warning_state = 'disabled'
 		self.after(500, self._warning)
 
-	def finished(self, error):
+	def finished(self, errors):
 		'''Run this when worker has finished'''
-		if error:
+		if errors:
 			self._info_text.configure(foreground=self._defs.red_fg, background=self._defs.red_bg)
 			self._warning_state = 'enable'
-			msg = self.labels.problems
-			if error != True:
-				msg += f': {error}'
+			msg = f'{self.labels.problems}:'
+			if len(errors) in (1, 2, 3):
+				for error in errors:
+					msg += f'\n\n{error}'
+			elif errors:
+				msg += f'\n\n{errors[0]}\n\n{errors[1]}\n\n{self.labels.more_problems.replace("#", f"{len(errors)-2}")}'
 			showerror(title=self.labels.warning, message=msg)
 		else:
 			self._info_text.configure(foreground=self._defs.green_fg, background=self._defs.green_bg)
