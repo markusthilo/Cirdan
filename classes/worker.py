@@ -191,8 +191,8 @@ class Worker:
 					self._error()
 			if self._settings.sendmail and self._mail_address:	# construct mail in json formt and write it to mail dir
 				try:
-					JsonMail(self._config.mail_templet_path).send(
-						self._config.mail_path.joinpath(self._config.mail_name).timed(fmt=f'%s_%t_{self._logger.login}%x'),
+					JsonMail(self._config.mail_template_path).send(
+						self._config.mail_path.joinpath(self._config.mail_name).timed(fmt=f'%s_%t_{source.name}%x'),
 						self._settings.user,
 						f'{source}',
 						(f'{source}', source.total_bytes.readable(), f'{source.total_files}', f'{missing_paths}', f'{bad_paths}')

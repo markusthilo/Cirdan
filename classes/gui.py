@@ -224,7 +224,7 @@ class Gui(Tk):
 			self._add_dir(Path(directory))
 
 	def _select_log(self):
-		'''Select directory '''
+		'''Select directory'''
 		if self.write_log.get():
 			defaultextension = Path(self.config.log_name).suffix.lstrip('.')
 			filename = asksaveasfilename(
@@ -349,10 +349,11 @@ class Gui(Tk):
 		self._quit_button.configure(state='normal')
 
 	def _quit_app(self):
-		'''Quit app, ask when copy processs is running'''
+		'''Quit app, ask if copy process is running'''
 		if self._work_thread:
 			if not askyesno(title=self.labels.warning, message=self.labels.running_warning):
 				return
 			self._work_thread.kill()
 		self._save_settings()
+		Log.debug('Quitting application')
 		self.destroy()

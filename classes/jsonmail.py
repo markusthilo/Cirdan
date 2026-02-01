@@ -7,9 +7,9 @@ from time import strftime
 class JsonMail:
 	'''Send mail'''
 
-	def __init__(self, templet_path):
+	def __init__(self, template_path):
 		'''Read JSON file as base for the mail'''
-		with templet_path.open(encoding='utf-8') as fp:
+		with template_path.open(encoding='utf-8') as fp:
 			self._mail = load(fp)
 
 	def send(self, path, user, source, inserts):

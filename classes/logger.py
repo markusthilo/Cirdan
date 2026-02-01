@@ -53,6 +53,7 @@ class Logger:
 		self._config = config
 		self._labels = labels
 		self._logger = logging.getLogger()
+		self._logger.setLevel(logging.DEBUG)
 		self._echo_handler = self.set_echo(echo=echo)
 		self._config.local_path.mkdir(parents=True, exist_ok=True)
 		self._lastlog_path = self._config.local_path.joinpath(self._config.lastlog_name)
@@ -75,18 +76,21 @@ class Logger:
 		self._logger.addHandler(handler)
 		return handler
 
-	def set_echo(self, echo=print, level=logging.INFO):
+	def set_echo(self, echo=print):
 		'''Set how to echo messages'''
+		level = logging.INFO
 		class echo_stream:	# stream handler using echo
 			def write(msg):
 				echo(msg.strip())
 		try:
 			if self._echo_handler:
+				level = self._echo_handler.level
 				self._logger.removeHandler(self._echo_handler)
+				self._echo_handler.close()
 		except:
 			pass
 		self._echo_handler = logging.StreamHandler(stream=echo_stream)
-		self._logger.setLevel(level)
+		self._echo_handler.setLevel(level)
 		self._logger.addHandler(self._echo_handler)
 
 	def add_user(self, path, level=logging.INFO):

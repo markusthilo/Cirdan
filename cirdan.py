@@ -44,7 +44,7 @@ if __name__ == '__main__':  # start here when run as application
 	args = argparser.parse_args()
 	if args.version:
 		print(__version__)
-		exit()
+		exit(0)
 	try:	# handle startup error
 		config = Config(__parent_path__)
 		labels = Json(config.labels_path)

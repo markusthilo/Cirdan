@@ -30,7 +30,7 @@ cirdan_exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['icons\cirdan.ico'],
+    icon=['icons/cirdan.ico'],
 )
 
 downloader_a = Analysis(
@@ -63,7 +63,7 @@ downloader_exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['icons\downloader.ico'],
+    icon=['icons/downloader.ico'],
 )
 
 coll = COLLECT(

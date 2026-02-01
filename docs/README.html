@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cirdan - Copy to Import/Remote Directory Across Network</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; line-height: 1.6; }
+        h1, h2, h3 { color: #333; }
+        code { background-color: #f4f4f4; padding: 2px 4px; border-radius: 3px; }
+        pre { background-color: #f4f4f4; padding: 10px; border-radius: 5px; overflow-x: auto; }
+        img { max-width: 100%; height: auto; }
+    </style>
+</head>
+<body>
+    <h1>Cirdan</h1>
+    <h2>Copy to Import/Remote Directory Across Network</h2>
+    <img alt="screenshot Cirdan GUI" src="screenshot.png" />
+
+    <p>Copy directories to a fixed destination and build md5 hashes. Some criteria are checked while selecting the source directory.</p>
+
+    <p>The GUI is close to a well known copy tool so the old dogs don´t need to learn new tricks.</p>
+
+    <p>RoboCopy is used so this is for Windows.</p>
+
+    <h2>Requirements</h2>
+    <p>Python 3.13 works fine. Newer versions should be no problem.</p>
+
+    <p>In addition to the standard libraries <code>PyInstaller</code> is required in case you want to build executables:</p>
+
+    <pre><code>python -m pip install pyinstaller</code></pre>
+
+    <p>In case your machine is offline, download the libraries on an online system:</p>
+
+    <pre><code>python -m pip download pyinstaller</code></pre>
+
+    <p>Transport the .whl files to the offline machine and execute:</p>
+    <pre><code>python -m pip install --no-index --find-links .\ pyinstaller</code></pre>
+
+    <h2>Installation</h2>
+    <p>You might use git:</p>
+    <pre><code>git clone https://codeberg.org/markusthilo/Cirdan.git</code></pre>
+
+    <p>If you want to generate executables to copy and run the tool in an environment without Python, change into the Cirdan directory and use the make script:</p>
+    <pre><code>cd Cirdan
+python make.py</code></pre>
+
+    <p>To copy the Cirdan directory it is possible to use the downloader script that is primarily intended to update an installed version:</p>
+    <pre><code>python downloader.py .\ destination-dir\</code></pre>
+
+    <p>or</p>
+    <pre><code>downloader.exe .\ destination-dir\</code></pre>
+
+    <p>if you have built executables.</p>
+
+    <h2>Configuration</h2>
+    <p>The configuration files are in JSON file format:</p>
+    <ul>
+        <li><code>config.json</code>: admin given parameters as domain, paths etc.</li>
+        <li><code>gui.json</code>: basic parameters for the GUI</li>
+        <li><code>mail_template.json</code>: example mail template</li>
+    </ul>
+    <p>By default there are language packs for English (<code>labels_en.json</code>) and German (<code>labels_de.json</code>).</p>
+
+    <h3>Example <code>config.json</code></h3>
+    <pre><code>{
+    "labels_path": "$APP/labels_en.json",
+    "mail_template_path": "$APP/mail_example.json",
+    "local_path": "$HOME/AppData/Local/Cirdan/",
+    "target_path": "$HOME/Documents/",
+    "log_path": "$HOME/Documents/_logs/",
+    "mail_path": "$HOME/Documents/_mail/",
+    "update_path": "P:/Cirdan/",
+    "domain": "example.net",
+    "destinations": {
+        "Import directory 1": "import1",
+        "Import directory 2": "import2",
+        "Import directory 3": "import3"
+    },
+    "settings_name": "settings.json",
+    "log_name": "log.txt",
+    "lastlog_name": "lastlog.txt",
+    "tmplog_name": "tmplog.txt",
+    "crashlog_name": "crashlog.txt",
+    "tsv_name": "md5.txt",
+    "trigger_name": "trigger.txt",
+    "qualicheck_name": "qualicheck.txt",
+    "mail_name": "CIRDAN.json",
+    "source_whitelist": [
+        "^[0-9]{6}-.*"
+    ],
+    "max_path_length": 230,
+    "source_blacklist": [
+        "^[^/]*/(?!EAV[0-9A-Z]{9})(?![^/]*\\.(pdf|txt)$).*$",
+        ".*/forbidden.txt$",
+        ".*/not_allowed/.*"
+    ],
+    "destination_blacklist": [
+        "^[^/]*/trigger.txt",
+        "^[^/]*/qualicheck.txt",
+        "^[^/]*/done.txt"
+    ]
+}</code></pre>
+
+    <h2>Usage</h2>
+    <ul>
+        <li>Launch the GUI:</li>
+    </ul>
+    <pre><code>python cirdan.py</code></pre>
+
+    <ul>
+        <li>Launch with a preselected directory:</li>
+    </ul>
+    <pre><code>python cirdan.py -g directory-to-upload\</code></pre>
+
+    <ul>
+        <li>Learn command line usage:</li>
+    </ul>
+    <pre><code>python cirdan.py -h</code></pre>
+
+    <p>Having executables, double clicking <code>cirdan.exe</code> should work.</p>
+
+    <h2>Legal Notice</h2>
+    <h3>License</h3>
+    <p>MIT License</p>
+
+    <p>Copyright (c) 2025 Markus Thilo</p>
+
+    <p><a href="https://opensource.org/license/MIT">https://opensource.org/license/MIT</a></p>
+
+    <h3>Disclaimer</h3>
+    <p>This is not a commercial product with an army of developers and a department for quality control behind it. The author is not responsible for any malfunction and/or lost data. Use the software at your own risk.</p>
+</body>
+</html>
