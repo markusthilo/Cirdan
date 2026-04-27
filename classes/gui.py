@@ -184,8 +184,8 @@ class Gui(Tk):
 		if old_paths and source in old_paths:
 			Log.info(self.labels.already_added.replace('#', f'{source}'))
 			return
-		Log.info(self.labels.checking_source.replace('#', f'{source}'))
 		match, pattern = source.search(self.config.source_whitelist)
+		Log.info(self.labels.checked_source.replace('#', f'{source}'))
 		if not match:
 			showerror(
 				parent = self,

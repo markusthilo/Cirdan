@@ -20,7 +20,7 @@
     "update_message": "Neue Version herunterladen und diese Anwendung verlassen?",
     "error": "Fehler",
     "missing_name": "Fehlender Bearbeiter / fehlende E-Mail-Adresse",
-    "checking_source": "Prüfe Quellverzeichnis #",
+    "checked_source": "Quellverzeichnis # wurde geprüft",
     "inserted": "# wurde geprüft und eingefügt",
     "missing_source": "Quellverzeichnis fehlt",
     "bad_source": "Ungültiges Quellverzeichnis: #",

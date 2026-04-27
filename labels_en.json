@@ -20,7 +20,7 @@
     "update_message": "Download new version and exit this application?",
     "error": "Error",
     "missing_name": "Missing user / missing email address",
-    "checking_source": "Checking source directory #",
+    "checked_source": "Source directory # has been checked",
     "inserted": "# has been checked and inserted",
     "missing_source": "Source directory missing",
     "bad_source": "Invalid source directory: #",

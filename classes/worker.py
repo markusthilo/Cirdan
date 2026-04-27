@@ -6,8 +6,7 @@ from datetime import timedelta
 from classes.logger import Logger as Log
 from classes.paths import PathTree
 from classes.hash import HashThread
-from classes.size import Size
-from classes.jsonmail import JsonMail 
+from classes.sendmail import SendMail 
 
 class Worker:
 	'''Main functionality'''
@@ -97,7 +96,7 @@ class Worker:
 				'#3', f'{source.total_bytes.readable()}')
 			)
 			try:
-				hash_thread = HashThread(source.parent, source.rel_file_paths)	# start hashing
+				hash_thread = HashThread(source.parent, source.rel_file_paths, self._config.max_hash_size)	# start hashing
 				Log.info(self._labels.starting_hashing)
 				hash_thread.start()
 				Log.info(f'{self._labels.starting_robocopy}: {source} -> {destination}, {source.total_bytes.readable()}')
@@ -191,8 +190,7 @@ class Worker:
 					self._error()
 			if self._settings.sendmail and self._mail_address:	# construct mail in json formt and write it to mail dir
 				try:
-					JsonMail(self._config.mail_template_path).send(
-						self._config.mail_path.joinpath(self._config.mail_name).timed(fmt=f'%s_%t_{source.name}%x'),
+					SendMail(self._config.mail).send(
 						self._settings.user,
 						f'{source}',
 						(f'{source}', source.total_bytes.readable(), f'{source.total_files}', f'{missing_paths}', f'{bad_paths}')

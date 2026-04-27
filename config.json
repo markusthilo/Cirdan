@@ -20,11 +20,11 @@
     "tsv_name": "md5.txt",
     "trigger_name": "trigger.txt",
     "qualicheck_name": "qualicheck.txt",
-    "mail_name": "CIRDAN.json",
     "source_whitelist": [
         "^[0-9]{6}-.*"
     ],
     "max_path_length": 230,
+    "max_hash_size": 1073741824,
     "source_blacklist": [
         "^[^/]*/(?!EAV[0-9A-Z]{9})(?![^/]*\\.(pdf|txt)$).*$",
         ".*/forbidden.txt$",
@@ -37,5 +37,14 @@
         "^[^/]*/error.txt",
         "^[^/]*/start.txt",
         "^[^/]*/delete.txt"
-    ]
+    ],
+    "mail": {
+        "smtp_host": "localhost",
+        "smtp_port": 25,
+        "smtp_timeout": 30,
+        "sender": "From <from@example.net>",
+        "reply_to": "Reply-To <reply-to@example.net>",
+        "subject": "Cirdan: Copied % into import directory",
+        "body": "Hello User,\n\nThe upload has finished.\n\nSource: %\nTotal bytes: %\nTotal files: %\nNot copied: %\nCurrupted files: %\n\nRegards,\nCirdan\n"
+    }
 }
