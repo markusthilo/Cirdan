@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '1.2.0_2026-02-01'
+__version__ = '1.3.0_2026-05-06'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@proton.me'
 __status__ = 'Testing'
@@ -11,7 +11,7 @@ __description__ = 'Custom upload/copy tool using Robocopy'
 from sys import executable as __executable__, exit
 from traceback import format_exc
 from argparse import ArgumentParser
-from classes.paths import Path
+from classes.path import Path
 from classes.json import Json
 from classes.config import Config
 from classes.settings import Settings
@@ -40,7 +40,7 @@ if __name__ == '__main__':  # start here when run as application
 		help='Ignore encounter of blacklisted paths')
 	argparser.add_argument('-v', '--version', action='store_true',
 		help='Print version number')
-	argparser.add_argument('source', nargs='?', help='Source directory', type=str, metavar='DIRECTORY')
+	argparser.add_argument('source', nargs='?', help='Source directory', type=Path, metavar='DIRECTORY')
 	args = argparser.parse_args()
 	if args.version:
 		print(__version__)
@@ -73,27 +73,23 @@ if __name__ == '__main__':  # start here when run as application
 			settings.destination = config.reachable_dsts[0]
 		if not config.log_path.is_accessable_dir():
 			raise NotADirectoryError(f'Unable to find or reach log directory {config.log_path}')
-		if not config.mail_path.is_accessable_dir():
-			raise NotADirectoryError(f'Unable to find or reach mail directories of {config.mail_path}')
 	except Exception as ex:
 		msg = logger.crash(ex)
 		if not args.source or args.gui:
 			Gui.startup_error(msg)	# show error message in window
 		exit(1)
 	log_path = Path(args.log.strip('"\'')) if args.log else None
+	settings.tolerant = args.tolerant
 	if source_path and not args.gui:	# no gui
 		settings.trigger = not args.notrigger
 		settings.qualicheck = args.qualicheck
 		if args.sendmail:
 			settings.sendmail = True
 			settings.user = args.sendmail.strip('"\'')
-		if settings.sendmail and not settings.user:
+		if not settings.user:
 			settings.sendmail = False
 		if not config.log_path.is_accessable_dir():
 			logger.crash(labels.bad_log_dir.replace('#', f'{config.log_path}'))
-			exit(1)
-		if not config.mail_path.is_accessable_dir():
-			logger.crash(labels.bad_mail_dir.replace('#', f'{config.mail_path}'))
 			exit(1)
 		try:
 			settings.save()

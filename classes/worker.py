@@ -4,7 +4,7 @@
 from time import sleep, perf_counter
 from datetime import timedelta
 from classes.logger import Logger as Log
-from classes.paths import PathTree
+from classes.path import Path
 from classes.hash import HashThread
 from classes.sendmail import SendMail 
 
@@ -188,10 +188,10 @@ class Worker:
 					destination.write_text_file(self._config.qualicheck_name, self._id)
 				except:
 					self._error()
-			if self._settings.sendmail and self._mail_address:	# construct mail in json formt and write it to mail dir
+			if self._settings.sendmail and self._mail_address:	# send mail to user
 				try:
 					SendMail(self._config.mail).send(
-						self._settings.user,
+						self._mail_address,
 						f'{source}',
 						(f'{source}', source.total_bytes.readable(), f'{source.total_files}', f'{missing_paths}', f'{bad_paths}')
 					)

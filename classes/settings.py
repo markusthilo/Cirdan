@@ -18,7 +18,7 @@ class Settings:
 			config.local_path.mkdir(parents=True, exist_ok=True)
 		self.destination = items['destination'] if 'destination' in items and items['destination'] else next(iter(config.destinations))
 		self.qualicheck = items['qualicheck'] if 'qualicheck' in items else False
-		self.sendmail = items['sendmail'] if 'sendmail' in items else True
+		self.sendmail = items['sendmail'] if 'sendmail' in items else False
 		self.trigger = items['trigger'] if 'trigger' in items else True
 		self.user = items['user'] if 'user' in items else ''
 		self.save()

@@ -10,13 +10,13 @@ class SendMail:
 
 	def __init__(self, mail_config):
 		'''Read JSON file as base for the mail'''
-		self._host = mail_config.smtp_host
-		self._port = mail_config.smtp_port
-		self._timeout = mail_config.smtp_timeout
-		self._from = mail_config.sender
-		self._reply_to = mail_config.replay_to
-		self._subject = mail_config.subject
-		self._body = mail_config.body
+		self._host = mail_config['smtp_host']
+		self._port = mail_config['smtp_port']
+		self._timeout = mail_config['smtp_timeout']
+		self._from = mail_config['From']
+		self._reply_to = mail_config['Reply-To']
+		self._subject = mail_config['Subject']
+		self._body = mail_config['body']
 
 	def send(self, to_address, source, inserts):
 		'''Send prepared mail to an SMTP server (no LOGIN).'''

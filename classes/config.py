@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from json import load
-from classes.paths import Path
+from classes.path import Path
 
 class Config:
 	'''Handle configuration file in JSON format'''

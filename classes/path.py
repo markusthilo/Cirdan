@@ -56,27 +56,6 @@ class Path(PathlibPath):
 		'''Open file to write utf-8 text'''
 		return self.open(mode='w', encoding='utf-8')
 
-class PathTree(Path):
-	'''Tree of paths'''
-
-	def search(self, patterns):
-		'''Return first path that matches a pattern'''
-		compiled = tuple(re_compile(pattern) for pattern in patterns)
-		for rel_path in self.rrglob('*'):
-			rel_str = rel_path.str()
-			for regex in compiled:
-				if regex.search(rel_str):
-					return self.parent / rel_path, regex.pattern
-		return None, None
-
-	def too_long(self, max_len):
-		'''Return path that violates given path length (in chars)'''
-		for rel_path in self.rrglob('*'):
-			length = len(rel_path.str())
-			if length > max_len:
-				return self.parent / rel_path, length
-		return None, None
-
 	def walk_files(self):
 		'''Find all files, get raletive paths and file sizes'''
 		self.rel_file_paths = list()
