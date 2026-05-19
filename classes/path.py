@@ -22,9 +22,9 @@ class Path(PathlibPath):
 			self.unlink()
 			return destination
 
-	def str(self):
+	def __repr__(self):
 		'''Return string representation with slashes'''
-		return str(self).replace('\\', '/')
+		return self.as_posix()
 
 	def timed(self, fmt='%t_%n'):
 		'''Return path with timestamp added to name'''
@@ -50,31 +50,11 @@ class Path(PathlibPath):
 		'''Recursive glob that gives paths relative to parent'''
 		resolved = self.resolve()
 		for path in resolved.rglob(pattern, case_sensitive=case_sensitive, recurse_symlinks=recurse_symlinks):
-			yield path.relative_to(resolved.parent)
+			yield path, path.relative_to(resolved.parent).as_posix()
 
 	def open_w(self):
 		'''Open file to write utf-8 text'''
 		return self.open(mode='w', encoding='utf-8')
-
-	def walk_files(self):
-		'''Find all files, get raletive paths and file sizes'''
-		self.rel_file_paths = list()
-		self.file_sizes = list()
-		self.total_files = 0
-		self.total_bytes = Size(0)
-		for rel_path in self.rrglob('*'):
-			path = self.parent / rel_path
-			if path.is_file():
-				self.rel_file_paths.append(rel_path)
-				size = path.get_filesize()
-				self.file_sizes.append(size)
-				self.total_files += 1
-				self.total_bytes += size
-		return self.total_files
-
-	def get_rel_paths_sizes(self):
-		'''Return relative paths and file sizes'''
-		yield from zip(self.rel_file_paths, self.file_sizes)
 
 	def mk(self):
 		'''Create directory'''
@@ -82,12 +62,6 @@ class Path(PathlibPath):
 			self.mkdir(parents=True)
 			return True
 		return False
-
-	def check_file(self, rel_path):
-		'''Check if file exists and return size'''
-		path = self.parent / rel_path
-		if path.is_file():
-			return path.get_filesize()
 
 	def write_text_file(self, filename, text):
 		'''Write text to file'''

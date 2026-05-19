@@ -12,6 +12,7 @@ class RoboCopy:
 		self._startupinfo = STARTUPINFO()
 		self._startupinfo.dwFlags |= STARTF_USESHOWWINDOW
 		self._copy_args = ['/fp', '/ns', '/njh', '/njs', '/nc', '/a-:R']
+		self._proc = None
 		try:
 			for line in self._yield(['/?']):
 				if line.lstrip().lower().startswith('/unicode'):
@@ -35,11 +36,17 @@ class RoboCopy:
 
 	def _yield(self, args):
 		'''Execute RoboCopy and yield output'''
-		proc = self._popen(args)
-		for line in proc.stdout:
+		self._proc = self._popen(args)
+		for line in self._proc.stdout:
 			if stripped := line.strip():
 				yield stripped
-		self.returncode = proc.wait()
+		self.returncode = self._proc.wait()
+		self._proc = None
+
+	def terminate(self):
+		'''Terminate/abort Robocopy process'''
+		self._proc.terminate()
+		self._proc = None
 
 	def copy_dir(self, src, dst):
 		'''Copy recursivly a directory'''

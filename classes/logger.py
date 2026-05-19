@@ -31,22 +31,24 @@ class Logger:
 			msg_parts.append(f'{ex_type.__name__}: {ex_text}')
 		if traceback:
 			msg_parts.append(f'{format_exc().strip()}')
-		logging.__dict__[level.lower()](', '.join(msg_parts))
+		msg = ', '.join(msg_parts)
+		logging.__dict__[level.lower()](msg)
+		return msg
 
 	@staticmethod
 	def warning(message=None):
 		'''Log warning'''
-		Logger.exception('warning', message=message)
+		return Logger.exception('warning', message=message)
 
 	@staticmethod
 	def error(message=None):
 		'''Log error'''
-		Logger.exception('error', message=message)
+		return Logger.exception('error', message=message)
 
 	@staticmethod
 	def critical(message=None):
 		'''Log critical error'''
-		Logger.exception('critical', message=message)
+		return Logger.exception('critical', message=message)
 
 	def __init__(self, config, labels, echo=print):
 		'''Generate object to write log files'''

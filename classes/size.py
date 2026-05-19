@@ -8,7 +8,7 @@ class Size(int):
 		'''Add two Size objects'''
 		return Size(int.__add__(self, value))
 
-	def readable(self, fmt='{iec} / {si}'):
+	def readable(self, fmt='{iec} = {si}'):
 		'''Genereate readable size string,
 			format_k: "{iec} / {si} / {b} B" gives e.g. 9.54 MiB / 10.0 MB / 10000000 B
 			"{b} B" will be returned if size < 1024 bytes

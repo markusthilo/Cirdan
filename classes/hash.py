@@ -16,21 +16,16 @@ class HashThread(Thread):
 		except:
 			return 'skipped'
 
-	def __init__(self, parent_path, rel_paths, max_size: int = 1073741824):
+	def __init__(self, files, max_size=1073741824, kill=None):
 		'''Generate object to calculate hashes'''
 		super().__init__()
-		self._parent_path = parent_path
-		self._rel_paths = rel_paths
+		self.files = files
 		self._max_size = max_size
-		self._hashes = list[str]()
+		self._kill_switch = kill
 
 	def run(self):
 		'''Calculate hashes'''
-		for rel_path in self._rel_paths:
-			path = self._parent_path / rel_path
-			size = path.stat().st_size
-			self._hashes.append(self.md5(path) if size > 0 and size <= self._max_size else 'skipped')
-
-	def get_hashes(self):
-		'''Return calculated hashes'''
-		return self._hashes
+		for fd in self.files:
+			if self._kill_switch and self._kill_switch.is_set():
+				return
+			fd['hash'] = self.md5(fd['path']) if fd['size'] > 0 and fd['size'] <= self._max_size else 'skipped'

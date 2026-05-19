@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 
 from threading import Thread, Event
+from traceback import format_exc as get_exception
+from time import perf_counter
 from tkinter import Tk, PhotoImage, StringVar, BooleanVar
 from tkinter.font import nametofont
 from tkinter.ttk import Frame, Label, Entry, Button, Checkbutton, OptionMenu
@@ -9,6 +11,7 @@ from tkinter.scrolledtext import ScrolledText
 from tkinter.messagebox import askyesno, showerror, showwarning, askyesnocancel
 from tkinter.filedialog import askdirectory, asksaveasfilename
 from idlelib.tooltip import Hovertip
+from classes.source import Source
 from classes.worker import Worker
 from classes.regex import RegEx
 from classes.logger import Logger as Log
@@ -17,52 +20,51 @@ from classes.json import Json
 from classes.update import Update
 from classes.robocopy import RoboCopy
 
-class AddSourceThread(Thread):
-	'''Thread that adds a directory to the source text field'''
+class CheckSourceThread(Thread):
+	'''Thread that checks if a directory is a valid source'''
 
-	def __init__(self, source_path, gui):
+	def __init__(self, source_dir, gui):
 		'''Pass source directory to add to GUI'''
-		self._source_path = source_path
 		self._gui = gui
+		self._source = Source(source_dir,
+			max_path_len = self._gui.config.max_path_length,
+			whitelist = self._gui.config.source_whitelist,
+			blacklist = self._gui.config.source_blacklist if not self._gui.settings.tolerant else None
+		)
 		super().__init__()
 		self._kill_event = Event()
 
 	def run(self):
 		'''Run thread to check and add source'''
-		Log.info(self._gui.labels.checking_source.replace('#', f'{self._source_path}'))
-		blacklist = RegEx(self._gui.config.source_blacklist)
-		whitelist = RegEx(self._gui.config.source_whitelist)
-		whitelist_match = False
-		for rel_path in self._source_path.rrglob('*'):
+		Log.info(self._gui.labels.checking_source.replace('#', f'{self._source}'))
+		for path, bad in self._source.check():
 			if self._kill_event.is_set():
-				self._gui.aborted_source_check()
+				Log.debug(self._gui.labels.aborted_by_user)
+				self._gui.abort_source_check()
 				return
-			rel_str = f'{rel_path}'
-			self._gui.echo(rel_str)
-			if len(rel_str) > self._gui.config.max_path_length:
-				self._gui.checked_source(
-					self._source_path,
-					self._gui.labels.path_too_long.replace('#1', f'{rel_path}').replace('#2', f'{len(f'{rel_path}')}').replace('#3', f'{self.config.max_path_length}')
-				)
+			self._gui.echo(f'{path}', end='\r')
+			if isinstance(bad, int):
+				msg = self._gui.labels.path_too_long.replace('#1', f'{path}').replace('#2', f'{bad}').replace('#3', f'{self._gui.config.max_path_length}')
+				Log.error(msg)
+				showerror(title=self._gui.labels.error, message=msg)
+				self._gui.abort_source_check()
 				return
-			bad_rel_path, pattern = blacklist.search(rel_str)
-			if bad_rel_path:
-				self._gui.checked_source(
-					self._source_path,
-					self._gui.labels.blacklisted.replace('#1', f'{bad_rel_path}').replace('#2', f'{pattern}')
-				)
-				return
-			if not whitelist_match:
-				necessary_path, pattern = whitelist.search(rel_str)
-				if necessary_path:
-					whitelist_match = True
-		if not whitelist_match:
-			self._gui.checked_source(
-				self._source_path,
-				self._gui.labels.bad_source.replace('#', f'{self._source_path}')
-			)
-			return
-		self._gui.added_source(self._source_path)
+			if isinstance(bad, str):
+				msg = self._gui.labels.blacklisted.replace('#1', f'{path}').replace('#2', f'{bad}')
+				Log.error(msg)
+				if askyesno(title=self._gui.labels.warning, message=f'{msg}\n\n{self._gui.labels.ignore_blacklist}', default='no'):
+					self._gui.settings.tolerant = True
+					self._source.blacklist = None
+				else:
+					self._gui.abort_source_check()
+					return
+		if self._source.valid:
+			self._gui.add_source(self._source)
+		else:
+			msg = self._gui.labels.bad_source.replace('#', f'{self._source.path}')
+			showerror(title=self._gui.labels.error, message=msg)
+			Log.error(msg)
+			self._gui.abort_source_check()
 
 	def kill(self):
 		'''Kill thread'''
@@ -77,7 +79,7 @@ class WorkThread(Thread):
 		super().__init__()
 		self._kill_event = Event()
 		self._worker = Worker(
-			self._gui.source_paths,
+			self._gui.sources,
 			self._gui.config,
 			self._gui.labels,
 			self._gui.settings,
@@ -90,7 +92,11 @@ class WorkThread(Thread):
 
 	def run(self):
 		'''Run thread'''
-		self._gui.finished(self._worker.run())
+		try:
+			errors = self._worker.run()
+		except:
+			errors = [get_exception()]
+		self._gui.finished(errors)
 
 	def kill(self):
 		'''Kill thread'''
@@ -146,7 +152,7 @@ class Gui(Tk):
 			else:
 				self.sources = list()
 			self._source_text.configure(state='disabled')
-			#self._source_text.bind('<Key>', lambda dummy: 'break')
+			self._source_text.bind('<Key>', lambda dummy: 'break')
 			label = Label(self, text=self.labels.destination)
 			label.grid(row=2, column=0, sticky='w', padx=self._pad)
 			Hovertip(label, self.labels.destination_tip)
@@ -194,6 +200,7 @@ class Gui(Tk):
 				ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
 			self._info_text.bind('<Key>', lambda dummy: 'break')
 			self._info_text.configure(state='disabled')
+			self._last_echo = 0
 			self._info_fg = self._info_text.cget('foreground')
 			self._info_bg = self._info_text.cget('background')
 			self._info_newline = True
@@ -208,7 +215,8 @@ class Gui(Tk):
 				update = Update(self.labels.version, self.config.update_path)
 				if update.new_version and askyesno(
 					title = self.labels.update_title.replace('#', update.new_version),
-					message = self.labels.update_message
+					message = self.labels.update_message,
+					default = 'no'
 				):
 					try:
 						update.download(self.config.app_path)
@@ -220,7 +228,7 @@ class Gui(Tk):
 			self._init_warning()
 		except:
 			msg = self.logger.crash()
-			showerror(parent=self, title=self.labels.error, message=msg)
+			showerror(title=self.labels.error, message=msg)
 			self.destroy()
 
 	def _select_source(self):
@@ -230,24 +238,21 @@ class Gui(Tk):
 			if source in self.sources:
 				showerror(title=self.labels.error, message=self.labels.already_added.replace('#', f'{source}'))
 				return
-			self._add_source_thread = AddSourceThread(source, self)
-			self._add_source_thread.start()
+			self._check_source_thread = CheckSourceThread(source, self)
+			self._check_source_thread.start()
 
-	def added_source(self, source):
+	def add_source(self, source):
 		'''Run this after adding source'''
-		self._source_text.insert('end', f'{source}\n')
 		self._add_source_thread = None
+		self._source_text.configure(state='normal')
+		self._source_text.insert('end', f'{source}\n')
+		self._source_text.configure(state='disabled')
 		self._enable_buttons()
+		self.sources.append(source)
 		Log.info(self.labels.added_source.replace('#', f'{source}'))
 
-	def checked_source(self, source, error):
+	def abort_source_check(self):
 		'''Run this after checking source and not adding it'''
-		self._add_source_thread = None
-		self._enable_buttons()
-		Log.info(self.labels.checked_source.replace('#', f'{source}'))
-
-	def aborted_source_check(self):
-		'''Run this when source check is aborted'''
 		self._add_source_thread = None
 		self._enable_buttons()
 		Log.info(self.labels.aborted_source_check)
@@ -257,7 +262,7 @@ class Gui(Tk):
 		if self.sources:
 			self.sources.pop()
 			self._source_text.configure(state='normal')
-			self._source_text.delete('end-1l', 'end-1l')
+			self._source_text.delete('end-2l', 'end-1l')
 			self._source_text.configure(state='disabled')
 
 	def _clear_source_text(self):
@@ -266,6 +271,7 @@ class Gui(Tk):
 		self._source_text.delete('1.0', 'end')
 		self._source_text.configure(state='disabled')
 		self.sources = list()
+		self.settings.tolerant = False
 
 	def _select_log(self):
 		'''Select directory'''
@@ -288,6 +294,10 @@ class Gui(Tk):
 
 	def echo(self, *args, end=None):
 		'''Write message to info field (ScrolledText)'''
+		last_echo = self._last_echo
+		self._last_echo = int(perf_counter() * 10 )
+		if end == '\r' and last_echo == self._last_echo:
+			return
 		msg = ' '.join(f'{arg}' for arg in args)
 		self._info_text.configure(state='normal')
 		if not self._info_newline:
@@ -334,13 +344,6 @@ class Gui(Tk):
 
 	def _execute(self):
 		'''Start copy process / worker'''
-		self._clear_info()
-		self.source_paths, bad_paths = self._get_source_paths()
-		if bad_paths:
-			showerror(title=self.labels.error, message=f'{self.labels.bad_sources}: {"\n ".join(bad_paths)}')
-		if not self.source_paths:
-			showerror(title=self.labels.error, message=self.labels.missing_source)
-			return
 		self._get_settings()
 		if self.settings.sendmail and not self.settings.user:
 			showerror(title=self.labels.error, message=self.labels.missing_name)
@@ -352,6 +355,7 @@ class Gui(Tk):
 			)
 			return
 		self._save_settings()
+		self._clear_info()
 		self._disable_buttons()
 		self._clear_info()
 		self._work_thread = WorkThread(self)
@@ -380,6 +384,14 @@ class Gui(Tk):
 
 	def finished(self, errors):
 		'''Run this when worker has finished'''
+		self._work_thread = None
+		self._enable_buttons()
+		if errors is None:
+			Log.info(self.labels.worker_killed)
+			return
+		self._clear_source_text()
+		self.write_log.set(False)
+		self.log_path = None
 		if errors:
 			self._info_text.configure(foreground=self._defs.red_fg, background=self._defs.red_bg)
 			self._warning_state = 'enable'
@@ -392,23 +404,27 @@ class Gui(Tk):
 			showerror(title=self.labels.warning, message=msg)
 		else:
 			self._info_text.configure(foreground=self._defs.green_fg, background=self._defs.green_bg)
-		self._source_text.configure(state='normal')
-		self._source_text.delete('1.0', 'end')
-		self.write_log.set(False)
-		self.log_path = None
-		self.settings.tolerant = False
-		self._work_thread = None
-		self._enable_buttons()
+
+	def quit_app(self):
+		'''Save settings end close application window'''
+		self._save_settings()
+		Log.debug('Quitting application')
+		self.destroy()
 
 	def _quit_app(self):
 		'''Quit app, ask if copy process is running'''
 		if self._add_source_thread or self._work_thread:
 			if not askyesno(title=self.labels.warning, message=self.labels.running_warning):
 				return
-			self._work_thread.kill()
-			self._add_source_thread.kill()
-			self.info(self.labels.killing_running)
+			Log.info(self.labels.killing_running)
+			try:
+				self._work_thread.kill()
+			except:
+				pass
+			try:
+				self._add_source_thread.kill()
+			except:
+				pass
 		else:
-			self._save_settings()
-			Log.debug('Quitting application')
-			self.destroy()
+			self.quit_app()
+

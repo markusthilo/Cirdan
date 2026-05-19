@@ -1,13 +1,14 @@
 {
-    "labels_path": "$APP/labels_en.json",
+    "labels_path": "$APP/labels_de.json",
     "local_path": "$HOME/AppData/Local/Cirdan/",
     "target_path": "$HOME/Documents/",
     "log_path": "$HOME/Documents/_logs/",
     "update_path": "P:/Cirdan/",
-    "domain": "domain.test",
+    "domain": "example.net",
     "destinations": {
-        "Testverzeichnis 1": "test_1",
-        "Testverzeichnis 2": "test_2"
+        "Import directory 1": "import1",
+        "Import directory 2": "import2",
+        "Import directory 3": "import3"
     },
     "settings_name": "settings.json",
     "log_name": "log.txt",
@@ -17,7 +18,7 @@
     "trigger_name": "fertig.txt",
     "qualicheck_name": "qualicheck.txt",
     "source_whitelist": [
-        "^[0-9]{6}-([0-9]{4}|[0-9]{6})-[iSZ0-9][0-9]{5}/EAV[0-9A-Z]{9}.*"
+        "^[0-9]{6}-([0-9]{4}|[0-9]{6})-[iSZ0-9][0-9]{5}/EAV[0-9]{2}[A-Z]{3}[0-9A-Z]{4}.*"
     ],
     "max_path_length": 230,
 	"max_hash_size": 1073741824,
@@ -33,11 +34,11 @@
         "^[^/]*/zu_loeschen.txt"
     ],
 	"mail": {
-        "smtp_host": "smtpt.localhost",
+        "smtp_host": "smtpt.msd.example.net",
         "smtp_port": 25,
         "smtp_timeout": 30,
-        "From": "Support <support@domain.test>",
-        "Reply-To": "support@domain.test",
+        "From": "From <from@example.net>",
+        "Reply-To": "reply-to@example.net",
         "Subject": "Cirdan: Import von % wurde durchgeführt",
         "body": "Hallo Nutzer,\n\ndies ist eine vom Uploud-Tool Cirdan automatisch generierte Benachrichtigung.\n\nDer Upload wurde durchgeführt.\n\nVerzeichnis: %\nGesamtgröße: %\nAnzahl der Dateien: %\nDavon nicht kopiert: %\nDavon fehlerhaft: %\n\nBeste Grüße\n\nSupport-Team\n"
     }

@@ -6,14 +6,15 @@ from datetime import timedelta
 from classes.logger import Logger as Log
 from classes.path import Path
 from classes.hash import HashThread
+from classes.regex import RegEx
 from classes.sendmail import SendMail 
 
 class Worker:
 	'''Main functionality'''
 
-	def __init__(self, src_paths, config, labels, settings, robocopy, logger, user_log=None, kill=None, echo=print):
+	def __init__(self, sources, config, labels, settings, robocopy, logger, user_log=None, kill=None, echo=print):
 		'''Prepare copy process'''
-		self._src_paths = src_paths
+		self._sources = sources
 		self._config = config
 		self._labels = labels
 		self._settings = settings
@@ -33,81 +34,72 @@ class Worker:
 	def run(self):
 		'''Start copy process'''
 		start_time = perf_counter()
-		Log.debug('Running worker')
+		if not self._sources:
+			self._error(self._labels.no_sources)
+			return self.errors
 		destination_root_path = self._config.target_path.joinpath(self._config.destinations[self._settings.destination])
 		if not destination_root_path.is_accessable_dir():
 			self._error(self._labels.bad_destination.replace('#', f'{destination_root_path}'))
 			return self.errors
-		sources = list()
-		for src_path in self._src_paths:	# check given source paths
-			source = PathTree(src_path)
-			try:
-				match, pattern = source.search(self._config.source_whitelist)
-				if not match:
-					self._error(self._labels.bad_source.replace('#', f'{source}'))
-					continue
-				match, length = source.too_long(self._config.max_path_length)
-				if match:
-					self._error(self._labels.path_too_long.replace(
-						'#1', f'{match}').replace(
-						'#2', f'{length}').replace(
-						'#3', f'{self._config.max_path_length}')
-					)
-					continue
-				if not self._settings.tolerant:
-					match, pattern = source.search(self._config.source_blacklist)
-					if match:
-						self._error(self._labels.blacklisted.replace('#1', f'{match}').replace('#2', f'{pattern}'))
-						continue
-				sources.append(source)
-			except:
-				self._error()
-		if not sources:
-			self._error(self._labels.no_sources)
-			return self.errors
 		if self._user_log:	# start additional log if selected
 			self._logger.add_user(self._user_log)
-		for source in sources:	# copy sources one by one
-			if self._kill_switch and self._kill_switch.is_set():
-				raise SystemExit(self._labels.worker_killed)
-			destination = PathTree(destination_root_path / source.name)
-			try:	# create new destination directory if not already there
-				new = destination.mk()
-			except:
-				self._error()
-				continue
+		for source in self._sources:	# check destination and create subdirs if necessary
 			Log.info(self._labels.checking_source.replace('#', f'{source}'))
-			if not new:	# check for blacklisted files in destination
-				match, pattern = destination.search(self._config.destination_blacklist)
-				if match:
-					self._error(self._labels.destination_blocked_by.replace('#1', f'{match}').replace('#2', f'{pattern}'))
-					continue
-			if error := self._logger.add_remote(source, destination):	# add log for one source / one destination
-				self.errors.append(error)
-				continue
-			try:
-				source.walk_files()
+			for path, bad in source.check():
+				if self._kill_switch and self._kill_switch.is_set():
+					return
+				self._echo(f'{path}', end='\r')
+				if isinstance(bad, int):
+					self._error(self._gui.labels.path_too_long.replace(
+					'#1', f'{path}').replace(
+					'#2', f'{bad}').replace(
+					'#3', f'{self._gui.config.max_path_length}')
+				)
+					return self.errors
+				if isinstance(bad, str):
+					self._error(self._gui.labels.blacklisted.replace('#1', f'{path}').replace('#2', f'{bad}'))
+					return self.errors
+			Log.info(self._labels.found_files_in_source.replace(
+				'#1', f'{len(source.files)}').replace(
+				'#2', f'{source.path}').replace(
+				'#3', f'{source.size.readable()}')
+			)
+			dst_path = Path(destination_root_path / source.name)
+			try:	# create new destination directory if not already there
+				dst_is_new = dst_path.mk()
 			except:
 				self._error()
 				continue
-			Log.info(self._labels.found_files_in_source.replace(
-				'#1', f'{source.total_files}').replace(
-				'#2', f'{source}').replace(
-				'#3', f'{source.total_bytes.readable()}')
-			)
+			if dst_is_new:
+				Log.info(self._labels.created_destination.replace('#', dst_path.name))
+			elif self._config.destination_blacklist:	# check for blacklisted files in destination
+				Log.info(self._labels.checking_destination.replace('#', f'{dst_path}'))
+				blacklist = RegEx(self._config.destination_blacklist)
+				for path, relative in dst_path.rrglob('*'):
+					if self._kill_switch and self._kill_switch.is_set():
+						return
+					self._echo(f'{path}', end='\r')
+					if pattern := blacklist.search(relative):
+						self._error(self._labels.destination_blocked_by.replace('#1', relative).replace('#2', f'{pattern}'))
+						return self._errors
+		for source in self._sources:	# copy sources one by one
 			try:
-				hash_thread = HashThread(source.parent, source.rel_file_paths, self._config.max_hash_size)	# start hashing
+				dst_path = Path(destination_root_path / source.name)
+				Log.info(self._labels.starting_copy.replace('#', f'{source.path}'))
+				if error := self._logger.add_remote(source.path, dst_path):	# add log for one source / one destination
+					self._errors(error)
+				hash_thread = HashThread(source.files, max_size=self._config.max_hash_size, kill=self._kill_switch)	# start hashing
 				Log.info(self._labels.starting_hashing)
 				hash_thread.start()
-				Log.info(f'{self._labels.starting_robocopy}: {source} -> {destination}, {source.total_bytes.readable()}')
-				for line in self._robocopy.copy_dir(source, destination):
+				Log.info(f'{self._labels.starting_robocopy}: {source} -> {dst_path}')
+				for line in self._robocopy.copy_dir(source.path, dst_path):
 					if line.endswith('%'):
 						self._echo(line, end='\r')
 					else:
 						self._echo(line)
 					if self._kill_switch and self._kill_switch.is_set():
 						self._robocopy.terminate()
-						raise SystemExit(self._labels.worker_killed)
+						return
 				try:
 					robocopy_msg = f'{self._robocopy.returncode} - ' + self._labels.__dict__[f'returncode_{self._robocopy.returncode}']
 				except KeyError:
@@ -118,22 +110,31 @@ class Worker:
 				else:
 					Log.info(robocopy_msg)
 				Log.info(self._labels.starting_size_check)	# start size check
-				rel_paths = list()
+				total_files = len(source.files)
 				missing_paths = 0
 				bad_paths = 0
-				for cnt, (rel_path, src_size) in enumerate(source.get_rel_paths_sizes(), start=1):
-					self._echo(f'{int(100*cnt/source.total_files)}%', end='\r')
-					dst_size = destination.check_file(rel_path)
-					if dst_size == None:
-						Log.warning(self._labels.missing_file.replace('#', f'{rel_path}'))
+				for cnt, fd in enumerate(source.files, start=1):
+					self._echo(f'{int(100*cnt/total_files)}%', end='\r')
+					relative = fd['relative']
+					src_size = fd['size']
+					dst_size = dst_path.parent.joinpath(relative).get_filesize()
+					if dst_size is None:
+						Log.warning(self._labels.missing_file.replace('#', relative))
 						missing_paths += 1
-						rel_paths.append((rel_path, src_size, None, False))
+						fd['dst_size'] = None
+						fd['dst_ok'] = False
 					elif dst_size != src_size:
-						Log.warning(self._labels.mismatching_sizes.replace('#', f'{rel_path} => {src_size}, {rel_path} => {dst_size}'))
+						Log.warning(self._labels.mismatching_sizes.replace(
+							'#1', relative).replace(
+							'#2', f'{src_size}').replace(
+							'#3', f'{dst_size}')
+						)
 						bad_paths += 1
-						rel_paths.append((rel_path, src_size, dst_size, False))
+						fd['dst_size'] = dst_size
+						fd['dst_ok'] = False
 					else:
-						rel_paths.append((rel_path, src_size, dst_size, True))
+						fd['dst_size'] = dst_size
+						fd['dst_ok'] = True
 				Log.info(self._labels.size_check_finished)
 				if hash_thread.is_alive():	# wait untill hashing has finished
 					Log.info(self._labels.hashing_in_progress)
@@ -146,26 +147,26 @@ class Worker:
 						sleep(.25)
 				hash_thread.join()
 				Log.info(self._labels.hashing_finished)
-				dst_tsv_path = destination.joinpath(self._config.tsv_name).timed()	# write tsv files
+				dst_tsv_path = dst_path.joinpath(self._config.tsv_name).timed()	# write tsv files
 				log_tsv_path = self._logger.get_remote_parent().joinpath(self._config.tsv_name).timed()
 				Log.debug(f'Start writing TSV files: {dst_tsv_path}, {log_tsv_path}')
 				with dst_tsv_path.open_w() as dst_fh, log_tsv_path.open_w() as log_fh:
 					print(self._labels.tsv_head, file=dst_fh)
 					print(self._labels.tsv_head, file=log_fh)
-					for (path, src_size, dst_size, okay), hash in zip(rel_paths, hash_thread.get_hashes()):
-						if okay:
+					for fd in source.files:
+						if fd['dst_ok']:
 							msg = self._labels.okay
-						elif dst_size:
+						elif fd['dst_size']:
 							msg =  self._labels.bad_size
 						else:
 							msg = self._labels.missing
 						line = '\t'.join((
-							f'{path}',
-							f'{src_size.readable()}',
-							f'{src_size}',
-							f'{dst_size if dst_size != None else "#####"}',
+							fd['relative'],
+							fd['size'].readable(),
+							str(fd['size']),
+							'#####' if fd['dst_size'] is None else str(fd['dst_size']),
 							msg,
-							f'{hash}'
+							fd['hash']
 						))
 						print(line, file=dst_fh)
 						print(line, file=log_fh)
@@ -180,12 +181,12 @@ class Worker:
 			Log.info(self._labels.copy_finished.replace('#', f'{timedelta(seconds=time_delta)}'))
 			if self._settings.trigger:
 				try:
-					destination.write_text_file(self._config.trigger_name, self._id)
+					dst_path.write_text_file(self._config.trigger_name, self._id)
 				except:
 					self._error()
 			if self._settings.qualicheck:
 				try:
-					destination.write_text_file(self._config.qualicheck_name, self._id)
+					dst_path.write_text_file(self._config.qualicheck_name, self._id)
 				except:
 					self._error()
 			if self._settings.sendmail and self._mail_address:	# send mail to user
@@ -193,7 +194,7 @@ class Worker:
 					SendMail(self._config.mail).send(
 						self._mail_address,
 						f'{source}',
-						(f'{source}', source.total_bytes.readable(), f'{source.total_files}', f'{missing_paths}', f'{bad_paths}')
+						(f'{source}', source.size.readable(), f'{len(source.files)}', f'{missing_paths}', f'{bad_paths}')
 					)
 				except:
 					self._error()
