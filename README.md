@@ -52,12 +52,10 @@ By default there are language packs for English (`labels_en.json`) and German (`
 ### Example `config.json`
 ```
 {
-    "labels_path": "$APP/labels_en.json",
-    "mail_template_path": "$APP/mail_example.json",
+    "labels_path": "$APP/labels_de.json",
     "local_path": "$HOME/AppData/Local/Cirdan/",
     "target_path": "$HOME/Documents/",
     "log_path": "$HOME/Documents/_logs/",
-    "mail_path": "$HOME/Documents/_mail/",
     "update_path": "P:/Cirdan/",
     "domain": "example.net",
     "destinations": {
@@ -68,26 +66,35 @@ By default there are language packs for English (`labels_en.json`) and German (`
     "settings_name": "settings.json",
     "log_name": "log.txt",
     "lastlog_name": "lastlog.txt",
-    "tmplog_name": "tmplog.txt",
     "crashlog_name": "crashlog.txt",
     "tsv_name": "md5.txt",
-    "trigger_name": "trigger.txt",
+    "trigger_name": "fertig.txt",
     "qualicheck_name": "qualicheck.txt",
-    "mail_name": "CIRDAN.json",
     "source_whitelist": [
-        "^[0-9]{6}-.*"
+        "^[0-9]{6}-([0-9]{4}|[0-9]{6})-[iSZ0-9][0-9]{5}/EAV[0-9]{2}[A-Z]{3}[0-9A-Z]{4}.*"
     ],
     "max_path_length": 230,
+	"max_hash_size": 1073741824,
     "source_blacklist": [
         "^[^/]*/(?!EAV[0-9A-Z]{9})(?![^/]*\\.(pdf|txt)$).*$",
-        ".*/forbidden.txt$",
-        ".*/not_allowed/.*"
+        ".*/Help/HTML5/.*",
+        ".*/Help/LicenseUpgrade/.*"
     ],
     "destination_blacklist": [
-        "^[^/]*/trigger.txt",
-        "^[^/]*/qualicheck.txt",
-        "^[^/]*/done.txt"
-    ]
+        "^[^/]*/fertig.txt",
+        "^[^/]*/fehler.txt",
+        "^[^/]*/start.txt",
+        "^[^/]*/zu_loeschen.txt"
+    ],
+	"mail": {
+        "smtp_host": "smtpt.msd.example.net",
+        "smtp_port": 25,
+        "smtp_timeout": 30,
+        "From": "From <from@example.net>",
+        "Reply-To": "reply-to@example.net",
+        "Subject": "Cirdan: Import von % wurde durchgeführt",
+        "body": "Hallo Nutzer,\n\ndies ist eine vom Uploud-Tool Cirdan automatisch generierte Benachrichtigung.\n\nDer Upload wurde durchgeführt.\n\nVerzeichnis: %\nGesamtgröße: %\nAnzahl der Dateien: %\nDavon nicht kopiert: %\nDavon fehlerhaft: %\n\nBeste Grüße\n\nSupport-Team\n"
+    }
 }
 ```
 ## Usage
