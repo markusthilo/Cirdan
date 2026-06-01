@@ -4,4 +4,4 @@ build/
 _internal/
 *.exe
 *.manifest
-*.spec
+
