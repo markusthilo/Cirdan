@@ -3,7 +3,7 @@
 
 from email.header import Header
 from email.mime.text import MIMEText
-from smtplib import SMTP
+from smtplib import SMTP, SMTPException
 
 
 class SendMail:
@@ -18,6 +18,15 @@ class SendMail:
 		self._reply_to = mail_config['Reply-To']
 		self._subject = mail_config['Subject']
 		self._body = mail_config['body']
+
+	def is_reachable(self):
+		'''Return True if the configured SMTP host accepts a connection.'''
+		try:
+			with SMTP(self._host, self._port, timeout=self._timeout):
+				pass
+			return True
+		except (OSError, SMTPException):
+			return False
 
 	def send(self, to_address, source, inserts):
 		'''Compose and send mail to SMTP server '''

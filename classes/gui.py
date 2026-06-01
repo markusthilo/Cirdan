@@ -18,6 +18,7 @@ from classes.logger import Logger as Log
 from classes.path import Path
 from classes.json import Json
 from classes.update import Update
+from classes.sendmail import SendMail
 from classes.robocopy import RoboCopy
 
 class CheckSourceThread(Thread):
@@ -181,17 +182,20 @@ class Gui(Tk):
 			Hovertip(button, self.labels.log_tip)
 			frame = Frame(self)
 			frame.grid(row=4, column=1, sticky='we', padx=self._pad)
-			self.send_mail = BooleanVar(value=self.settings.sendmail)
-			button = Checkbutton(frame, text=self.labels.sendmail_button, variable=self.send_mail)
-			button.pack(side='left')
-			Hovertip(button, self.labels.sendmail_tip)
 			self.user = StringVar(value=self.settings.user)
-			entry = Entry(frame, textvariable=self.user)
-			entry.pack(side='left', fill='x', expand=True)
-			Hovertip(entry, self.labels.address_tip)
-			label = Label(frame, text=f'@{self.config.domain}')
-			label.pack(side='left')
-			Hovertip(label, self.labels.address_tip)
+			if SendMail(self.config.mail).is_reachable():
+				self.send_mail = BooleanVar(value=self.settings.sendmail)
+				button = Checkbutton(frame, text=self.labels.sendmail_button, variable=self.send_mail)
+				button.pack(side='left')
+				Hovertip(button, self.labels.sendmail_tip)
+				entry = Entry(frame, textvariable=self.user)
+				entry.pack(side='left', fill='x', expand=True)
+				Hovertip(entry, self.labels.address_tip)
+				label = Label(frame, text=f'@{self.config.domain}')
+				label.pack(side='left')
+				Hovertip(label, self.labels.address_tip)
+			else:
+				self.send_mail = BooleanVar(value=False)
 			self._exec_button = Button(self, text=self.labels.start_button, command=self._execute)
 			self._exec_button.grid(row=5, column=1, sticky='e', padx=self._pad, pady=self._pad)
 			Hovertip(self._exec_button, self.labels.start_tip)
