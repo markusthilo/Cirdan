@@ -183,7 +183,11 @@ class Gui(Tk):
 			frame = Frame(self)
 			frame.grid(row=4, column=1, sticky='we', padx=self._pad)
 			self.user = StringVar(value=self.settings.user)
-			if SendMail(self.config.mail).is_reachable():
+			try:
+				use_mail = SendMail(self.config.mail).is_reachable()
+			except:
+				use_mail = False
+			if use_mail:
 				self.send_mail = BooleanVar(value=self.settings.sendmail)
 				button = Checkbutton(frame, text=self.labels.sendmail_button, variable=self.send_mail)
 				button.pack(side='left')

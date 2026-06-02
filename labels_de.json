@@ -78,5 +78,6 @@
     "okay": "okay",
     "error_sizes": "Bei # Datei(en) stimmt die Größe der Zieldatei nicht mit der Ausgangsdatei überein",
     "error_missing": "Von # Datei(en) fehlt die Zieldatei",
-    "copy_finished": "Fertig - das Kopieren dauerte # (Stunden, Minuten, Sekunden)"
+    "copy_finished": "Fertig - das Kopieren dauerte # (Stunden, Minuten, Sekunden)",
+    "mail_error": "Fehler beim Versenden der E-Mail an #"
 }

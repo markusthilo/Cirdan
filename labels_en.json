@@ -78,5 +78,6 @@
     "okay": "okay",
     "error_sizes": "For # file(s), the size of the destination file does not match the source file",
     "error_missing": "The destination file is missing for # file(s)",
-    "copy_finished": "Finished - copying took # (hours, minutes, seconds)"
+    "copy_finished": "Finished - copying took # (hours, minutes, seconds)",
+    "mail_error": "Error sending mail to #"
 }

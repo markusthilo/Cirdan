@@ -81,13 +81,13 @@ class Worker:
 					self._echo(f'{path}', end='\r')
 					if pattern := blacklist.search(relative):
 						self._error(self._labels.destination_blocked_by.replace('#1', relative).replace('#2', f'{pattern}'))
-						return self._errors
+						return self.errors
 		for source in self._sources:	# copy sources one by one
 			try:
 				dst_path = Path(destination_root_path / source.name)
 				Log.info(self._labels.starting_copy.replace('#', f'{source.path}'))
 				if error := self._logger.add_remote(source.path, dst_path):	# add log for one source / one destination
-					self._errors(error)
+					self._error(error)
 				hash_thread = HashThread(source.files, max_size=self._config.max_hash_size, kill=self._kill_switch)	# start hashing
 				Log.info(self._labels.starting_hashing)
 				hash_thread.start()
@@ -197,7 +197,7 @@ class Worker:
 						(f'{source}', source.size.readable(), f'{len(source.files)}', f'{missing_paths}', f'{bad_paths}')
 					)
 				except:
-					self._error()
+					self._error(self._labels.mail_error.replace('#', f'{self._mail_address}'))
 			try:
 				self._logger.close_remote()
 			except:
