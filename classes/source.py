@@ -17,8 +17,8 @@ class Source:
 		self.whitelist = RegEx(whitelist) if whitelist else None
 		self.blacklist = RegEx(blacklist) if blacklist else None
 		self.files = None
-		self.size = None
-		self.valid = None
+		self.size = Size(0)
+		self.whitelist_match = False
 
 	def __repr__(self):
 		'''Printable path'''
@@ -31,20 +31,19 @@ class Source:
 
 	def check(self):
 		'''Check source directory tree'''
-		whitelist_match = self.whitelist is None
+		self.whitelist_match = False
 		self.files = list()
 		self.size = Size(0)
 		for path, relative in self.path.rrglob('*'):
+			if self.whitelist and self.whitelist.search(relative):
+				self.whitelist_match = True
 			if self.max_path_len and len(relative) > self.max_path_len:
 				yield path, len(relative)
 			if self.blacklist:
 				if pattern := self.blacklist.search(relative):
 					yield path, pattern
-			if not whitelist_match and self.whitelist.search(relative):
-				whitelist_match = True
 			if path.is_file():
 				size = path.get_filesize()
 				self.files.append({'path': path, 'relative': relative, 'size': size})
 				self.size += size
 			yield path, None
-		self.valid = whitelist_match

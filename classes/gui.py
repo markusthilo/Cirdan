@@ -28,9 +28,9 @@ class CheckSourceThread(Thread):
 		'''Pass source directory to add to GUI'''
 		self._gui = gui
 		self._source = Source(source_dir,
-			max_path_len = self._gui.config.max_path_length,
-			whitelist = self._gui.config.source_whitelist,
-			blacklist = self._gui.config.source_blacklist if not self._gui.settings.tolerant else None
+			max_path_len = None if self._gui.tolerant else self._gui.config.max_path_length,
+			whitelist = None if self._gui.tolerant else self._gui.config.source_whitelist,
+			blacklist = None if self._gui.tolerant else self._gui.config.source_blacklist
 		)
 		super().__init__()
 		self._kill_event = Event()
@@ -46,26 +46,29 @@ class CheckSourceThread(Thread):
 			self._gui.echo(f'{path}', end='\r')
 			if isinstance(bad, int):
 				msg = self._gui.labels.path_too_long.replace('#1', f'{path}').replace('#2', f'{bad}').replace('#3', f'{self._gui.config.max_path_length}')
-				Log.error(msg)
-				showerror(title=self._gui.labels.error, message=msg)
-				self._gui.abort_source_check()
-				return
-			if isinstance(bad, str):
+				Log.warning(msg)
+				if askyesno(title=self._gui.labels.warning, message=f'{msg}\n\n{self._gui.labels.ignore_path_length}', default='no'):
+					self._source.max_path_len = None
+				else:
+					self._gui.abort_source_check()
+					return
+			elif isinstance(bad, str):
 				msg = self._gui.labels.blacklisted.replace('#1', f'{path}').replace('#2', f'{bad}')
-				Log.error(msg)
+				Log.warning(msg)
 				if askyesno(title=self._gui.labels.warning, message=f'{msg}\n\n{self._gui.labels.ignore_blacklist}', default='no'):
-					self._gui.settings.tolerant = True
 					self._source.blacklist = None
 				else:
 					self._gui.abort_source_check()
 					return
-		if self._source.valid:
-			self._gui.add_source(self._source)
-		else:
-			msg = self._gui.labels.bad_source.replace('#', f'{self._source.path}')
-			showerror(title=self._gui.labels.error, message=msg)
-			Log.error(msg)
-			self._gui.abort_source_check()
+		if not self._gui.tolerant and not self._source.whitelist_match:
+			msg = self._gui.labels.no_whitelist_match.replace('#', f'{self._source.path}')
+			Log.warning(msg)
+			if askyesno(title=self._gui.labels.warning, message=f'{msg}\n\n{self._gui.labels.ignore_whitelist}', default='no'):
+				self._source.whitelist = None
+			else:
+				self._gui.abort_source_check()
+				return
+		self._gui.add_source(self._source)
 
 	def kill(self):
 		'''Kill thread'''
@@ -111,13 +114,14 @@ class Gui(Tk):
 		'''Window showing startup error'''
 		showerror(title='Cirdan - Critical error on startup', message=msg)
 
-	def __init__(self, config, labels, settings, logger, user_log=None, source=None):
+	def __init__(self, config, labels, settings, logger, user_log=None, source=None, tolerant=False):
 		'''Open application window'''
 		super().__init__()
 		self.config = config
 		self.labels = labels
 		self.settings = settings
 		self.log_path = user_log
+		self.tolerant = tolerant
 		self.logger = logger
 		self._work_thread = None
 		self._add_source_thread = None
@@ -279,7 +283,6 @@ class Gui(Tk):
 		self._source_text.delete('1.0', 'end')
 		self._source_text.configure(state='disabled')
 		self.sources = list()
-		self.settings.tolerant = False
 
 	def _select_log(self):
 		'''Select directory'''

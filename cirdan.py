@@ -16,6 +16,7 @@ from classes.json import Json
 from classes.config import Config
 from classes.settings import Settings
 from classes.logger import Logger
+from classes.source import Source
 from classes.robocopy import RoboCopy
 from classes.worker import Worker
 from classes.gui import Gui
@@ -37,7 +38,7 @@ if __name__ == '__main__':  # start here when run as application
 	argparser.add_argument('-s', '--sendmail', type=str, metavar='STRING',
 		help='Send e-mail when copy process has finished, argument is address without domain (e.g. john.doe for john.doe@example.net)')
 	argparser.add_argument('-t', '--tolerant', action='store_true',
-		help='Ignore encounter of blacklisted paths')
+		help='Disable path checks (whitelist, blacklist, length)')
 	argparser.add_argument('-v', '--version', action='store_true',
 		help='Print version number')
 	argparser.add_argument('source', nargs='?', help='Source directory', type=Path, metavar='DIRECTORY')
@@ -60,7 +61,6 @@ if __name__ == '__main__':  # start here when run as application
 		if args.destination:
 			settings.destination = args.destination
 		source_path = Path(args.source.strip('"\'')).resolve() if args.source else None	# strip " or ' because of power shell bug
-		settings.tolerant = args.tolerant
 		config.reachable_dsts = tuple(
 			dst for dst in config.destinations
 			if config.target_path.joinpath(config.destinations[dst]).is_accessable_dir()
@@ -79,7 +79,6 @@ if __name__ == '__main__':  # start here when run as application
 			Gui.startup_error(msg)	# show error message in window
 		exit(1)
 	log_path = Path(args.log.strip('"\'')) if args.log else None
-	settings.tolerant = args.tolerant
 	if source_path and not args.gui:	# no gui
 		settings.trigger = not args.notrigger
 		settings.qualicheck = args.qualicheck
@@ -97,7 +96,23 @@ if __name__ == '__main__':  # start here when run as application
 			logger.warning(ex)
 		if not args.sendmail:
 			settings.sendmail = False
-		if Worker([source_path], config, labels, settings, RoboCopy(), logger, user_log=log_path).run():
+		if Worker(
+			[
+				Source(source_path,
+					max_path_len = None if args.tolerant else config.max_path_length,
+					whitelist = None if args.tolerant else config.source_whitelist,
+					blacklist = None if args.tolerant else config.source_blacklist
+				)
+			],
+			config,
+			labels,
+			settings,
+			RoboCopy(),
+			logger,
+			user_log=log_path
+		).run():
 			exit(1)
 		exit(0)
-	Gui(config, labels, settings, logger, user_log=log_path, source=source_path).mainloop()	# launch gui window 
+	Gui(config, labels, settings, logger,
+		user_log=log_path, source=source_path, tolerant=args.tolerant
+	).mainloop()	# launch gui window 
