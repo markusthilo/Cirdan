@@ -59,6 +59,9 @@ class Worker:
 				if isinstance(bad, str):
 					self._error(self._gui.labels.blacklisted.replace('#1', f'{path}').replace('#2', f'{bad}'))
 					return self.errors
+			if source.whitelist and not source.whitelist_match:
+				self._error(self._labels.no_whitelist_match.replace('#', f'{source.path}'))
+				return self.errors
 			Log.info(self._labels.found_files_in_source.replace(
 				'#1', f'{len(source.files)}').replace(
 				'#2', f'{source.path}').replace(
