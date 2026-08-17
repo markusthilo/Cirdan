@@ -196,7 +196,7 @@ class Worker:
 				try:
 					SendMail(self._config.mail).send(
 						self._mail_address,
-						f'{source}',
+						f'{source.path}',
 						(f'{source}', source.size.readable(), f'{len(source.files)}', f'{missing_paths}', f'{bad_paths}')
 					)
 				except:
