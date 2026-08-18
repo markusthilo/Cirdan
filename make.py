@@ -13,13 +13,10 @@ if __name__ == '__main__':	# start here
 		remove('cirdan.exe')
 	if exists('downloader.exe'):
 		remove('downloader.exe')
-	if exists('_internal/'):
-		rmtree('_internal/')
 	print('Launching PyInstaller')
 	PyInstaller.__main__.run(['--noconfirm', 'make.spec'])
-	move('dist/cirdan/cirdan.exe', './')
-	move('dist/cirdan/downloader.exe', './')
-	move('dist/cirdan/_internal/', './')
+	move('dist/cirdan.exe', './')
+	move('dist/downloader.exe', './')
 	print('Cleaning up')
 	if exists('build'):
 		rmtree('build')

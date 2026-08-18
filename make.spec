@@ -17,8 +17,9 @@ cirdan_pyz = PYZ(cirdan_a.pure)
 cirdan_exe = EXE(
     cirdan_pyz,
     cirdan_a.scripts,
+    cirdan_a.binaries,
+    cirdan_a.datas,
     [],
-    exclude_binaries=True,
     name='cirdan',
     debug=False,
     bootloader_ignore_signals=False,
@@ -50,8 +51,9 @@ downloader_pyz = PYZ(downloader_a.pure)
 downloader_exe = EXE(
     downloader_pyz,
     downloader_a.scripts,
+    downloader_a.binaries,
+    downloader_a.datas,
     [],
-    exclude_binaries=True,
     name='downloader',
     debug=False,
     bootloader_ignore_signals=False,
@@ -64,17 +66,4 @@ downloader_exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon=['icons/downloader.ico'],
-)
-
-coll = COLLECT(
-    cirdan_exe,
-    cirdan_a.binaries,
-    cirdan_a.datas,
-    downloader_exe,
-    downloader_a.binaries,
-    downloader_a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name='cirdan',
 )
