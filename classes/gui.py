@@ -146,9 +146,6 @@ class Gui(Tk):
 			self._source_button = Button(self, text=self.labels.source_dir, command=self._select_source)
 			self._source_button.grid(row=0, column=0, sticky='nw', ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
 			Hovertip(self._source_button, self.labels.source_tip)
-			self._delete_button = Button(self, text=self.labels.delete_source, command=self._delete_source)
-			self._delete_button.grid(row=1, column=1, sticky='ne', padx=self._pad)#, pady=self._pad)
-			Hovertip(self._delete_button, self.labels.delete_source_tip)
 			self._source_text = ScrolledText(self, font=(font_family, font_size), padx=self._pad, pady=self._pad)
 			self._source_text.grid(row=0, column=1, sticky='nswe', ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
 			if source:
@@ -158,6 +155,9 @@ class Gui(Tk):
 				self.sources = list()
 			self._source_text.configure(state='disabled')
 			self._source_text.bind('<Key>', lambda dummy: 'break')
+			self._delete_button = Button(self, text=self.labels.delete_source, command=self._delete_source)
+			self._delete_button.grid(row=1, column=1, sticky='ne', padx=self._pad)#, pady=self._pad)
+			Hovertip(self._delete_button, self.labels.delete_source_tip)
 			label = Label(self, text=self.labels.destination)
 			label.grid(row=2, column=0, sticky='w', padx=self._pad)
 			Hovertip(label, self.labels.destination_tip)
@@ -166,7 +166,7 @@ class Gui(Tk):
 				OptionMenu(self, self.destination, self.settings.destination, *self.config.reachable_dsts
 					).grid(row=2, column=1, sticky='w', padx=self._pad)
 			else:
-				Label(self, text=self.settings.destination).grid(row=1, column=1, columnspan=2, sticky='w', padx=self._pad)
+				Label(self, text=self.settings.destination).grid(row=2, column=1, columnspan=2, sticky='w', padx=self._pad)
 			label = Label(self, text=self.labels.after_copying)
 			label.grid(row=3, column=0, sticky='nw', padx=self._pad, pady=(self._pad, 0))
 			Hovertip(label, self.labels.after_copying_tip)

@@ -24,12 +24,6 @@ from classes.gui import Gui
 __parent_path__ = Path(__file__).parent if Path(__executable__).name.startswith('python') else Path(__executable__).parent
 
 if __name__ == '__main__':  # start here when run as application
-
-	#rint(f'{__file__=}')
-	#rint(f'{__executable__=}')
-	#rint(f'{__parent_path__=}')
-	#xit(0)
-
 	argparser = ArgumentParser(description=__description__)
 	argparser.add_argument('-d', '--destination', type=str, metavar='STRING',
 		help='Destination to copy to')
