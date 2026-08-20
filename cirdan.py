@@ -29,14 +29,14 @@ if __name__ == '__main__':  # start here when run as application
 		help='Destination to copy to')
 	argparser.add_argument('-g', '--gui', action='store_true',
 		help='Use GUI with given root directory as command line parameters')
-	argparser.add_argument('-l', '--log', type=str, metavar='FILE',
+	argparser.add_argument('-l', '--log', type=Path, metavar='FILE',
 		help='File to store log')
 	argparser.add_argument('-n', '--notrigger', action='store_true',
 		help='Do not triggedr further process to handle/move uploaded data')
 	argparser.add_argument('-q', '--qualicheck', action='store_true',
 		help='Trigger qualicheck when the entire process has finished')
 	argparser.add_argument('-s', '--sendmail', type=str, metavar='STRING',
-		help='Send e-mail when copy process has finished, argument is address without domain (e.g. john.doe for john.doe@example.net)')
+		help='Send e-mail when copy process has finished, argument is mail address without domain (e.g. john.doe for john.doe@example.net)')
 	argparser.add_argument('-t', '--tolerant', action='store_true',
 		help='Disable path checks (whitelist, blacklist, length)')
 	argparser.add_argument('-v', '--version', action='store_true',
@@ -78,13 +78,13 @@ if __name__ == '__main__':  # start here when run as application
 		if not args.source or args.gui:
 			Gui.startup_error(msg)	# show error message in window
 		exit(1)
-	log_path = Path(args.log.strip('"\'')) if args.log else None
+	log_path = args.log if args.log else None
 	if source_path and not args.gui:	# no gui
 		settings.trigger = not args.notrigger
 		settings.qualicheck = args.qualicheck
 		if args.sendmail:
 			settings.sendmail = True
-			settings.user = args.sendmail.strip('"\'')
+			settings.user = args.sendmail
 		if not settings.user:
 			settings.sendmail = False
 		if not config.log_path.is_accessable_dir():
