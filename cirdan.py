@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '1.4.1_2026-08-18'
+__version__ = '1.4.1_2026-08-20'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@proton.me'
 __status__ = 'Testing'
@@ -60,7 +60,7 @@ if __name__ == '__main__':  # start here when run as application
 		settings = Settings(config)
 		if args.destination:
 			settings.destination = args.destination
-		source_path = Path(args.source.strip('"\'')).resolve() if args.source else None	# strip " or ' because of power shell bug
+		source_path = args.source.resolve() if args.source else None
 		config.reachable_dsts = tuple(
 			dst for dst in config.destinations
 			if config.target_path.joinpath(config.destinations[dst]).is_accessable_dir()

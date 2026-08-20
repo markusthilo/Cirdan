@@ -50,16 +50,19 @@ class Worker:
 					return
 				self._echo(f'{path}', end='\r')
 				if isinstance(bad, int):
-					self._error(self._gui.labels.path_too_long.replace(
+					self._echo()
+					self._error(self._labels.path_too_long.replace(
 					'#1', f'{path}').replace(
 					'#2', f'{bad}').replace(
-					'#3', f'{self._gui.config.max_path_length}')
+					'#3', f'{self._config.max_path_length}')
 				)
 					return self.errors
 				if isinstance(bad, str):
-					self._error(self._gui.labels.blacklisted.replace('#1', f'{path}').replace('#2', f'{bad}'))
+					self._echo()
+					self._error(self._labels.blacklisted.replace('#1', f'{path}').replace('#2', f'{bad}'))
 					return self.errors
 			if source.whitelist and not source.whitelist_match:
+				self._echo()
 				self._error(self._labels.no_whitelist_match.replace('#', f'{source.path}'))
 				return self.errors
 			Log.info(self._labels.found_files_in_source.replace(
@@ -84,6 +87,7 @@ class Worker:
 					self._echo(f'{path}', end='\r')
 					if pattern := blacklist.search(relative):
 						self._error(self._labels.destination_blocked_by.replace('#1', relative).replace('#2', f'{pattern}'))
+						self._echo()
 						return self.errors
 		for source in self._sources:	# copy sources one by one
 			try:
