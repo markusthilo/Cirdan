@@ -155,7 +155,7 @@ class Logger:
 
 	def crash(self, message=None):
 		'''Close all logs on crash and try to copy crashlog'''
-		self.critical(message=message)
+		message = self.critical(message=message)
 		self.close_remote()
 		self.close_user()
 		self._logger.removeHandler(self._lastlog_handler)

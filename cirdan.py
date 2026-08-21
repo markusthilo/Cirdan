@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '1.4.1_2026-08-20'
+__version__ = '1.5.0_2026-08-21'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@proton.me'
 __status__ = 'Testing'
@@ -31,14 +31,14 @@ if __name__ == '__main__':  # start here when run as application
 		help='Use GUI with given root directory as command line parameters')
 	argparser.add_argument('-l', '--log', type=Path, metavar='FILE',
 		help='File to store log')
-	argparser.add_argument('-n', '--notrigger', action='store_true',
-		help='Do not triggedr further process to handle/move uploaded data')
+	argparser.add_argument('-n', '--nocheck', action='store_true',
+		help='Disable path checks (whitelist, blacklist, length)')
 	argparser.add_argument('-q', '--qualicheck', action='store_true',
 		help='Trigger qualicheck when the entire process has finished')
 	argparser.add_argument('-s', '--sendmail', type=str, metavar='STRING',
 		help='Send e-mail when copy process has finished, argument is mail address without domain (e.g. john.doe for john.doe@example.net)')
-	argparser.add_argument('-t', '--tolerant', action='store_true',
-		help='Disable path checks (whitelist, blacklist, length)')
+	argparser.add_argument('-t', '--trigger', type=str, metavar='STRING',
+		help='Write trigger file, parameter will be written as 1st line')
 	argparser.add_argument('-v', '--version', action='store_true',
 		help='Print version number')
 	argparser.add_argument('source', nargs='?', help='Source directory', type=Path, metavar='DIRECTORY')
@@ -61,16 +61,14 @@ if __name__ == '__main__':  # start here when run as application
 		if args.destination:
 			settings.destination = args.destination
 		source_path = args.source.resolve() if args.source else None
-		config.reachable_dsts = tuple(
-			dst for dst in config.destinations
-			if config.target_path.joinpath(config.destinations[dst]).is_accessable_dir()
-		)
+		config.reachable_dsts = {
+			key: value for key, value in config.destinations.items()
+			if config.target_path.joinpath(value['sub_path']).is_accessable_dir()
+		}
 		if not config.reachable_dsts:
 			raise NotADirectoryError(f'Unable to find or reach subdirectories of {config.target_path}')
 		if settings.destination and not settings.destination in config.reachable_dsts:
-			settings.destination = None
-		if not settings.destination and config.reachable_dsts:
-			settings.destination = config.reachable_dsts[0]
+			settings.destination = ''
 		if not config.log_path.is_accessable_dir():
 			raise NotADirectoryError(f'Unable to find or reach log directory {config.log_path}')
 	except Exception as ex:
@@ -80,7 +78,8 @@ if __name__ == '__main__':  # start here when run as application
 		exit(1)
 	log_path = args.log if args.log else None
 	if source_path and not args.gui:	# no gui
-		settings.trigger = not args.notrigger
+		if args.trigger:
+			settings.trigger = True
 		settings.qualicheck = args.qualicheck
 		if args.sendmail:
 			settings.sendmail = True
@@ -99,9 +98,9 @@ if __name__ == '__main__':  # start here when run as application
 		if Worker(
 			[
 				Source(source_path,
-					max_path_len = None if args.tolerant else config.max_path_length,
-					whitelist = None if args.tolerant else config.source_whitelist,
-					blacklist = None if args.tolerant else config.source_blacklist
+					max_path_len = None if args.nocheck else config.max_path_length,
+					whitelist = None if args.nocheck else config.source_whitelist,
+					blacklist = None if args.nocheck else config.source_blacklist
 				)
 			],
 			config,
@@ -109,10 +108,18 @@ if __name__ == '__main__':  # start here when run as application
 			settings,
 			RoboCopy(),
 			logger,
-			user_log=log_path
+			trigger = args.trigger,
+			user_log = log_path
 		).run():
 			exit(1)
 		exit(0)
-	Gui(config, labels, settings, logger,
-		user_log=log_path, source=source_path, tolerant=args.tolerant
+	Gui(
+		config,
+		labels,
+		settings,
+		logger,
+		user_log = log_path,
+		source = source_path,
+		trigger = args.trigger,
+		no_source_check = args.nocheck
 	).mainloop()	# launch gui window 

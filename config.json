@@ -6,9 +6,21 @@
     "update_path": "P:/Cirdan/",
     "domain": "example.net",
     "destinations": {
-        "Import directory 1": "import1",
-        "Import directory 2": "import2",
-        "Import directory 3": "import3"
+        "Import directory 1": {"sub_path": "import1", "trigger": "selection"},
+        "Import directory 2": {"sub_path": "import2", "trigger": "static"},
+        "Import directory 3": {"sub_path": "import3", "trigger": "static"}
+    },
+    "triggers": {
+        "static": ["AW für Ermittler"],
+        "selection": [
+            "AW für Ermittler",
+            "BU für Dir 1 IuK",
+            "BU für Dir 2 IuK",
+            "BU für Dir 3 IuK",
+            "BU für Dir 4 IuK",
+            "BU für Dir 5 IuK",
+            "BU für LKA 814"
+        ]
     },
     "settings_name": "settings.json",
     "log_name": "log.txt",

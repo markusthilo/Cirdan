@@ -28,9 +28,9 @@ class CheckSourceThread(Thread):
 		'''Pass source directory to add to GUI'''
 		self._gui = gui
 		self._source = Source(source_dir,
-			max_path_len = None if self._gui.tolerant else self._gui.config.max_path_length,
-			whitelist = None if self._gui.tolerant else self._gui.config.source_whitelist,
-			blacklist = None if self._gui.tolerant else self._gui.config.source_blacklist
+			max_path_len = None if self._gui.no_source_check else self._gui.config.max_path_length,
+			whitelist = None if self._gui.no_source_check else self._gui.config.source_whitelist,
+			blacklist = None if self._gui.no_source_check else self._gui.config.source_blacklist
 		)
 		super().__init__()
 		self._kill_event = Event()
@@ -89,6 +89,7 @@ class WorkThread(Thread):
 			self._gui.settings,
 			self._gui.robocopy,
 			self._gui.logger,
+			trigger = self._gui.trigger,
 			user_log = self._gui.log_path,
 			echo = self._gui.echo,
 			kill = self._kill_event
@@ -114,14 +115,14 @@ class Gui(Tk):
 		'''Window showing startup error'''
 		showerror(title='Cirdan - Critical error on startup', message=msg)
 
-	def __init__(self, config, labels, settings, logger, user_log=None, source=None, tolerant=False):
+	def __init__(self, config, labels, settings, logger, user_log=None, source=None, trigger=None, no_source_check=False):
 		'''Open application window'''
 		super().__init__()
 		self.config = config
 		self.labels = labels
 		self.settings = settings
 		self.log_path = user_log
-		self.tolerant = tolerant
+		self.no_source_check = no_source_check
 		self.logger = logger
 		self._work_thread = None
 		self._add_source_thread = None
@@ -131,7 +132,7 @@ class Gui(Tk):
 			self.title(f'{self.labels.title} v{self.labels.version}')
 			self.rowconfigure(0, weight=1)
 			self.columnconfigure(1, weight=1)
-			self.rowconfigure(6, weight=1)
+			self.rowconfigure(7, weight=1)
 			self.iconphoto(True, PhotoImage(file=self.config.app_path / self._defs.appicon))
 			self.protocol('WM_DELETE_WINDOW', self._quit_app)
 			font = nametofont('TkTextFont').actual()
@@ -163,8 +164,12 @@ class Gui(Tk):
 			Hovertip(label, self.labels.destination_tip)
 			self.destination = StringVar(value=self.settings.destination)
 			if len(self.config.reachable_dsts) > 1:
-				OptionMenu(self, self.destination, self.settings.destination, *self.config.reachable_dsts
-					).grid(row=2, column=1, sticky='w', padx=self._pad)
+				OptionMenu(
+					self,
+					self.destination,
+					self.settings.destination if self.settings.destination else self.labels.select_destination,
+					*self.config.reachable_dsts
+				).grid(row=2, column=1, sticky='w', padx=self._pad)
 			else:
 				Label(self, text=self.settings.destination).grid(row=2, column=1, columnspan=2, sticky='w', padx=self._pad)
 			label = Label(self, text=self.labels.after_copying)
@@ -176,14 +181,27 @@ class Gui(Tk):
 			button = Checkbutton(frame, text=self.labels.trigger_button, variable=self.write_trigger)
 			button.pack(side='left', padx=self._pad)
 			Hovertip(button, self.labels.trigger_tip)
-			self.write_qualicheck = BooleanVar(value=self.settings.qualicheck)
-			button = Checkbutton(frame, text=self.labels.qualicheck_button, variable=self.write_qualicheck)
-			button.pack(side='left', padx=self._pad)
-			Hovertip(button, self.labels.qualicheck_tip)
-			self.write_log = BooleanVar(value=bool(self.log_path))
-			button = Checkbutton(frame, text=self.labels.log_button, variable=self.write_log, comman=self._select_log)
-			button.pack(side='left', padx=self._pad)
-			Hovertip(button, self.labels.log_tip)
+
+			destination = self.destination.get()
+
+			self._triggers = self.config.destinations[destination] if destination in self.config.destinations else tuple()
+			print(self._triggers)
+			
+
+			'''
+			self.trigger = StringVar(
+				value = (self.config.triggers['static'] if self.config.triggers['static']
+					else self.config.triggers['selection'])
+			)
+
+			OptionMenu(
+				frame,
+				self.trigger,
+				trigger if trigger else self.labels.select_trigger,
+				*self._triggers
+			).pack(side='left', padx=self._pad)
+			'''
+
 			frame = Frame(self)
 			frame.grid(row=4, column=1, sticky='we', padx=self._pad)
 			self.user = StringVar(value=self.settings.user)
@@ -204,11 +222,21 @@ class Gui(Tk):
 				Hovertip(label, self.labels.address_tip)
 			else:
 				self.send_mail = BooleanVar(value=False)
+			frame = Frame(self)
+			frame.grid(row=5, column=1, sticky='we', padx=self._pad)
+			self.write_qualicheck = BooleanVar(value=self.settings.qualicheck)
+			button = Checkbutton(frame, text=self.labels.qualicheck_button, variable=self.write_qualicheck)
+			button.pack(side='left', padx=(0, self._pad))
+			Hovertip(button, self.labels.qualicheck_tip)
+			self.write_log = BooleanVar(value=bool(self.log_path))
+			button = Checkbutton(frame, text=self.labels.log_button, variable=self.write_log, comman=self._select_log)
+			button.pack(side='left', padx=self._pad)
+			Hovertip(button, self.labels.log_tip)
 			self._exec_button = Button(self, text=self.labels.start_button, command=self._execute)
-			self._exec_button.grid(row=5, column=1, sticky='e', padx=self._pad, pady=self._pad)
+			self._exec_button.grid(row=6, column=1, sticky='e', padx=self._pad, pady=self._pad)
 			Hovertip(self._exec_button, self.labels.start_tip)
 			self._info_text = ScrolledText(self, font=(font_family, font_size), padx=self._pad, pady=self._pad)
-			self._info_text.grid(row=6, column=0, columnspan=2, sticky='nsew',
+			self._info_text.grid(row=7, column=0, columnspan=2, sticky='nsew',
 				ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
 			self._info_text.bind('<Key>', lambda dummy: 'break')
 			self._info_text.configure(state='disabled')
@@ -218,11 +246,11 @@ class Gui(Tk):
 			self._info_newline = True
 			self.logger.set_echo(self.echo)
 			self._info_label = Label(self)
-			self._info_label.grid(row=7, column=0, sticky='w', padx=self._pad, pady=self._pad)
+			self._info_label.grid(row=8, column=0, sticky='w', padx=self._pad, pady=self._pad)
 			self._label_fg = self._info_label.cget('foreground')
 			self._label_bg = self._info_label.cget('background')
 			self._quit_button = Button(self, text=self.labels.quit, command=self._quit_app)
-			self._quit_button.grid(row=7, column=1, sticky='e', padx=self._pad, pady=self._pad)
+			self._quit_button.grid(row=8, column=1, sticky='e', padx=self._pad, pady=self._pad)
 			if not self.config.app_path.resolve().drive.startswith('\\\\'):	# check for updates
 				update = Update(self.labels.version, self.config.update_path)
 				if update.new_version and askyesno(
