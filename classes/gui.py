@@ -168,7 +168,8 @@ class Gui(Tk):
 					self,
 					self.destination,
 					self.settings.destination if self.settings.destination else self.labels.select_destination,
-					*self.config.reachable_dsts
+					*self.config.reachable_dsts,
+					command=self._trigger_menu_update
 				).grid(row=2, column=1, sticky='w', padx=self._pad)
 			else:
 				Label(self, text=self.settings.destination).grid(row=2, column=1, columnspan=2, sticky='w', padx=self._pad)
@@ -180,28 +181,17 @@ class Gui(Tk):
 			self.write_trigger = BooleanVar(value=self.settings.trigger)
 			button = Checkbutton(frame, text=self.labels.trigger_button, variable=self.write_trigger)
 			button.pack(side='left', padx=self._pad)
-			Hovertip(button, self.labels.trigger_tip)
-
-			destination = self.destination.get()
-
-			self._triggers = self.config.destinations[destination] if destination in self.config.destinations else tuple()
-			print(self._triggers)
-			
-
-			'''
-			self.trigger = StringVar(
-				value = (self.config.triggers['static'] if self.config.triggers['static']
-					else self.config.triggers['selection'])
-			)
-
-			OptionMenu(
+			Hovertip(button, self.labels.trigger_tip)			
+			self.trigger = StringVar()
+			self.trigger_menu = OptionMenu(
 				frame,
-				self.trigger,
-				trigger if trigger else self.labels.select_trigger,
-				*self._triggers
-			).pack(side='left', padx=self._pad)
-			'''
-
+				self.trigger
+			)
+			Hovertip(self.trigger_menu, self.labels.trigger_menu_tip)
+			self._trigger_menu_update('_',)
+			if trigger:
+				self.trigger_menu.set_menu(trigger, *self._triggers)
+			self.trigger_menu.pack(side='left', padx=self._pad)
 			frame = Frame(self)
 			frame.grid(row=4, column=1, sticky='we', padx=self._pad)
 			self.user = StringVar(value=self.settings.user)
@@ -270,6 +260,18 @@ class Gui(Tk):
 			msg = self.logger.crash()
 			showerror(title=self.labels.error, message=msg)
 			self.destroy()
+
+	def _trigger_menu_update(self, *_):
+		'''Change triggers when changing destination'''
+		destination = self.destination.get()
+		triggers = self.config.destinations[destination]['triggers']
+		if triggers == 'static':
+			self.trigger_menu.set_menu(self.config.triggers['static'][0], *self.config.triggers['static'])
+		else:
+			self._triggers = self.config.triggers[
+				self.config.destinations[destination]['triggers']
+			] if destination in self.config.destinations else list()
+			self.trigger_menu.set_menu(self.labels.select_trigger, *self._triggers)
 
 	def _select_source(self):
 		'''Select directory to add into field'''

@@ -12,6 +12,7 @@
     "trigger_button": "Weiterverarbeitung",
     "trigger_tip": "Angehakt wird die Weiterverarbeitung ausgelöst bzw.\neine fertig.txt-Datei im Importverzeichnis erstellt.\nWird der Haken entfernt, können weitere Daten unter der\nbetreffenden POLIKS-Nummer hochgeladen werden.",
     "select_trigger": "Wähle die Weiterverarbeitung aus",
+    "trigger_menu_tip": "Auswahl an Weiterverarbeitungsoptionen, falls verfügbar",
     "sendmail_button": "sende Mail an",
     "sendmail_tip": "Angehakt wird nach beendetem Upload ins\nImport_Verzeichnis eine Benachrichtigungs-E-Mail versendet.",
 	"address_tip": "E-Mail-Adresse, an die nach erfolgtem Upload eine Benachrichtigung geschickt wird.\nÜblicherweise ist Ihre Adresse bzw. die des Bearbeiters, der den Upload veranlasst.",

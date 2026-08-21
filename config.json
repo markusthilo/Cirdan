@@ -6,9 +6,9 @@
     "update_path": "P:/Cirdan/",
     "domain": "example.net",
     "destinations": {
-        "Import directory 1": {"sub_path": "import1", "trigger": "selection"},
-        "Import directory 2": {"sub_path": "import2", "trigger": "static"},
-        "Import directory 3": {"sub_path": "import3", "trigger": "static"}
+        "Import directory 1": {"sub_path": "import1", "triggers": "selection"},
+        "Import directory 2": {"sub_path": "import2", "triggers": "static"},
+        "Import directory 3": {"sub_path": "import3", "triggers": "static"}
     },
     "triggers": {
         "static": ["AW für Ermittler"],
