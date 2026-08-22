@@ -12,7 +12,12 @@ from classes.sendmail import SendMail
 class Worker:
 	'''Main functionality'''
 
-	def __init__(self, sources, config, labels, settings, robocopy, logger, user_log=None, kill=None, echo=print):
+	def __init__(self, sources, config, labels, settings, robocopy, logger,
+		trigger_msg = None,
+		user_log = None,
+		kill = None,
+		echo = print
+	):
 		'''Prepare copy process'''
 		self._sources = sources
 		self._config = config
@@ -20,6 +25,7 @@ class Worker:
 		self._settings = settings
 		self._robocopy = robocopy
 		self._logger = logger
+		self._trigger_msg = trigger_msg
 		self._user_log = user_log
 		self._kill_switch = kill
 		self._echo = echo
@@ -37,7 +43,13 @@ class Worker:
 		if not self._sources:
 			self._error(self._labels.no_sources)
 			return self.errors
-		destination_root_path = self._config.target_path.joinpath(self._config.destinations[self._settings.destination])
+		try:
+			destination_root_path = self._config.target_path.joinpath(
+				self._config.destinations[self._settings.destination]['sub_path']
+				)
+		except:
+			self._error(self._labels.bad_destination.replace('#', f'{self._settings.destination}'))
+			return self.errors
 		if not destination_root_path.is_accessable_dir():
 			self._error(self._labels.bad_destination.replace('#', f'{destination_root_path}'))
 			return self.errors
@@ -186,9 +198,12 @@ class Worker:
 				self._error(self._labels.error_sizes.replace('#', f'{bad_paths}'))
 			time_delta = perf_counter() - start_time
 			Log.info(self._labels.copy_finished.replace('#', f'{timedelta(seconds=time_delta)}'))
-			if self._settings.trigger:
+			if self._settings.trigger and self._trigger_msg:
 				try:
-					dst_path.write_text_file(self._config.trigger_name, self._id)
+					dst_path.write_text_file(
+						self._config.trigger_name,
+						f'{self._config.app_name}: {self._trigger_msg}\n{self._id}'
+					)
 				except:
 					self._error()
 			if self._settings.qualicheck:

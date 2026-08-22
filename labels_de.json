@@ -38,6 +38,7 @@
     "ignore_whitelist": "Whitelist ignorieren?\n\nNur fortfahren, wenn Sie wissen, was Sie tun!",
     "no_sources": "Keine zu kopierenden Quellverzeichnisse",
     "bad_destination": "Ungültiges Zielverzeichnis: #",
+    "missing_trigger_msg": "Fehlende Anweisung für die Weiterverarbeitung",
 	"created_destination": "Zielverzeichnis # wurde erstellt",
 	"checking_destination": "Prüfe Zielverzeichnis #",
     "destination_blocked_by": "Zielverzeichnis ist blockiert durch verbotenen Pfad (Blacklist): #1 / RegEx-Muster: \"#2\"",

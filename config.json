@@ -10,6 +10,7 @@
         "Import directory 2": {"sub_path": "import2", "triggers": "static"},
         "Import directory 3": {"sub_path": "import3", "triggers": "static"}
     },
+    "app_name": "Cirdan",
     "triggers": {
         "static": ["AW für Ermittler"],
         "selection": [

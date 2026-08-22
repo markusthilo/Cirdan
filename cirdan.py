@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '1.5.0_2026-08-21'
+__version__ = '1.5.0_2026-08-22'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@proton.me'
 __status__ = 'Testing'
@@ -77,15 +77,12 @@ if __name__ == '__main__':  # start here when run as application
 			Gui.startup_error(msg)	# show error message in window
 		exit(1)
 	log_path = args.log if args.log else None
+	settings.qualicheck = args.qualicheck
+	settings.trigger = bool(args.trigger)
+	settings.sendmail = bool(args.sendmail)
+	if args.sendmail:
+		settings.user = args.sendmail
 	if source_path and not args.gui:	# no gui
-		if args.trigger:
-			settings.trigger = True
-		settings.qualicheck = args.qualicheck
-		if args.sendmail:
-			settings.sendmail = True
-			settings.user = args.sendmail
-		if not settings.user:
-			settings.sendmail = False
 		if not config.log_path.is_accessable_dir():
 			logger.crash(labels.bad_log_dir.replace('#', f'{config.log_path}'))
 			exit(1)
@@ -108,7 +105,7 @@ if __name__ == '__main__':  # start here when run as application
 			settings,
 			RoboCopy(),
 			logger,
-			trigger = args.trigger,
+			trigger_msg = args.trigger,
 			user_log = log_path
 		).run():
 			exit(1)

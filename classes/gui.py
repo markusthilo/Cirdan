@@ -13,7 +13,6 @@ from tkinter.filedialog import askdirectory, asksaveasfilename
 from idlelib.tooltip import Hovertip
 from classes.source import Source
 from classes.worker import Worker
-from classes.regex import RegEx
 from classes.logger import Logger as Log
 from classes.path import Path
 from classes.json import Json
@@ -60,7 +59,7 @@ class CheckSourceThread(Thread):
 				else:
 					self._gui.abort_source_check()
 					return
-		if not self._gui.tolerant and not self._source.whitelist_match:
+		if not self._gui.no_source_check and not self._source.whitelist_match:
 			msg = self._gui.labels.no_whitelist_match.replace('#', f'{self._source.path}')
 			Log.warning(msg)
 			if askyesno(title=self._gui.labels.warning, message=f'{msg}\n\n{self._gui.labels.ignore_whitelist}', default='no'):
@@ -89,7 +88,7 @@ class WorkThread(Thread):
 			self._gui.settings,
 			self._gui.robocopy,
 			self._gui.logger,
-			trigger = self._gui.trigger,
+			trigger_msg = self._gui.trigger_msg.get(),
 			user_log = self._gui.log_path,
 			echo = self._gui.echo,
 			kill = self._kill_event
@@ -147,13 +146,9 @@ class Gui(Tk):
 			self._source_button = Button(self, text=self.labels.source_dir, command=self._select_source)
 			self._source_button.grid(row=0, column=0, sticky='nw', ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
 			Hovertip(self._source_button, self.labels.source_tip)
+			self.sources = list()
 			self._source_text = ScrolledText(self, font=(font_family, font_size), padx=self._pad, pady=self._pad)
 			self._source_text.grid(row=0, column=1, sticky='nswe', ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
-			if source:
-				self._source_text.insert('end', f'{source}\n')
-				self.sources = [source]
-			else:
-				self.sources = list()
 			self._source_text.configure(state='disabled')
 			self._source_text.bind('<Key>', lambda dummy: 'break')
 			self._delete_button = Button(self, text=self.labels.delete_source, command=self._delete_source)
@@ -182,16 +177,16 @@ class Gui(Tk):
 			button = Checkbutton(frame, text=self.labels.trigger_button, variable=self.write_trigger)
 			button.pack(side='left', padx=self._pad)
 			Hovertip(button, self.labels.trigger_tip)			
-			self.trigger = StringVar()
-			self.trigger_menu = OptionMenu(
+			self.trigger_msg = StringVar()
+			self._trigger_menu = OptionMenu(
 				frame,
-				self.trigger
+				self.trigger_msg
 			)
-			Hovertip(self.trigger_menu, self.labels.trigger_menu_tip)
+			Hovertip(self._trigger_menu, self.labels.trigger_menu_tip)
 			self._trigger_menu_update('_',)
 			if trigger:
-				self.trigger_menu.set_menu(trigger, *self._triggers)
-			self.trigger_menu.pack(side='left', padx=self._pad)
+				self._trigger_menu.set_menu(trigger, *self._triggers)
+			self._trigger_menu.pack(side='left', padx=self._pad)
 			frame = Frame(self)
 			frame.grid(row=4, column=1, sticky='we', padx=self._pad)
 			self.user = StringVar(value=self.settings.user)
@@ -256,6 +251,9 @@ class Gui(Tk):
 						msg = Log.error()
 						showerror(parent=self, title=self.labels.error, message=f'{self.labels.update_error}:\n{msg}')
 			self._init_warning()
+			if source:
+				self._check_source_thread = CheckSourceThread(Path(source).resolve(), self)
+				self._check_source_thread.start()
 		except:
 			msg = self.logger.crash()
 			showerror(title=self.labels.error, message=msg)
@@ -264,14 +262,18 @@ class Gui(Tk):
 	def _trigger_menu_update(self, *_):
 		'''Change triggers when changing destination'''
 		destination = self.destination.get()
-		triggers = self.config.destinations[destination]['triggers']
+		try:
+			triggers = self.config.destinations[destination]['triggers']
+		except:
+			triggers = None
 		if triggers == 'static':
-			self.trigger_menu.set_menu(self.config.triggers['static'][0], *self.config.triggers['static'])
+			self._triggers = self.config.triggers['static']
+			self._trigger_menu.set_menu(self.config.triggers['static'][0], *self._triggers)
 		else:
 			self._triggers = self.config.triggers[
 				self.config.destinations[destination]['triggers']
 			] if destination in self.config.destinations else list()
-			self.trigger_menu.set_menu(self.labels.select_trigger, *self._triggers)
+			self._trigger_menu.set_menu(self.labels.select_trigger, *self._triggers)
 
 	def _select_source(self):
 		'''Select directory to add into field'''
@@ -394,6 +396,9 @@ class Gui(Tk):
 				title = self.labels.error,
 				message = self.labels.bad_destination.replace('#', f'{self.settings.destination}')
 			)
+			return
+		if self.settings.trigger and not self.trigger_msg.get() in self._triggers:
+			showerror(title=self.labels.error, message=self.labels.missing_trigger_msg)
 			return
 		self._save_settings()
 		self._clear_info()

@@ -38,6 +38,7 @@
     "ignore_whitelist": "Ignore whitelist?\n\nAbort unless you know what you are doing!",
     "no_sources": "No source directories to copy",
     "bad_destination": "Invalid destination directory: #",
+    "missing_trigger_msg": "Missing instruction for further processing",
 	"created_destination": "Created destination directory #",
 	"checking_destination": "Checking destination directory #",
     "destination_blocked_by": "Destination directory is blocked by blacklisted file: #1 / regex pattern: \"#2\"",
