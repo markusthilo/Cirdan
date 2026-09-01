@@ -16,7 +16,6 @@ class SendMail:
 		self._timeout = mail_config['smtp_timeout']
 		self._from = mail_config['From']
 		self._reply_to = mail_config['Reply-To']
-		self._subject = mail_config['Subject']
 		self._body = mail_config['body']
 
 	def is_reachable(self):
@@ -28,7 +27,7 @@ class SendMail:
 		except (OSError, SMTPException):
 			return False
 
-	def send(self, to_address, source, inserts):
+	def send(self, to_address, subject, inserts):
 		'''Compose and send mail to SMTP server '''
 		body_parts = self._body.split('%', len(inserts))
 		body = body_parts[0]
@@ -38,6 +37,6 @@ class SendMail:
 		msg['From'] = self._from
 		msg['Reply-To'] = self._reply_to
 		msg['To'] = to_address
-		msg['Subject'] = Header(self._subject.replace('%', source), 'utf-8')
+		msg['Subject'] = subject
 		with SMTP(self._host, self._port, timeout=self._timeout) as smtp:
 			smtp.send_message(msg)

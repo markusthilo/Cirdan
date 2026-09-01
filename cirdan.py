@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '1.5.0_2026-08-22'
+__version__ = '1.5.1_2026-09-01'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@proton.me'
 __status__ = 'Testing'
@@ -31,12 +31,14 @@ if __name__ == '__main__':  # start here when run as application
 		help='Use GUI with given root directory as command line parameters')
 	argparser.add_argument('-l', '--log', type=Path, metavar='FILE',
 		help='File to store log')
+	argparser.add_argument('-m', '--mail', type=str, metavar='STRING',
+		help='Send e-mail when copy process has finished, argument is mail address without domain (e.g. john.doe for john.doe@example.net)')
 	argparser.add_argument('-n', '--nocheck', action='store_true',
 		help='Disable path checks (whitelist, blacklist, length)')
 	argparser.add_argument('-q', '--qualicheck', action='store_true',
-		help='Trigger qualicheck when the entire process has finished')
-	argparser.add_argument('-s', '--sendmail', type=str, metavar='STRING',
-		help='Send e-mail when copy process has finished, argument is mail address without domain (e.g. john.doe for john.doe@example.net)')
+		help='Initiate qualicheck when the entire process has finished')
+	argparser.add_argument('-s', '--subject', type=str, metavar='STRING',
+		help='Use the given subject for the e-mail (in Casewhen copy process has finished, argument is mail address without domain (e.g. john.doe for john.doe@example.net)')
 	argparser.add_argument('-t', '--trigger', type=str, metavar='STRING',
 		help='Write trigger file, parameter will be written as 1st line')
 	argparser.add_argument('-v', '--version', action='store_true',
@@ -76,21 +78,16 @@ if __name__ == '__main__':  # start here when run as application
 		if not args.source or args.gui:
 			Gui.startup_error(msg)	# show error message in window
 		exit(1)
-	log_path = args.log if args.log else None
-	settings.qualicheck = args.qualicheck
-	settings.trigger = bool(args.trigger)
-	settings.sendmail = bool(args.sendmail)
-	if args.sendmail:
-		settings.user = args.sendmail
+	settings.trigger = args.trigger
 	if source_path and not args.gui:	# no gui
+		settings.sendmail = bool(args.mail)
+		settings.user = args.mail
+		settings.mail_subject = args.subject
+		settings.qualicheck = args.qualicheck
 		if not config.log_path.is_accessable_dir():
 			logger.crash(labels.bad_log_dir.replace('#', f'{config.log_path}'))
 			exit(1)
-		try:
-			settings.save()
-		except Exception as ex:
-			logger.warning(ex)
-		if not args.sendmail:
+		if not args.mail:
 			settings.sendmail = False
 		if Worker(
 			[
@@ -105,18 +102,22 @@ if __name__ == '__main__':  # start here when run as application
 			settings,
 			RoboCopy(),
 			logger,
-			trigger_msg = args.trigger,
-			user_log = log_path
+			user_log = args.log
 		).run():
 			exit(1)
 		exit(0)
+	if args.mail:
+		settings.user = args.mail
+		if args.subject:
+			settings.mail_subject = args.subject
+	if args.qualicheck:
+		settings.qualicheck = True
 	Gui(
 		config,
 		labels,
 		settings,
 		logger,
-		user_log = log_path,
+		user_log = args.log,
 		source = source_path,
-		trigger = args.trigger,
 		no_source_check = args.nocheck
 	).mainloop()	# launch gui window 

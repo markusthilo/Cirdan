@@ -13,7 +13,6 @@ class Worker:
 	'''Main functionality'''
 
 	def __init__(self, sources, config, labels, settings, robocopy, logger,
-		trigger_msg = None,
 		user_log = None,
 		kill = None,
 		echo = print
@@ -25,7 +24,6 @@ class Worker:
 		self._settings = settings
 		self._robocopy = robocopy
 		self._logger = logger
-		self._trigger_msg = trigger_msg
 		self._user_log = user_log
 		self._kill_switch = kill
 		self._echo = echo
@@ -198,11 +196,11 @@ class Worker:
 				self._error(self._labels.error_sizes.replace('#', f'{bad_paths}'))
 			time_delta = perf_counter() - start_time
 			Log.info(self._labels.copy_finished.replace('#', f'{timedelta(seconds=time_delta)}'))
-			if self._settings.trigger and self._trigger_msg:
+			if self._settings.trigger:
 				try:
 					dst_path.write_text_file(
 						self._config.trigger_name,
-						f'{self._config.app_name}: {self._trigger_msg}\n{self._id}'
+						f'{self._config.app_name}: {self._settings.trigger}\n{self._id}'
 					)
 				except:
 					self._error()
@@ -215,8 +213,8 @@ class Worker:
 				try:
 					SendMail(self._config.mail).send(
 						self._mail_address,
-						f'{source.path}',
-						(f'{source}', source.size.readable(), f'{len(source.files)}', f'{missing_paths}', f'{bad_paths}')
+						self._settings.mail_subject,
+						(f'{source.name}', source.size.readable(), f'{len(source.files)}', f'{missing_paths}', f'{bad_paths}')
 					)
 				except:
 					self._error(self._labels.mail_error.replace('#', f'{self._mail_address}'))

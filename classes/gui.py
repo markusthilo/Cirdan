@@ -88,7 +88,6 @@ class WorkThread(Thread):
 			self._gui.settings,
 			self._gui.robocopy,
 			self._gui.logger,
-			trigger_msg = self._gui.trigger_msg.get(),
 			user_log = self._gui.log_path,
 			echo = self._gui.echo,
 			kill = self._kill_event
@@ -114,7 +113,7 @@ class Gui(Tk):
 		'''Window showing startup error'''
 		showerror(title='Cirdan - Critical error on startup', message=msg)
 
-	def __init__(self, config, labels, settings, logger, user_log=None, source=None, trigger=None, no_source_check=False):
+	def __init__(self, config, labels, settings, logger, user_log=None, source=None, no_source_check=False):
 		'''Open application window'''
 		super().__init__()
 		self.config = config
@@ -157,14 +156,14 @@ class Gui(Tk):
 			label = Label(self, text=self.labels.destination)
 			label.grid(row=2, column=0, sticky='w', padx=self._pad)
 			Hovertip(label, self.labels.destination_tip)
-			self.destination = StringVar(value=self.settings.destination)
+			self.destination = StringVar()
 			if len(self.config.reachable_dsts) > 1:
 				OptionMenu(
 					self,
 					self.destination,
 					self.settings.destination if self.settings.destination else self.labels.select_destination,
 					*self.config.reachable_dsts,
-					command=self._trigger_menu_update
+					command = self._trigger_menu_update
 				).grid(row=2, column=1, sticky='w', padx=self._pad)
 			else:
 				Label(self, text=self.settings.destination).grid(row=2, column=1, columnspan=2, sticky='w', padx=self._pad)
@@ -173,38 +172,47 @@ class Gui(Tk):
 			Hovertip(label, self.labels.after_copying_tip)
 			frame = Frame(self)
 			frame.grid(row=3, column=1, sticky='we', pady=(self._pad, 0))
-			self.write_trigger = BooleanVar(value=self.settings.trigger)
+			self.write_trigger = BooleanVar()
 			button = Checkbutton(frame, text=self.labels.trigger_button, variable=self.write_trigger)
 			button.pack(side='left', padx=self._pad)
 			Hovertip(button, self.labels.trigger_tip)			
 			self.trigger_msg = StringVar()
 			self._trigger_menu = OptionMenu(
 				frame,
-				self.trigger_msg
+				self.trigger_msg,
+				command = self._write_trigger_true
 			)
+			self._trigger_menu.pack(side='left', padx=self._pad)
 			Hovertip(self._trigger_menu, self.labels.trigger_menu_tip)
 			self._trigger_menu_update('_',)
-			if trigger:
-				self._trigger_menu.set_menu(trigger, *self._triggers)
-			self._trigger_menu.pack(side='left', padx=self._pad)
+			if self.settings.trigger:
+				self._trigger_menu.set_menu(self.settings.trigger)
 			frame = Frame(self)
 			frame.grid(row=4, column=1, sticky='we', padx=self._pad)
+			frame.columnconfigure(1, weight=1)
 			self.user = StringVar(value=self.settings.user)
+			self.mail_subject = StringVar(value=self.settings.mail_subject)
 			try:
 				use_mail = SendMail(self.config.mail).is_reachable()
 			except:
 				use_mail = False
 			if use_mail:
 				self.send_mail = BooleanVar(value=self.settings.sendmail)
-				button = Checkbutton(frame, text=self.labels.sendmail_button, variable=self.send_mail)
-				button.pack(side='left')
+				button = Checkbutton(frame, text=f'{self.labels.sendmail_button}:', variable=self.send_mail)
+				button.grid(row=0, column=0, sticky='w', padx=(0, self._pad))
 				Hovertip(button, self.labels.sendmail_tip)
 				entry = Entry(frame, textvariable=self.user)
-				entry.pack(side='left', fill='x', expand=True)
+				entry.grid(row=0, column=1, sticky='we')
 				Hovertip(entry, self.labels.address_tip)
 				label = Label(frame, text=f'@{self.config.domain}')
-				label.pack(side='left')
+				label.grid(row=0, column=2, sticky='w')
 				Hovertip(label, self.labels.address_tip)
+				label = Label(frame, text=f'{self.labels.mail_subject}:')
+				label.grid(row=1, column=0, sticky='e', padx=(0, self._pad))
+				Hovertip(label, self.labels.mail_subject_tip)
+				entry = Entry(frame, textvariable=self.mail_subject)
+				entry.grid(row=1, column=1, columnspan=2, sticky='we')
+				Hovertip(entry, self.labels.mail_subject_tip)
 			else:
 				self.send_mail = BooleanVar(value=False)
 			frame = Frame(self)
@@ -215,7 +223,7 @@ class Gui(Tk):
 			Hovertip(button, self.labels.qualicheck_tip)
 			self.write_log = BooleanVar(value=bool(self.log_path))
 			button = Checkbutton(frame, text=self.labels.log_button, variable=self.write_log, comman=self._select_log)
-			button.pack(side='left', padx=self._pad)
+			button.pack(side='right', padx=self._pad)
 			Hovertip(button, self.labels.log_tip)
 			self._exec_button = Button(self, text=self.labels.start_button, command=self._execute)
 			self._exec_button.grid(row=6, column=1, sticky='e', padx=self._pad, pady=self._pad)
@@ -274,6 +282,11 @@ class Gui(Tk):
 				self.config.destinations[destination]['triggers']
 			] if destination in self.config.destinations else list()
 			self._trigger_menu.set_menu(self.labels.select_trigger, *self._triggers)
+		self.write_trigger.set(True)
+
+	def _write_trigger_true(self, *_):
+		'''Set write trigger to True'''
+		self.write_trigger.set(True)
 
 	def _select_source(self):
 		'''Select directory to add into field'''
@@ -373,8 +386,9 @@ class Gui(Tk):
 		'''Get settings from GUI'''
 		self.settings.user = self.user.get()
 		self.settings.destination = self.destination.get()
-		self.settings.trigger = self.write_trigger.get()
+		self.settings.trigger = self.trigger_msg.get() if self.write_trigger.get() else None
 		self.settings.sendmail = self.send_mail.get()
+		self.settings.mail_subject = self.mail_subject.get()
 		self.settings.qualicheck = self.write_qualicheck.get()
 
 	def _save_settings(self):
@@ -382,12 +396,16 @@ class Gui(Tk):
 		self._get_settings()
 		try:
 			self.settings.save()
+			Log.debug('Saved settings')
 		except:
-			pass
+			Log.error()
 
 	def _execute(self):
 		'''Start copy process / worker'''
 		self._get_settings()
+		if not self.sources:
+			showerror(title=self.labels.error, message=self.labels.missing_source)
+			return
 		if self.settings.sendmail and not self.settings.user:
 			showerror(title=self.labels.error, message=self.labels.missing_name)
 			return
@@ -397,11 +415,10 @@ class Gui(Tk):
 				message = self.labels.bad_destination.replace('#', f'{self.settings.destination}')
 			)
 			return
-		if self.settings.trigger and not self.trigger_msg.get() in self._triggers:
+		if self.write_trigger.get() and not self.settings.trigger in self._triggers:
 			showerror(title=self.labels.error, message=self.labels.missing_trigger_msg)
 			return
 		self._save_settings()
-		self._clear_info()
 		self._disable_buttons()
 		self._clear_info()
 		self._work_thread = WorkThread(self)
