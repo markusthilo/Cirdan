@@ -154,7 +154,7 @@ class Gui(Tk):
 			self._delete_button.grid(row=1, column=1, sticky='ne', padx=self._pad)#, pady=self._pad)
 			Hovertip(self._delete_button, self.labels.delete_source_tip)
 			label = Label(self, text=self.labels.destination)
-			label.grid(row=2, column=0, sticky='w', padx=self._pad)
+			label.grid(row=2, column=0, sticky='w', padx=(2*self._pad, 0))
 			Hovertip(label, self.labels.destination_tip)
 			self.destination = StringVar()
 			if len(self.config.reachable_dsts) > 1:
@@ -163,30 +163,18 @@ class Gui(Tk):
 					self.destination,
 					self.settings.destination if self.settings.destination else self.labels.select_destination,
 					*self.config.reachable_dsts,
-					command = self._trigger_menu_update
+					command = self._update_todo
 				).grid(row=2, column=1, sticky='w', padx=self._pad)
 			else:
 				Label(self, text=self.settings.destination).grid(row=2, column=1, columnspan=2, sticky='w', padx=self._pad)
-			label = Label(self, text=self.labels.after_copying)
-			label.grid(row=3, column=0, sticky='nw', padx=self._pad, pady=(self._pad, 0))
-			Hovertip(label, self.labels.after_copying_tip)
-			frame = Frame(self)
-			frame.grid(row=3, column=1, sticky='we', pady=(self._pad, 0))
-			self.write_trigger = BooleanVar()
-			button = Checkbutton(frame, text=self.labels.trigger_button, variable=self.write_trigger)
-			button.pack(side='left', padx=self._pad)
-			Hovertip(button, self.labels.trigger_tip)			
-			self.trigger_msg = StringVar()
-			self._trigger_menu = OptionMenu(
-				frame,
-				self.trigger_msg,
-				command = self._write_trigger_true
-			)
-			self._trigger_menu.pack(side='left', padx=self._pad)
-			Hovertip(self._trigger_menu, self.labels.trigger_menu_tip)
-			self._trigger_menu_update('_',)
-			if self.settings.trigger:
-				self._trigger_menu.set_menu(self.settings.trigger)
+			label = Label(self, text=f'{self.labels.todo}:')
+			label.grid(row=3, column=0, sticky='w', padx=(2*self._pad, 0))
+			Hovertip(label, self.labels.todo_tip)
+			self.todo = StringVar()
+			self._todo_menu = OptionMenu(self, self.todo)
+			self._todo_menu.grid(row=3, column=1, sticky='w', padx=self._pad)
+			Hovertip(self._todo_menu, self.labels.todo_tip)
+			self._update_todo('_',)
 			frame = Frame(self)
 			frame.grid(row=4, column=1, sticky='we', padx=self._pad)
 			frame.columnconfigure(1, weight=1)
@@ -267,26 +255,14 @@ class Gui(Tk):
 			showerror(title=self.labels.error, message=msg)
 			self.destroy()
 
-	def _trigger_menu_update(self, *_):
-		'''Change triggers when changing destination'''
-		destination = self.destination.get()
+	def _update_todo(self, *_):
+		'''Change todo menu when changing destination'''
 		try:
-			triggers = self.config.destinations[destination]['triggers']
-		except:
-			triggers = None
-		if triggers == 'static':
-			self._triggers = self.config.triggers['static']
-			self._trigger_menu.set_menu(self.config.triggers['static'][0], *self._triggers)
+			todo_options = list(self.config.metadata[self.config.destinations[self.destination.get()]['metadata']].keys())
+		except KeyError:
+			self._todo_menu.set_menu(self.labels.select_destination_first)
 		else:
-			self._triggers = self.config.triggers[
-				self.config.destinations[destination]['triggers']
-			] if destination in self.config.destinations else list()
-			self._trigger_menu.set_menu(self.labels.select_trigger, *self._triggers)
-		self.write_trigger.set(True)
-
-	def _write_trigger_true(self, *_):
-		'''Set write trigger to True'''
-		self.write_trigger.set(True)
+			self._todo_menu.set_menu(todo_options[0], *todo_options)
 
 	def _select_source(self):
 		'''Select directory to add into field'''
@@ -386,7 +362,7 @@ class Gui(Tk):
 		'''Get settings from GUI'''
 		self.settings.user = self.user.get()
 		self.settings.destination = self.destination.get()
-		self.settings.trigger = self.trigger_msg.get() if self.write_trigger.get() else None
+		self.settings.todo = self.todo.get()
 		self.settings.sendmail = self.send_mail.get()
 		self.settings.mail_subject = self.mail_subject.get()
 		self.settings.qualicheck = self.write_qualicheck.get()

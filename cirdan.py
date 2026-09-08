@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '1.5.1_2026-09-01'
+__version__ = '1.6.0_2026-09-08'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@proton.me'
 __status__ = 'Testing'
@@ -39,8 +39,8 @@ if __name__ == '__main__':  # start here when run as application
 		help='Initiate qualicheck when the entire process has finished')
 	argparser.add_argument('-s', '--subject', type=str, metavar='STRING',
 		help='Use the given subject for the e-mail (in Casewhen copy process has finished, argument is mail address without domain (e.g. john.doe for john.doe@example.net)')
-	argparser.add_argument('-t', '--trigger', type=str, metavar='STRING',
-		help='Write trigger file, parameter will be written as 1st line')
+	argparser.add_argument('-t', '--todo', type=str, metavar='STRING',
+		help='Write trigger file, parameter will select the metadata content')
 	argparser.add_argument('-v', '--version', action='store_true',
 		help='Print version number')
 	argparser.add_argument('source', nargs='?', help='Source directory', type=Path, metavar='DIRECTORY')
@@ -78,7 +78,7 @@ if __name__ == '__main__':  # start here when run as application
 		if not args.source or args.gui:
 			Gui.startup_error(msg)	# show error message in window
 		exit(1)
-	settings.trigger = args.trigger
+	settings.todo = args.todo
 	if source_path and not args.gui:	# no gui
 		settings.sendmail = bool(args.mail)
 		settings.user = args.mail
