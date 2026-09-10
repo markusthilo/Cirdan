@@ -21,7 +21,6 @@ class Settings:
 		self.sendmail = items['sendmail'] if 'sendmail' in items else False
 		self.user = items['user'] if 'user' in items else ''
 		self.mail_subject = items['mail_subject'] if 'mail_subject' in items else config.mail['Default-Subject']
-		self.trigger = None
 
 	def save(self):
 		'''Save config file'''

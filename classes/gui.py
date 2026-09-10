@@ -12,6 +12,7 @@ from tkinter.messagebox import askyesno, showerror, showwarning, askyesnocancel
 from tkinter.filedialog import askdirectory, asksaveasfilename
 from idlelib.tooltip import Hovertip
 from classes.source import Source
+from classes.todo import ToDo
 from classes.worker import Worker
 from classes.logger import Logger as Log
 from classes.path import Path
@@ -83,6 +84,7 @@ class WorkThread(Thread):
 		self._kill_event = Event()
 		self._worker = Worker(
 			self._gui.sources,
+			self._gui.todo,
 			self._gui.config,
 			self._gui.labels,
 			self._gui.settings,
@@ -113,7 +115,8 @@ class Gui(Tk):
 		'''Window showing startup error'''
 		showerror(title='Cirdan - Critical error on startup', message=msg)
 
-	def __init__(self, config, labels, settings, logger, user_log=None, source=None, no_source_check=False):
+	def __init__(self, config, labels, settings, logger,
+		user_log=None, source=None, todo=None, no_source_check=False):
 		'''Open application window'''
 		super().__init__()
 		self.config = config
@@ -170,11 +173,14 @@ class Gui(Tk):
 			label = Label(self, text=f'{self.labels.todo}:')
 			label.grid(row=3, column=0, sticky='w', padx=(2*self._pad, 0))
 			Hovertip(label, self.labels.todo_tip)
-			self.todo = StringVar()
-			self._todo_menu = OptionMenu(self, self.todo)
+			self._todo = StringVar()
+			self._todo_menu = OptionMenu(self, self._todo)
 			self._todo_menu.grid(row=3, column=1, sticky='w', padx=self._pad)
 			Hovertip(self._todo_menu, self.labels.todo_tip)
 			self._update_todo('_',)
+			if todo and todo.key:
+				self._todo.set(todo.key)
+			self.todo = None
 			frame = Frame(self)
 			frame.grid(row=4, column=1, sticky='we', padx=self._pad)
 			frame.columnconfigure(1, weight=1)
@@ -262,7 +268,7 @@ class Gui(Tk):
 		except KeyError:
 			self._todo_menu.set_menu(self.labels.select_destination_first)
 		else:
-			self._todo_menu.set_menu(todo_options[0], *todo_options)
+			self._todo_menu.set_menu(self.labels.select_todo, *todo_options)
 
 	def _select_source(self):
 		'''Select directory to add into field'''
@@ -362,7 +368,6 @@ class Gui(Tk):
 		'''Get settings from GUI'''
 		self.settings.user = self.user.get()
 		self.settings.destination = self.destination.get()
-		self.settings.todo = self.todo.get()
 		self.settings.sendmail = self.send_mail.get()
 		self.settings.mail_subject = self.mail_subject.get()
 		self.settings.qualicheck = self.write_qualicheck.get()
@@ -391,9 +396,11 @@ class Gui(Tk):
 				message = self.labels.bad_destination.replace('#', f'{self.settings.destination}')
 			)
 			return
-		if self.write_trigger.get() and not self.settings.trigger in self._triggers:
-			showerror(title=self.labels.error, message=self.labels.missing_trigger_msg)
+		todo = self._todo.get()
+		if todo == self.labels.select_todo:
+			showerror(title=self.labels.error, message=self.labels.missing_todo_msg)
 			return
+		self.todo = ToDo(self._todo.get(), self.settings, self.config)
 		self._save_settings()
 		self._disable_buttons()
 		self._clear_info()

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '1.6.0_2026-09-08'
+__version__ = '1.6.0_2026-09-10'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@proton.me'
 __status__ = 'Testing'
@@ -17,6 +17,7 @@ from classes.config import Config
 from classes.settings import Settings
 from classes.logger import Logger
 from classes.source import Source
+from classes.todo import ToDo
 from classes.robocopy import RoboCopy
 from classes.worker import Worker
 from classes.gui import Gui
@@ -78,7 +79,7 @@ if __name__ == '__main__':  # start here when run as application
 		if not args.source or args.gui:
 			Gui.startup_error(msg)	# show error message in window
 		exit(1)
-	settings.todo = args.todo
+	todo = ToDo(args.todo, settings, config)
 	if source_path and not args.gui:	# no gui
 		settings.sendmail = bool(args.mail)
 		settings.user = args.mail
@@ -97,6 +98,7 @@ if __name__ == '__main__':  # start here when run as application
 					blacklist = None if args.nocheck else config.source_blacklist
 				)
 			],
+			todo,
 			config,
 			labels,
 			settings,
@@ -119,5 +121,6 @@ if __name__ == '__main__':  # start here when run as application
 		logger,
 		user_log = args.log,
 		source = source_path,
+		todo = todo,
 		no_source_check = args.nocheck
 	).mainloop()	# launch gui window 

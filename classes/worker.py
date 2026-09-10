@@ -12,13 +12,14 @@ from classes.sendmail import SendMail
 class Worker:
 	'''Main functionality'''
 
-	def __init__(self, sources, config, labels, settings, robocopy, logger,
+	def __init__(self, sources, todo, config, labels, settings, robocopy, logger,
 		user_log = None,
 		kill = None,
 		echo = print
 	):
 		'''Prepare copy process'''
 		self._sources = sources
+		self._todo = todo
 		self._config = config
 		self._labels = labels
 		self._settings = settings
@@ -196,12 +197,13 @@ class Worker:
 				self._error(self._labels.error_sizes.replace('#', f'{bad_paths}'))
 			time_delta = perf_counter() - start_time
 			Log.info(self._labels.copy_finished.replace('#', f'{timedelta(seconds=time_delta)}'))
-			if self._settings.trigger:
+			if self._todo and self._todo.value:
 				try:
-					dst_path.write_text_file(
-						self._config.trigger_name,
-						f'{self._config.app_name}: {self._settings.trigger}\n{self._id}'
-					)
+					dst_path.write_text_file(self._config.trigger_name, f'{self._id} using {self._config.app_name}')
+				except:
+					self._error()
+				try:
+					dst_path.write_text_file(self._config.todo_name, self._todo.value)
 				except:
 					self._error()
 			if self._settings.qualicheck:
