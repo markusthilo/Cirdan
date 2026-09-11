@@ -199,7 +199,7 @@ class Worker:
 			Log.info(self._labels.copy_finished.replace('#', f'{timedelta(seconds=time_delta)}'))
 			if self._todo and self._todo.value:
 				try:
-					dst_path.write_text_file(self._config.trigger_name, f'{self._id} using {self._config.app_name}')
+					dst_path.write_text_file(self._config.trigger_name, self._id)
 				except:
 					self._error()
 				try:

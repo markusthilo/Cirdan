@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '1.6.0_2026-09-10'
+__version__ = '1.6.0_2026-09-11'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@proton.me'
 __status__ = 'Testing'
@@ -41,7 +41,7 @@ if __name__ == '__main__':  # start here when run as application
 	argparser.add_argument('-s', '--subject', type=str, metavar='STRING',
 		help='Use the given subject for the e-mail (in Casewhen copy process has finished, argument is mail address without domain (e.g. john.doe for john.doe@example.net)')
 	argparser.add_argument('-t', '--todo', type=str, metavar='STRING',
-		help='Write trigger file, parameter will select the metadata content')
+		help='Write metadata file, parameter will select the metadata content')
 	argparser.add_argument('-v', '--version', action='store_true',
 		help='Print version number')
 	argparser.add_argument('source', nargs='?', help='Source directory', type=Path, metavar='DIRECTORY')

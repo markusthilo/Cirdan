@@ -264,7 +264,7 @@ class Gui(Tk):
 	def _update_todo(self, *_):
 		'''Change todo menu when changing destination'''
 		try:
-			todo_options = list(self.config.metadata[self.config.destinations[self.destination.get()]['metadata']].keys())
+			todo_options = list(self.config.todo[self.config.destinations[self.destination.get()]['todo']].keys())
 		except KeyError:
 			self._todo_menu.set_menu(self.labels.select_destination_first)
 		else:

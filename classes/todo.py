@@ -10,7 +10,7 @@ class ToDo:
 		'''Create object based on Config'''
 		self.key = key
 		if self.key:
-			self.value = config.metadata[config.destinations[settings.destination]['metadata']][self.key]
+			self.value = config.todo[config.destinations[settings.destination]['todo']][self.key]
 		else:
 			self.value = None
 

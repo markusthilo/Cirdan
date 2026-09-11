@@ -51,54 +51,38 @@ By default there are language packs for English (`labels_en.json`) and German (`
 ### Example `config.json`
 ```
 {
+    "app_name": "Cirdan",
     "labels_path": "$APP/labels_de.json",
     "local_path": "$HOME/AppData/Local/Cirdan/",
-    "target_path": "//192.168.128.150/UrkSp/Import/",
-    "log_path": "//192.168.128.150/UrkSp/Import/_logs/",
-    "update_path": "//192.168.128.150/UrkSp/Import/_dist/Cirdan/",
-    "domain": "polizei.berlin.de",
-    "destinations": {
-        "Importverzeichnis LKA 711": {"sub_path": "LKA 711", "triggers": "static"},
-        "Importverzeichnis LKA 712": {"sub_path": "LKA 712", "triggers": "static"},
-        "Importverzeichnis LKA 713": {"sub_path": "LKA 713", "triggers": "static"},
-        "Importverzeichnis LKA 714": {"sub_path": "LKA 714", "triggers": "selection"},
-        "Importverzeichnis LKA 724": {"sub_path": "LKA 724", "triggers": "static"},
-        "Importverzeichnis Dir 1 IuK": {"sub_path": "Dir 1", "triggers": "static"},
-        "Importverzeichnis Dir 2 IuK": {"sub_path": "Dir 2", "triggers": "static"},
-        "Importverzeichnis Dir 3 IuK": {"sub_path": "Dir 3", "triggers": "static"},
-        "Importverzeichnis Dir 4 IuK": {"sub_path": "Dir 4", "triggers": "static"},
-        "Importverzeichnis Dir 5 IuK": {"sub_path": "Dir 5", "triggers": "static"},
-        "Importverzeichnis LKA 1 IuK": {"sub_path": "LKA 1", "triggers": "static"},
-        "Importverzeichnis LKA 2 IuK": {"sub_path": "LKA 2", "triggers": "static"},
-        "Importverzeichnis LKA 3 IuK": {"sub_path": "LKA 3", "triggers": "static"},
-        "Importverzeichnis LKA 4 IuK": {"sub_path": "LKA 4", "triggers": "static"},
-        "Importverzeichnis LKA 5 IuK": {"sub_path": "LKA 5", "triggers": "static"},
-        "Importverzeichnis LKA 6 IuK": {"sub_path": "LKA 6", "triggers": "static"},
-        "Importverzeichnis LKA 62 OT 3 IuK": {"sub_path": "LKA 62 OT 3", "triggers": "static"},
-        "Importverzeichnis LKA 645 IuK": {"sub_path": "LKA 645", "triggers": "static"},
-        "Importverzeichnis LKA 8 IuK": {"sub_path": "LKA 8", "triggers": "static"},
-        "Importverzeichnis LKA KoSt ST 2": {"sub_path": "LKA KoSt ST 2", "triggers": "static"},
-        "Testverzeichnis markus.thilo": {"sub_path": "Transfer_THI", "triggers": "selection"}
-    },
-	"app_name": "Cirdan",
-    "triggers": {
-        "static": ["AW für Ermittler"],
-        "selection": [
-            "AW für Ermittler",
-            "BU für Dir 1 IuK",
-            "BU für Dir 2 IuK",
-            "BU für Dir 3 IuK",
-            "BU für Dir 4 IuK",
-            "BU für Dir 5 IuK",
-            "BU für LKA 814"
-        ]
-    },
+    "target_path": "$HOME/Documents/",
+    "log_path": "$HOME/Documents/_logs/",
+    "update_path": "P:/Cirdan/",
+    "domain": "example.net",
     "settings_name": "settings.json",
+    "destinations": {
+        "Import directory 1": {"sub_path": "import1", "todo": "selection"},
+        "Import directory 2": {"sub_path": "import2", "todo": "static"},
+        "Import directory 3": {"sub_path": "import3", "todo": "static"}
+    },
+    "todo_name": "metadata.txt",
+    "todo": {
+        "static": {
+            "Only task": "task 1",
+            "Do nothing": null
+        },
+        "selection": {
+            "Task 1": "task 1",
+            "Task 2": "task 2",
+            "Task 3": "task 3",
+            "Do nothing": null
+        }
+    },
     "log_name": "log.txt",
     "lastlog_name": "lastlog.txt",
     "crashlog_name": "crashlog.txt",
     "tsv_name": "md5.txt",
-    "trigger_name": "fertig.txt",
+    "trigger_name": "ready.txt",
+    "todo_name": "todo.txt",
     "qualicheck_name": "qualicheck.txt",
     "source_whitelist": [
         "^[0-9]{6}-([0-9]{4}|[0-9]{6})-(([iZ0-9][0-9]{5})|(StA[0-9]{3}))/(EAV|MSD)[0-9]{2}[A-Z]{3}[0-9A-Z]{4}.*"
@@ -111,22 +95,21 @@ By default there are language packs for English (`labels_en.json`) and German (`
         ".*/Help/LicenseUpgrade/.*"
     ],
     "destination_blacklist": [
-        "^[^/]*/fertig.txt",
-        "^[^/]*/fehler.txt",
+        "^[^/]*/ready.txt",
+        "^[^/]*/error.txt",
         "^[^/]*/start.txt",
-        "^[^/]*/zu_loeschen.txt"
+        "^[^/]*/delete.txt"
     ],
 	"mail": {
-        "smtp_host": "smtpt.msd.polizei.berlin.de",
+        "smtp_host": "smtpt.example.net",
         "smtp_port": 25,
         "smtp_timeout": 30,
-        "From": "MSD-Netz-Support <MSD-Netz-Support@polizei.berlin.de>",
-        "Reply-To": "MSD-Netz-Support@polizei.berlin.de",
-        "Default-Subject": "Cirdan: Import wurde durchgeführt",
-        "body": "Hallo Nutzer,\n\ndies ist eine vom Upload-Tool Cirdan automatisch generierte Benachrichtigung.\n\nDer Upload wurde durchgeführt.\n\nVerzeichnis: %\nGesamtgröße: %\nAnzahl der Dateien: %\nDavon nicht kopiert: %\nDavon fehlerhaft: %\n\nBeste Grüße\n\nMSD-Netz-Support-Team\n"
+        "From": "From <from@example.net>",
+        "Reply-To": "reply-to@example.net",
+        "Default-Subject": "Cirdan: upload has finished",
+        "body": "Dear user,\n\nthis is message generated by Cirdan, the upload tool for geeks.\n\nThe upload is complete.\n\nDirectory: %\nSize: %\nFiles: %\nNot copied: %\nCorrupt files: %\n\nRegards,\n\nSupport-Team\n"
     }
 }
-
 ```
 ## Usage
 - Launch the GUI:
@@ -146,7 +129,7 @@ Having executables, double clicking `cirdan.exe` should work.
 ### License
 MIT License
 
-Copyright (c) 2025 Markus Thilo
+Copyright (c) 2026 Markus Thilo
 
 https://opensource.org/license/MIT
 
