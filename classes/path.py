@@ -3,7 +3,6 @@
 
 from pathlib import Path as PathlibPath
 from time import strftime
-from re import compile as re_compile
 from classes.size import Size
 
 class Path(PathlibPath):
@@ -46,7 +45,7 @@ class Path(PathlibPath):
 			return False
 		return True
 
-	def rrglob(self, pattern, *, case_sensitive=None, recurse_symlinks=False):
+	def rrglob(self, pattern, case_sensitive=None, recurse_symlinks=False):
 		'''Recursive glob that gives paths relative to parent'''
 		resolved = self.resolve()
 		for path in resolved.rglob(pattern, case_sensitive=case_sensitive, recurse_symlinks=recurse_symlinks):

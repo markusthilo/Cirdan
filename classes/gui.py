@@ -1,111 +1,24 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from threading import Thread, Event
-from traceback import format_exc as get_exception
 from time import perf_counter
 from tkinter import Tk, PhotoImage, StringVar, BooleanVar
 from tkinter.font import nametofont
 from tkinter.ttk import Frame, Label, Entry, Button, Checkbutton, OptionMenu
 from tkinter.scrolledtext import ScrolledText
-from tkinter.messagebox import askyesno, showerror, showwarning, askyesnocancel
+from tkinter.messagebox import askyesno, showerror
 from tkinter.filedialog import askdirectory, asksaveasfilename
 from idlelib.tooltip import Hovertip
-from classes.source import Source
 from classes.todo import ToDo
-from classes.worker import Worker
 from classes.logger import Logger as Log
 from classes.path import Path
 from classes.json import Json
 from classes.update import Update
 from classes.sendmail import SendMail
 from classes.robocopy import RoboCopy
-
-class CheckSourceThread(Thread):
-	'''Thread that checks if a directory is a valid source'''
-
-	def __init__(self, source_dir, gui):
-		'''Pass source directory to add to GUI'''
-		self._gui = gui
-		self._source = Source(source_dir,
-			max_path_len = None if self._gui.no_source_check else self._gui.config.max_path_length,
-			whitelist = None if self._gui.no_source_check else self._gui.config.source_whitelist,
-			blacklist = None if self._gui.no_source_check else self._gui.config.source_blacklist
-		)
-		super().__init__()
-		self._kill_event = Event()
-
-	def run(self):
-		'''Run thread to check and add source'''
-		Log.info(self._gui.labels.checking_source.replace('#', f'{self._source}'))
-		for path, bad in self._source.check():
-			if self._kill_event.is_set():
-				Log.debug(self._gui.labels.aborted_by_user)
-				self._gui.abort_source_check()
-				return
-			self._gui.echo(f'{path}', end='\r')
-			if isinstance(bad, int):
-				msg = self._gui.labels.path_too_long.replace('#1', f'{path}').replace('#2', f'{bad}').replace('#3', f'{self._gui.config.max_path_length}')
-				Log.warning(msg)
-				if askyesno(title=self._gui.labels.warning, message=f'{msg}\n\n{self._gui.labels.ignore_path_length}', default='no'):
-					self._source.max_path_len = None
-				else:
-					self._gui.abort_source_check()
-					return
-			elif isinstance(bad, str):
-				msg = self._gui.labels.blacklisted.replace('#1', f'{path}').replace('#2', f'{bad}')
-				Log.warning(msg)
-				if askyesno(title=self._gui.labels.warning, message=f'{msg}\n\n{self._gui.labels.ignore_blacklist}', default='no'):
-					self._source.blacklist = None
-				else:
-					self._gui.abort_source_check()
-					return
-		if not self._gui.no_source_check and not self._source.whitelist_match:
-			msg = self._gui.labels.no_whitelist_match.replace('#', f'{self._source.path}')
-			Log.warning(msg)
-			if askyesno(title=self._gui.labels.warning, message=f'{msg}\n\n{self._gui.labels.ignore_whitelist}', default='no'):
-				self._source.whitelist = None
-			else:
-				self._gui.abort_source_check()
-				return
-		self._gui.add_source(self._source)
-
-	def kill(self):
-		'''Kill thread'''
-		self._kill_event.set()
-
-class WorkThread(Thread):
-	'''Thread that does the work while Tk is running the GUI'''
-
-	def __init__(self, gui):
-		'''Pass all attributes from GUI to work thread'''
-		self._gui = gui
-		super().__init__()
-		self._kill_event = Event()
-		self._worker = Worker(
-			self._gui.sources,
-			self._gui.todo,
-			self._gui.config,
-			self._gui.labels,
-			self._gui.settings,
-			self._gui.robocopy,
-			self._gui.logger,
-			user_log = self._gui.log_path,
-			echo = self._gui.echo,
-			kill = self._kill_event
-		)
-
-	def run(self):
-		'''Run thread'''
-		try:
-			errors = self._worker.run()
-		except:
-			errors = [get_exception()]
-		self._gui.finished(errors)
-
-	def kill(self):
-		'''Kill thread'''
-		self._kill_event.set()
+from classes.checksourcethread import CheckSourceThread
+from classes.workthread import WorkThread
+from classes.tododialog import ToDoDialog
 
 class Gui(Tk):
 	'''GUI look and feel'''
@@ -139,10 +52,10 @@ class Gui(Tk):
 			font = nametofont('TkTextFont').actual()
 			font_family = font['family']
 			font_size = font['size']
-			min_size_x = font_size * self._defs.x_factor
-			min_size_y = font_size * self._defs.y_factor
-			self.minsize(min_size_x , min_size_y)
-			self.geometry(f'{min_size_x}x{min_size_y}')
+			self.min_size_x = font_size * self._defs.x_factor
+			self.min_size_y = font_size * self._defs.y_factor
+			self.minsize(self.min_size_x , self.min_size_y)
+			self.geometry(f'{self.min_size_x}x{self.min_size_y}')
 			self.resizable(True, True)
 			self._pad = int(font_size * self._defs.pad_factor)
 			self._source_button = Button(self, text=self.labels.source_dir, command=self._select_source)
@@ -211,16 +124,24 @@ class Gui(Tk):
 				self.send_mail = BooleanVar(value=False)
 			frame = Frame(self)
 			frame.grid(row=5, column=1, sticky='we', padx=self._pad)
-			self.write_qualicheck = BooleanVar(value=self.settings.qualicheck)
-			button = Checkbutton(frame, text=self.labels.qualicheck_button, variable=self.write_qualicheck)
-			button.pack(side='left', padx=(0, self._pad))
-			Hovertip(button, self.labels.qualicheck_tip)
+			if self.config.qualicheck_name:
+				self.write_qualicheck = BooleanVar(value=self.settings.qualicheck)
+				button = Checkbutton(frame, text=self.labels.qualicheck_button, variable=self.write_qualicheck)
+				button.pack(side='left', padx=(0, self._pad))
+				Hovertip(button, self.labels.qualicheck_tip)
+			else:
+				self.write_qualicheck = BooleanVar(value=False)
 			self.write_log = BooleanVar(value=bool(self.log_path))
 			button = Checkbutton(frame, text=self.labels.log_button, variable=self.write_log, comman=self._select_log)
 			button.pack(side='right', padx=self._pad)
 			Hovertip(button, self.labels.log_tip)
-			self._exec_button = Button(self, text=self.labels.start_button, command=self._execute)
-			self._exec_button.grid(row=6, column=1, sticky='e', padx=self._pad, pady=self._pad)
+			frame = Frame(self)
+			frame.grid(row=6, column=1, sticky='we', padx=self._pad)
+			self._create_todo_button = Button(frame, text=self.labels.create_todo, command=self._create_todo)
+			self._create_todo_button.pack(side='left', padx=(0, self._pad))
+			Hovertip(self._create_todo_button, self.labels.create_todo_tip)
+			self._exec_button = Button(frame, text=self.labels.start_button, command=self._execute)
+			self._exec_button.pack(side='right', padx=self._pad)
 			Hovertip(self._exec_button, self.labels.start_tip)
 			self._info_text = ScrolledText(self, font=(font_family, font_size), padx=self._pad, pady=self._pad)
 			self._info_text.grid(row=7, column=0, columnspan=2, sticky='nsew',
@@ -238,7 +159,7 @@ class Gui(Tk):
 			self._label_bg = self._info_label.cget('background')
 			self._quit_button = Button(self, text=self.labels.quit, command=self._quit_app)
 			self._quit_button.grid(row=8, column=1, sticky='e', padx=self._pad, pady=self._pad)
-			if not self.config.app_path.resolve().drive.startswith('\\\\'):	# check for updates
+			if True or not self.config.app_path.resolve().drive.startswith('\\\\'):	# check for updates
 				update = Update(self.labels.version, self.config.update_path)
 				if update.new_version and askyesno(
 					title = self.labels.update_title.replace('#', update.new_version),
@@ -269,6 +190,15 @@ class Gui(Tk):
 			self._todo_menu.set_menu(self.labels.select_destination_first)
 		else:
 			self._todo_menu.set_menu(self.labels.select_todo, *todo_options)
+
+	def _create_todo(self):
+		'''Open todo dialog'''
+		if self.destination.get() not in self.config.destinations:
+			showerror(title=self.labels.error, message=self.labels.select_destination_first)
+			return
+		dialog = ToDoDialog(self)
+		if dialog.winfo_exists():
+			dialog.wait_window()
 
 	def _select_source(self):
 		'''Select directory to add into field'''
@@ -473,4 +403,3 @@ class Gui(Tk):
 				pass
 		else:
 			self.quit_app()
-

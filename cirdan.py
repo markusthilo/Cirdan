@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '1.6.0_2026-09-11'
+__version__ = '1.6.1_2026-09-17'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@proton.me'
 __status__ = 'Testing'
