@@ -34,6 +34,7 @@
     "update_title": "Eine neuere Version steht bereit: #",
     "update_message": "Neue Version herunterladen und diese Anwendung verlassen?",
     "error": "Fehler",
+    "checking": "Prüfe",
     "missing_name": "Fehlender Bearbeiter / fehlende E-Mail-Adresse",
 	"checking_source": "Prüfe Quellverzeichnis #",
     "inserted": "# wurde geprüft und eingefügt",

@@ -18,6 +18,7 @@ from classes.sendmail import SendMail
 from classes.robocopy import RoboCopy
 from classes.checksourcethread import CheckSourceThread
 from classes.workthread import WorkThread
+from classes.checkdstthread import CheckDstThread
 from classes.tododialog import ToDoDialog
 
 class Gui(Tk):
@@ -39,7 +40,8 @@ class Gui(Tk):
 		self.no_source_check = no_source_check
 		self.logger = logger
 		self._work_thread = None
-		self._add_source_thread = None
+		self._check_source_thread = None
+		self._check_dst_thread = None
 		try:
 			self.robocopy = RoboCopy()
 			self._defs = Json(self.config.app_path / 'gui.json')
@@ -192,13 +194,25 @@ class Gui(Tk):
 			self._todo_menu.set_menu(self.labels.select_todo, *todo_options)
 
 	def _create_todo(self):
-		'''Open todo dialog'''
+		'''Check destination to open todo dialog'''
 		if self.destination.get() not in self.config.destinations:
 			showerror(title=self.labels.error, message=self.labels.select_destination_first)
 			return
-		dialog = ToDoDialog(self)
+		self._disable_buttons()
+		self._check_dst_thread = CheckDstThread(self)
+		self._check_dst_thread.start()
+
+	def _abort_no_subdirs(self):
+		'''Show error when no suitable subdirectory exists, then close'''
+		showerror(title=self.labels.error, message=self.labels.no_sub_dirs_todo)
+		self.destroy()
+
+	def open_todo_dialog(self, destination):
+		'''Open todo dialog'''
+		dialog = ToDoDialog(self, destination)
 		if dialog.winfo_exists():
 			dialog.wait_window()
+		self._enable_buttons()
 
 	def _select_source(self):
 		'''Select directory to add into field'''
@@ -207,12 +221,13 @@ class Gui(Tk):
 			if source in self.sources:
 				showerror(title=self.labels.error, message=self.labels.already_added.replace('#', f'{source}'))
 				return
+			self._disable_buttons()
 			self._check_source_thread = CheckSourceThread(source, self)
 			self._check_source_thread.start()
 
 	def add_source(self, source):
 		'''Run this after adding source'''
-		self._add_source_thread = None
+		self._check_source_thread = None
 		self._source_text.configure(state='normal')
 		self._source_text.insert('end', f'{source}\n')
 		self._source_text.configure(state='disabled')
@@ -222,7 +237,7 @@ class Gui(Tk):
 
 	def abort_source_check(self):
 		'''Run this after checking source and not adding it'''
-		self._add_source_thread = None
+		self._check_source_thread = None
 		self._enable_buttons()
 		Log.info(self.labels.aborted_source_check)
 
@@ -288,11 +303,13 @@ class Gui(Tk):
 		'''Disable source selector and start button'''
 		self._source_button.configure(state='disabled')
 		self._exec_button.configure(state='disabled')
+		self._create_todo_button.configure(state='disabled')
 
 	def _enable_buttons(self):
 		'''Enable source selector and start button'''
 		self._source_button.configure(state='normal')
 		self._exec_button.configure(state='normal')
+		self._create_todo_button.configure(state='normal')
 
 	def _get_settings(self):
 		'''Get settings from GUI'''
@@ -389,7 +406,7 @@ class Gui(Tk):
 
 	def _quit_app(self):
 		'''Quit app, ask if copy process is running'''
-		if self._add_source_thread or self._work_thread:
+		if self._check_source_thread or self._work_thread or self._check_dst_thread:
 			if not askyesno(title=self.labels.warning, message=self.labels.running_warning):
 				return
 			Log.info(self.labels.killing_running)
@@ -398,7 +415,11 @@ class Gui(Tk):
 			except:
 				pass
 			try:
-				self._add_source_thread.kill()
+				self._check_source_thread.kill()
+			except:
+				pass
+			try:
+				self._check_dst_thread.kill()
 			except:
 				pass
 		else:

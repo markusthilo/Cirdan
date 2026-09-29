@@ -7,38 +7,15 @@ from tkinter.ttk import Frame, Label, Treeview, Scrollbar, Button, OptionMenu
 from tkinter.messagebox import showerror
 from idlelib.tooltip import Hovertip
 from classes.path import Path
-from classes.regex import RegEx
 
 class ToDoDialog(Toplevel):
 	'''ToDo dialog'''
 
-	def __init__(self, root):
+	def __init__(self, root, destinaton):
 		'''Dialog settings'''
 		super().__init__(root)
 		self._root = root
-		destination_path = Path(self._root.config.target_path).joinpath(
-			self._root.config.destinations[self._root.destination.get()]['sub_path'])
-		self._sub_dir_paths = [path for path in destination_path.iterdir() if path.is_dir()]
-		if self._root.config.source_whitelist:
-			update_sub_dir_paths = []
-			whitelist = RegEx(self._root.config.source_whitelist)
-			for sub_dir_path in self._sub_dir_paths:
-				for path, relative in sub_dir_path.rrglob('*'):
-					if whitelist.search(relative):
-						update_sub_dir_paths.append(sub_dir_path)
-						break
-			self._sub_dir_paths = update_sub_dir_paths
-		if self._root.config.destination_blacklist:
-			blacklist = RegEx(self._root.config.destination_blacklist)
-			for sub_dir_path in self._sub_dir_paths.copy():
-				for path, relative in sub_dir_path.rrglob('*'):
-					if blacklist.search(relative):
-						self._sub_dir_paths.remove(sub_dir_path)
-						break
-		if not self._sub_dir_paths:
-			self.withdraw()
-			self.after_idle(self._abort_no_subdirs)
-			return
+		self._destination = destinaton
 		self.title(self._root.labels.create_todo)
 		self.minsize(self._root.min_size_x , self._root.min_size_y)
 		self.geometry(f'{self._root.min_size_x}x{self._root.min_size_y}')
@@ -49,7 +26,7 @@ class ToDoDialog(Toplevel):
 		frame = Frame(self)
 		frame.pack(fill='both', expand=True, padx=self._root._pad, pady=(0,self._root._pad))
 		self._tree = Treeview(frame, show='tree', selectmode='browse')
-		for sub_dir_path in self._sub_dir_paths:
+		for sub_dir_path in self._destination.sub_dir_paths:
 			self._tree.insert('', 'end', text=sub_dir_path.name, iid=f'{sub_dir_path}')
 			for path in sub_dir_path.iterdir():
 				if path.is_dir():
@@ -76,12 +53,6 @@ class ToDoDialog(Toplevel):
 		button.pack(side='left', padx=self._root._pad)
 		button = Button(frame, text=self._root.labels.cancel, command=self.destroy)
 		button.pack(side='right', padx=self._root._pad)
-
-
-	def _abort_no_subdirs(self):
-		'''Show error when no suitable subdirectory exists, then close'''
-		showerror(parent=self._root, title=self._root.labels.error, message=self._root.labels.no_sub_dirs_todo)
-		self.destroy()
 
 	def _create(self):
 		selection = self._tree.selection()

@@ -34,6 +34,7 @@
     "update_title": "A newer version is available: #",
     "update_message": "Download new version and exit this application?",
     "error": "Error",
+    "checking": "Checking",
     "missing_name": "Missing user / missing email address",
 	"checking_source": "Checking source directory #",
     "inserted": "# has been checked and inserted",
