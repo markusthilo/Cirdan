@@ -25,8 +25,7 @@ class CheckSourceThread(Thread):
 		Log.info(self._gui.labels.checking_source.replace('#', f'{self._source}'))
 		for path, bad in self._source.check():
 			if self._kill_event.is_set():
-				Log.debug(self._gui.labels.aborted_by_user)
-				self._gui.abort_source_check()
+				self._gui.quit_app()
 				return
 			self._gui.echo(f'{path}', end='\r')
 			if isinstance(bad, int):

@@ -25,11 +25,15 @@ class CheckDstThread(Thread):
 		try:
 			for sub_dir in self._destination.check():
 				if self._kill_event.is_set():
-					break
-				self._gui.echo(f'{{self._gui.labels.checking}} {sub_dir}')
+					self._gui.quit_app()
+					return
+				self._gui.echo(f'{self._gui.labels.checking} {sub_dir}')
 		except:
-			self_gui.logger.error()
-		self._gui.open_todo_dialog(self._destination)
+			self._gui.logger.error()
+		if self._destination.sub_dir_paths:
+			self._gui.open_todo_dialog(self._destination)
+		else:
+			self._gui.abort_no_subdirs()
 
 	def kill(self):
 		'''Kill thread'''

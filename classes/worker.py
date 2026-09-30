@@ -3,6 +3,7 @@
 
 from time import sleep, perf_counter
 from datetime import timedelta
+from time import strftime
 from classes.logger import Logger as Log
 from classes.path import Path
 from classes.hash import HashThread
@@ -197,20 +198,15 @@ class Worker:
 				self._error(self._labels.error_sizes.replace('#', f'{bad_paths}'))
 			time_delta = perf_counter() - start_time
 			Log.info(self._labels.copy_finished.replace('#', f'{timedelta(seconds=time_delta)}'))
-			if self._todo and self._todo.value:
-				try:
-					dst_path.write_text_file(self._config.trigger_name, self._id)
-				except:
-					self._error()
-				try:
-					dst_path.write_text_file(self._config.todo_name, self._todo.value)
-				except:
-					self._error()
-			if self._settings.qualicheck:
-				try:
-					dst_path.write_text_file(self._config.qualicheck_name, self._id)
-				except:
-					self._error()
+
+			try:
+				self._todo.write_meta(dst_path)
+			except:
+				self._error()
+			try:
+				self._todo.write_trigger(dst_path, self._id)
+			except:
+				self._error()
 			if self._settings.sendmail and self._mail_address:	# send mail to user
 				try:
 					SendMail(self._config.mail).send(

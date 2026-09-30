@@ -7,6 +7,7 @@ from tkinter.ttk import Frame, Label, Treeview, Scrollbar, Button, OptionMenu
 from tkinter.messagebox import showerror
 from idlelib.tooltip import Hovertip
 from classes.path import Path
+from classes.todo import ToDo
 
 class ToDoDialog(Toplevel):
 	'''ToDo dialog'''
@@ -59,21 +60,17 @@ class ToDoDialog(Toplevel):
 		if not selection:
 			showerror(parent=self, title=self._root.labels.error, message=self._root.labels.select_destination_first)
 			return
-		todo = self._todo.get()
-		if todo not in self._todo_dict.keys() or not self._todo_dict[todo]:
-			showerror(parent=self, title=self._root.labels.error, message=self._root.labels.todo_dialog_select)
-			return
+		todo = ToDo(self._todo.get(), self._root.settings, self._root.config)
 		selected_path = Path(selection[0])
-		if not selected_path in self._sub_dir_paths:
+		if not selected_path in self._destination.sub_dir_paths:
 			selected_path = Path(self._tree.parent(selection[0]))
+
 		try:
-			selected_path.write_text_file(self._root.config.trigger_name, 
-				f'{self._root.labels.username}: {self._root.logger.login}\n{self._root.labels.hostname}: {self._root.logger.node}')
-		except:
-			showerror(parent=self, title=self._root.labels.error, message=get_exception())
-			return
-		try:
-			selected_path.write_text_file(self._root.config.todo_name, self._todo_dict[todo])
+			todo.write_meta(selected_path)
+			todo.write_trigger(
+				selected_path,
+				f'{self._root.labels.username}: {self._root.logger.login}\n{self._root.labels.hostname}: {self._root.logger.node}'
+			)
 		except:
 			showerror(parent=self, title=self._root.labels.error, message=get_exception())
 			return

@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '1.6.2_2026-09-29'
+__version__ = '1.6.2_2026-09-30'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@proton.me'
 __status__ = 'Testing'
-__description__ = 'Custom upload/copy tool using Robocopy'
+__description__ = 'Copy to Import/Remote Directory Across Network - Custom upload/copy tool using Robocopy'
 
 from sys import executable as __executable__, exit
 from traceback import format_exc
@@ -36,8 +36,6 @@ if __name__ == '__main__':  # start here when run as application
 		help='Send e-mail when copy process has finished, argument is mail address without domain (e.g. john.doe for john.doe@example.net)')
 	argparser.add_argument('-n', '--nocheck', action='store_true',
 		help='Disable path checks (whitelist, blacklist, length)')
-	argparser.add_argument('-q', '--qualicheck', action='store_true',
-		help='Initiate qualicheck when the entire process has finished')
 	argparser.add_argument('-s', '--subject', type=str, metavar='STRING',
 		help='Use the given subject for the e-mail (in Casewhen copy process has finished, argument is mail address without domain (e.g. john.doe for john.doe@example.net)')
 	argparser.add_argument('-t', '--todo', type=str, metavar='STRING',
@@ -84,7 +82,6 @@ if __name__ == '__main__':  # start here when run as application
 		settings.sendmail = bool(args.mail)
 		settings.user = args.mail
 		settings.mail_subject = args.subject
-		settings.qualicheck = args.qualicheck
 		if not config.log_path.is_accessable_dir():
 			logger.crash(labels.bad_log_dir.replace('#', f'{config.log_path}'))
 			exit(1)
@@ -112,8 +109,6 @@ if __name__ == '__main__':  # start here when run as application
 		settings.user = args.mail
 		if args.subject:
 			settings.mail_subject = args.subject
-	if args.qualicheck:
-		settings.qualicheck = True
 	Gui(
 		config,
 		labels,

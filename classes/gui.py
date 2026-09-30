@@ -92,7 +92,6 @@ class Gui(Tk):
 			self._todo_menu = OptionMenu(self, self._todo)
 			self._todo_menu.grid(row=3, column=1, sticky='w', padx=self._pad)
 			Hovertip(self._todo_menu, self.labels.todo_tip)
-			self._update_todo('_',)
 			if todo and todo.key:
 				self._todo.set(todo.key)
 			self.todo = None
@@ -126,13 +125,6 @@ class Gui(Tk):
 				self.send_mail = BooleanVar(value=False)
 			frame = Frame(self)
 			frame.grid(row=5, column=1, sticky='we', padx=self._pad)
-			if self.config.qualicheck_name:
-				self.write_qualicheck = BooleanVar(value=self.settings.qualicheck)
-				button = Checkbutton(frame, text=self.labels.qualicheck_button, variable=self.write_qualicheck)
-				button.pack(side='left', padx=(0, self._pad))
-				Hovertip(button, self.labels.qualicheck_tip)
-			else:
-				self.write_qualicheck = BooleanVar(value=False)
 			self.write_log = BooleanVar(value=bool(self.log_path))
 			button = Checkbutton(frame, text=self.labels.log_button, variable=self.write_log, comman=self._select_log)
 			button.pack(side='right', padx=self._pad)
@@ -175,6 +167,7 @@ class Gui(Tk):
 					except:
 						msg = Log.error()
 						showerror(parent=self, title=self.labels.error, message=f'{self.labels.update_error}:\n{msg}')
+			self._update_todo('_',)
 			self._init_warning()
 			if source:
 				self._check_source_thread = CheckSourceThread(Path(source).resolve(), self)
@@ -198,14 +191,16 @@ class Gui(Tk):
 		if self.destination.get() not in self.config.destinations:
 			showerror(title=self.labels.error, message=self.labels.select_destination_first)
 			return
+		self._clear_info()
 		self._disable_buttons()
 		self._check_dst_thread = CheckDstThread(self)
 		self._check_dst_thread.start()
 
-	def _abort_no_subdirs(self):
+	def abort_no_subdirs(self):
 		'''Show error when no suitable subdirectory exists, then close'''
 		showerror(title=self.labels.error, message=self.labels.no_sub_dirs_todo)
-		self.destroy()
+		self._enable_buttons()
+		self._check_dst_thread = None
 
 	def open_todo_dialog(self, destination):
 		'''Open todo dialog'''
@@ -213,6 +208,7 @@ class Gui(Tk):
 		if dialog.winfo_exists():
 			dialog.wait_window()
 		self._enable_buttons()
+		self._check_dst_thread = None
 
 	def _select_source(self):
 		'''Select directory to add into field'''
@@ -317,7 +313,6 @@ class Gui(Tk):
 		self.settings.destination = self.destination.get()
 		self.settings.sendmail = self.send_mail.get()
 		self.settings.mail_subject = self.mail_subject.get()
-		self.settings.qualicheck = self.write_qualicheck.get()
 
 	def _save_settings(self):
 		'''Get settings from GUI and save to JSON file'''
@@ -406,7 +401,7 @@ class Gui(Tk):
 
 	def _quit_app(self):
 		'''Quit app, ask if copy process is running'''
-		if self._check_source_thread or self._work_thread or self._check_dst_thread:
+		if self._work_thread:
 			if not askyesno(title=self.labels.warning, message=self.labels.running_warning):
 				return
 			Log.info(self.labels.killing_running)
@@ -414,10 +409,12 @@ class Gui(Tk):
 				self._work_thread.kill()
 			except:
 				pass
+		elif self._check_source_thread:
 			try:
 				self._check_source_thread.kill()
 			except:
 				pass
+		elif self._check_dst_thread:
 			try:
 				self._check_dst_thread.kill()
 			except:

@@ -12,25 +12,22 @@
         "Import directory 2": {"sub_path": "import2", "todo": "static"},
         "Import directory 3": {"sub_path": "import3", "todo": "static"}
     },
-    "todo_name": "todo.txt",
     "todo": {
         "static": {
-            "Only task": "task 1",
-            "Do nothing": null
+            "Only task": {"trigger_name": "ready.txt", "meta_name": null, "meta_content": null},
+            "Do nothing": {"trigger_name": null, "meta_name": null, "meta_content": null}
         },
         "selection": {
-            "Task 1": "task 1",
-            "Task 2": "task 2",
-            "Task 3": "task 3",
-            "Do nothing": null
+            "Task 1": {"trigger_name": "ready.txt", "meta_name": "%y%m%d_%H%M%S_todo.txt", "meta_content": "task 1"},
+            "Task 2": {"trigger_name": "ready.txt", "meta_name": "%y%m%d_%H%M%S_todo.txt", "meta_content": "task 2"},
+            "Task 3": {"trigger_name": "ready.txt", "meta_name": "%y%m%d_%H%M%S_todo.txt", "meta_content": "task 3"},
+            "Do nothing": {"trigger_name": null, "meta_name": null, "meta_content": null}
         }
     },
     "log_name": "log.txt",
     "lastlog_name": "lastlog.txt",
     "crashlog_name": "crashlog.txt",
     "tsv_name": "md5.txt",
-    "trigger_name": "ready.txt",
-    "qualicheck_name": null,
     "source_whitelist": [
         "^[0-9]{6}-([0-9]{4}|[0-9]{6})-(([iZ0-9][0-9]{5})|(StA[0-9]{3}))/(EAV|MSD)[0-9]{2}[A-Z]{3}[0-9A-Z]{4}.*"
     ],

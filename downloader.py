@@ -19,4 +19,4 @@ if __name__ == '__main__':  # start here when run as application
 		)
 	except Exception as ex:
 		print(f'{type(ex)}: {ex}')
-		input('Press Enter to close terminal window...')
+		input('Press Enter to close installer...')
