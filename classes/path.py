@@ -25,11 +25,13 @@ class Path(PathlibPath):
 		'''Return string representation with slashes'''
 		return self.as_posix()
 
-	def timed(self, fmt='%t_%n'):
+	def timed(self, fmt='%y%m%d_%H%M%S_%n'):
 		'''Return path with timestamp added to name'''
-		return self.with_name(
-			fmt.replace('%t', strftime('%y%m%d_%H%M%S')).replace('%n', self.name).replace('%s', self.stem).replace('%x', self.suffix)
-		)
+		return self.with_name(strftime(fmt.replace('%n', self.name)))
+
+	def append_name(self, name, use_strftime=False):
+		'''Append name to path'''
+		return self.joinpath(strftime(f'{name}')) if use_strftime else self.joinpath(name)
 
 	def get_filesize(self):
 		'''Return size of file'''
@@ -62,6 +64,6 @@ class Path(PathlibPath):
 			return True
 		return False
 
-	def write_text_file(self, filename, text):
+	def write_text_file(self, filename, text, use_strftime=False):
 		'''Write text to file'''
-		return self.joinpath(filename).write_text(text, encoding='utf-8')
+		return self.append_name(filename, use_strftime=use_strftime).write_text(text, encoding='utf-8')

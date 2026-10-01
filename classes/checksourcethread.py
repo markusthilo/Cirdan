@@ -15,7 +15,8 @@ class CheckSourceThread(Thread):
 		self._source = Source(source_dir,
 			max_path_len = None if self._gui.no_source_check else self._gui.config.max_path_length,
 			whitelist = None if self._gui.no_source_check else self._gui.config.source_whitelist,
-			blacklist = None if self._gui.no_source_check else self._gui.config.source_blacklist
+			blacklist = None if self._gui.no_source_check else self._gui.config.source_blacklist,
+			countlist = self._gui.config.count_paths
 		)
 		super().__init__()
 		self._kill_event = Event()

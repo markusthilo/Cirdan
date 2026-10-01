@@ -50,9 +50,9 @@ class ToDoDialog(Toplevel):
 			self._todo.set(next(iter(self._todo_dict.keys())))
 		menu.pack(side='left', padx=self._root._pad)
 		Hovertip(menu, self._root.labels.todo_tip)
-		button = Button(frame, text=self._root.labels.launch, command=self._create)
-		button.pack(side='left', padx=self._root._pad)
 		button = Button(frame, text=self._root.labels.cancel, command=self.destroy)
+		button.pack(side='right', padx=self._root._pad)
+		button = Button(frame, text=self._root.labels.launch, command=self._create)
 		button.pack(side='right', padx=self._root._pad)
 
 	def _create(self):
@@ -61,18 +61,20 @@ class ToDoDialog(Toplevel):
 			showerror(parent=self, title=self._root.labels.error, message=self._root.labels.select_destination_first)
 			return
 		todo = ToDo(self._todo.get(), self._root.settings, self._root.config)
+		if not todo.trigger_name:
+			showerror(parent=self, title=self._root.labels.error, message=self._root.labels.missing_todo_msg)
+			return
 		selected_path = Path(selection[0])
 		if not selected_path in self._destination.sub_dir_paths:
 			selected_path = Path(self._tree.parent(selection[0]))
-
+		for relative in self._destination.count_paths(selected_path):
+			self._root.echo(f'{self._root.labels.checking} {relative}')
 		try:
-			todo.write_meta(selected_path)
-			todo.write_trigger(
-				selected_path,
-				f'{self._root.labels.username}: {self._root.logger.login}\n{self._root.labels.hostname}: {self._root.logger.node}'
-			)
+			todo.delete_trigger(selected_path)
+			todo.write_meta(selected_path, self._destination.counted_paths)
+			todo.write_trigger(selected_path, self._root.logger.id)
 		except:
 			showerror(parent=self, title=self._root.labels.error, message=get_exception())
 			return
-		self._root.echo(self._root.labels.todo_created.replace('#1', todo).replace('#2', selected_path.name))
+		self._root.echo(self._root.labels.todo_created.replace('#1', f'{todo}').replace('#2', selected_path.name))
 		self.destroy()

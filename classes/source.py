@@ -4,18 +4,18 @@
 from classes.path import Path
 from classes.regex import RegEx
 from classes.size import Size
-from classes.logger import Logger as Log
 
 class Source:
 	'''Source directory'''
 
-	def __init__(self, directory, max_path_len=None, whitelist=None, blacklist=None):
+	def __init__(self, directory, max_path_len=None, whitelist=None, blacklist=None, countlist=None):
 		'''Initialize source directory object'''
 		self.path = Path(directory)
 		self.name = self.path.name
 		self.max_path_len = max_path_len
 		self.whitelist = RegEx(whitelist) if whitelist else None
 		self.blacklist = RegEx(blacklist) if blacklist else None
+		self.countlist = RegEx(countlist) if countlist else None
 		self.files = None
 		self.size = Size(0)
 		self.whitelist_match = False
@@ -47,3 +47,8 @@ class Source:
 				self.files.append({'path': path, 'relative': relative, 'size': size})
 				self.size += size
 			yield path, None
+
+	def get_countlist_match(self, relative):
+		'''Return RegEx pattern from countlist to given relative path'''
+		if self.countlist:
+			return self.countlist.search(relative)

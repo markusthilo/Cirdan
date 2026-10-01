@@ -92,6 +92,7 @@ class Gui(Tk):
 			self._todo_menu = OptionMenu(self, self._todo)
 			self._todo_menu.grid(row=3, column=1, sticky='w', padx=self._pad)
 			Hovertip(self._todo_menu, self.labels.todo_tip)
+			self._update_todo('_',)
 			if todo and todo.key:
 				self._todo.set(todo.key)
 			self.todo = None
@@ -167,7 +168,6 @@ class Gui(Tk):
 					except:
 						msg = Log.error()
 						showerror(parent=self, title=self.labels.error, message=f'{self.labels.update_error}:\n{msg}')
-			self._update_todo('_',)
 			self._init_warning()
 			if source:
 				self._check_source_thread = CheckSourceThread(Path(source).resolve(), self)
@@ -191,6 +191,7 @@ class Gui(Tk):
 		if self.destination.get() not in self.config.destinations:
 			showerror(title=self.labels.error, message=self.labels.select_destination_first)
 			return
+		self._get_settings()
 		self._clear_info()
 		self._disable_buttons()
 		self._check_dst_thread = CheckDstThread(self)
@@ -224,6 +225,7 @@ class Gui(Tk):
 	def add_source(self, source):
 		'''Run this after adding source'''
 		self._check_source_thread = None
+		self._clear_info()
 		self._source_text.configure(state='normal')
 		self._source_text.insert('end', f'{source}\n')
 		self._source_text.configure(state='disabled')

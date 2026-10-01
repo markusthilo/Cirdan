@@ -14,20 +14,52 @@
     },
     "todo": {
         "static": {
-            "Only task": {"trigger_name": "ready.txt", "meta_name": null, "meta_content": null},
-            "Do nothing": {"trigger_name": null, "meta_name": null, "meta_content": null}
+            "Only task": {
+                "trigger_name": "ready.txt",
+                "meta_name": "%y%m%d_%H%M%S_metadata.txt",
+                "meta_content": "{\n    \"task\": 0\n    \"paths_count\": %p\n}",
+                "delete_name": "not_ready.txt"
+            },
+            "Do nothing": {
+                "trigger_name": "not_ready.txt",
+                "meta_name": null,
+                "meta_content": null,
+                "delete_name": null
+            }
         },
         "selection": {
-            "Task 1": {"trigger_name": "ready.txt", "meta_name": "%y%m%d_%H%M%S_todo.txt", "meta_content": "task 1"},
-            "Task 2": {"trigger_name": "ready.txt", "meta_name": "%y%m%d_%H%M%S_todo.txt", "meta_content": "task 2"},
-            "Task 3": {"trigger_name": "ready.txt", "meta_name": "%y%m%d_%H%M%S_todo.txt", "meta_content": "task 3"},
-            "Do nothing": {"trigger_name": null, "meta_name": null, "meta_content": null}
+            "Task 1": {
+                "trigger_name": "ready.txt",
+                "meta_name": "%y%m%d_%H%M%S_metadata.txt",
+                "meta_content": "{\n    \"task\": 1,\n    \"paths_count\": %p\n}",
+                "delete_name": "not_ready.txt"
+            },
+            "Task 2": {
+                "trigger_name": "ready.txt",
+                "meta_name": "%y%m%d_%H%M%S_metadata.txt",
+                "meta_content": "{\n    \"task\": 2\n}",
+                "delete_name": "not_ready.txt"
+            },
+            "Task 3": {
+                "trigger_name": "ready.txt",
+                "meta_name": "%y%m%d_%H%M%S_metadata.txt",
+                "meta_content": "{\n    \"task\": 3\n}",
+                "delete_name": "not_ready.txt"
+            },
+            "Do nothing": {
+                "trigger_name": "not_ready.txt",
+                "meta_name": null,
+                "meta_content": null,
+                "delete_name": null
+            }
         }
     },
+    "create_todo_name": "not_ready.txt",
     "log_name": "log.txt",
     "lastlog_name": "lastlog.txt",
     "crashlog_name": "crashlog.txt",
-    "tsv_name": "md5.txt",
+    "tsv_name": "%y%m%d_%H%M%S_md5.txt",
+    "id": "{\"hostname\": \"%h\", \"username\": \"%u\"}",
     "source_whitelist": [
         "^[0-9]{6}-([0-9]{4}|[0-9]{6})-(([iZ0-9][0-9]{5})|(StA[0-9]{3}))/(EAV|MSD)[0-9]{2}[A-Z]{3}[0-9A-Z]{4}.*"
     ],
@@ -39,10 +71,15 @@
         ".*/Help/LicenseUpgrade/.*"
     ],
     "destination_blacklist": [
-        "^[^/]*/ready.txt",
-        "^[^/]*/error.txt",
-        "^[^/]*/start.txt",
-        "^[^/]*/delete.txt"
+        "^[^/]*/ready.txt$",
+        "^[^/]*/error.txt$",
+        "^[^/]*/start.txt$",
+        "^[^/]*/delete.txt$"
+    ],
+    "count_paths": [
+        ".*/aw_iped$",
+        ".*\\.E01$",
+        ".*/python.*"
     ],
 	"mail": {
         "smtp_host": "smtpt.example.net",

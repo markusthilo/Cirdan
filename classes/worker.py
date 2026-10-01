@@ -3,7 +3,6 @@
 
 from time import sleep, perf_counter
 from datetime import timedelta
-from time import strftime
 from classes.logger import Logger as Log
 from classes.path import Path
 from classes.hash import HashThread
@@ -30,7 +29,6 @@ class Worker:
 		self._kill_switch = kill
 		self._echo = echo
 		self._mail_address = f'{self._settings.user}@{self._config.domain}' if self._settings.user else None
-		self._id = f'{self._labels.username}: {self._logger.login}\n{self._labels.hostname}: {self._logger.node}'
 		self.errors = list()
 
 	def _error(self, message=None):
@@ -107,6 +105,7 @@ class Worker:
 				Log.info(self._labels.starting_copy.replace('#', f'{source.path}'))
 				if error := self._logger.add_remote(source.path, dst_path):	# add log for one source / one destination
 					self._error(error)
+				self._todo.delete_trigger(dst_path)
 				hash_thread = HashThread(source.files, max_size=self._config.max_hash_size, kill=self._kill_switch)	# start hashing
 				Log.info(self._labels.starting_hashing)
 				hash_thread.start()
@@ -132,6 +131,7 @@ class Worker:
 				total_files = len(source.files)
 				missing_paths = 0
 				bad_paths = 0
+				counted_paths = {pattern: 0 for pattern in self._config.count_paths} if self._config.count_paths else dict()
 				for cnt, fd in enumerate(source.files, start=1):
 					self._echo(f'{int(100*cnt/total_files)}%', end='\r')
 					relative = fd['relative']
@@ -154,6 +154,8 @@ class Worker:
 					else:
 						fd['dst_size'] = dst_size
 						fd['dst_ok'] = True
+					if pattern := source.get_countlist_match(fd['relative']):
+						counted_paths[pattern] += 1
 				Log.info(self._labels.size_check_finished)
 				if hash_thread.is_alive():	# wait untill hashing has finished
 					Log.info(self._labels.hashing_in_progress)
@@ -166,8 +168,8 @@ class Worker:
 						sleep(.25)
 				hash_thread.join()
 				Log.info(self._labels.hashing_finished)
-				dst_tsv_path = dst_path.joinpath(self._config.tsv_name).timed()	# write tsv files
-				log_tsv_path = self._logger.get_remote_parent().joinpath(self._config.tsv_name).timed()
+				dst_tsv_path = dst_path.append_name(self._config.tsv_name, use_strftime=True)	# write tsv files
+				log_tsv_path = self._logger.get_remote_parent().append_name(self._config.tsv_name, use_strftime=True)
 				Log.debug(f'Start writing TSV files: {dst_tsv_path}, {log_tsv_path}')
 				with dst_tsv_path.open_w() as dst_fh, log_tsv_path.open_w() as log_fh:
 					print(self._labels.tsv_head, file=dst_fh)
@@ -198,13 +200,12 @@ class Worker:
 				self._error(self._labels.error_sizes.replace('#', f'{bad_paths}'))
 			time_delta = perf_counter() - start_time
 			Log.info(self._labels.copy_finished.replace('#', f'{timedelta(seconds=time_delta)}'))
-
 			try:
-				self._todo.write_meta(dst_path)
+				self._todo.write_meta(dst_path, counted_paths)
 			except:
 				self._error()
 			try:
-				self._todo.write_trigger(dst_path, self._id)
+				self._todo.write_trigger(dst_path, self._logger.id)
 			except:
 				self._error()
 			if self._settings.sendmail and self._mail_address:	# send mail to user

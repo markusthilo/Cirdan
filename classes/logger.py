@@ -65,9 +65,10 @@ class Logger:
 		self._user_path = None
 		self._user_handler = None
 		self._user_messages = list()
-		self.login = getlogin()
-		self.node = node()
-		self.basic_info = f'{self._labels.hostname}: {self.node}, {self._labels.username}: {self.login}, {self._labels.title} v{self._labels.version}'
+		self.username = getlogin()
+		self.hostname = node()
+		self.basic_info = f'{self._labels.hostname}: {self.hostname}, {self._labels.username}: {self.username}, {self._labels.title} v{self._labels.version}'
+		self.id = self._config.id.replace('%h', self.hostname).replace('%u', self.username)
 		self.debug(f'{self.basic_info} {self._labels.launched}')
 
 	def add_file(self, path, level=logging.DEBUG):
@@ -162,7 +163,8 @@ class Logger:
 		self._lastlog_handler.close()
 		logging.shutdown()
 		try:
-			self._lastlog_path.copy(self._config.log_path.joinpath(self._config.crashlog_name).timed())
+			self._lastlog_path.copy(self._config.log_path.joinpath(
+				f'{self.username}_{self._config.crashlog_name}').timed())
 		except:
 			pass
 		return message

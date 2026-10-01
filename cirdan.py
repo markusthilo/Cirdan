@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '1.6.2_2026-09-30'
+__version__ = '1.7.0_2026-10-01'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@proton.me'
 __status__ = 'Testing'
@@ -69,7 +69,7 @@ if __name__ == '__main__':  # start here when run as application
 		if not config.reachable_dsts:
 			raise NotADirectoryError(f'Unable to find or reach subdirectories of {config.target_path}')
 		if settings.destination and not settings.destination in config.reachable_dsts:
-			settings.destination = ''
+			settings.destination = next(iter(config.reachable_dsts.keys()))
 		if not config.log_path.is_accessable_dir():
 			raise NotADirectoryError(f'Unable to find or reach log directory {config.log_path}')
 	except Exception as ex:
@@ -92,7 +92,8 @@ if __name__ == '__main__':  # start here when run as application
 				Source(source_path,
 					max_path_len = None if args.nocheck else config.max_path_length,
 					whitelist = None if args.nocheck else config.source_whitelist,
-					blacklist = None if args.nocheck else config.source_blacklist
+					blacklist = None if args.nocheck else config.source_blacklist,
+					countlist = config.count_paths
 				)
 			],
 			todo,

@@ -16,8 +16,10 @@ class CheckDstThread(Thread):
 		self._destination = Destination(
 			Path(self._gui.config.target_path).joinpath(
 				self._gui.config.destinations[self._gui.destination.get()]['sub_path']),
-			self._gui.config.source_whitelist,
-			self._gui.config.destination_blacklist
+			whitelist = self._gui.config.source_whitelist,
+			countlist = self._gui.config.count_paths,
+			create_todo_name = self._gui.config.create_todo_name,
+			username = self._gui.logger.username
 		)
 
 	def run(self):
