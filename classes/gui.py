@@ -15,7 +15,6 @@ from classes.path import Path
 from classes.json import Json
 from classes.update import Update
 from classes.sendmail import SendMail
-from classes.robocopy import RoboCopy
 from classes.checksourcethread import CheckSourceThread
 from classes.workthread import WorkThread
 from classes.checkdstthread import CheckDstThread
@@ -29,7 +28,7 @@ class Gui(Tk):
 		'''Window showing startup error'''
 		showerror(title='Cirdan - Critical error on startup', message=msg)
 
-	def __init__(self, config, labels, settings, logger,
+	def __init__(self, config, labels, settings, copy_tool, logger,
 		user_log=None, source=None, todo=None, no_source_check=False):
 		'''Open application window'''
 		super().__init__()
@@ -43,7 +42,7 @@ class Gui(Tk):
 		self._check_source_thread = None
 		self._check_dst_thread = None
 		try:
-			self.robocopy = RoboCopy()
+			self.copy = copy_tool
 			self._defs = Json(self.config.app_path / 'gui.json')
 			self.title(f'{self.labels.title} v{self.labels.version}')
 			self.rowconfigure(0, weight=1)

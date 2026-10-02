@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '1.7.0_2026-10-01'
+__version__ = '1.7.0_2026-10-02'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@proton.me'
 __status__ = 'Testing'
-__description__ = 'Copy to Import/Remote Directory Across Network - Custom upload/copy tool using Robocopy'
+__description__ = 'Copy to Import/Remote Directory Across Network - Custom upload/copy tool'
 
+from platform import system
 from sys import executable as __executable__, exit
 from traceback import format_exc
 from argparse import ArgumentParser
@@ -18,9 +19,13 @@ from classes.settings import Settings
 from classes.logger import Logger
 from classes.source import Source
 from classes.todo import ToDo
-from classes.robocopy import RoboCopy
 from classes.worker import Worker
 from classes.gui import Gui
+
+if system() == 'Windows':
+	from classes.robocopy import RoboCopy as CopyTool
+else:
+	from classes.rsync import Rsync as CopyTool
 
 __parent_path__ = Path(__file__).parent if Path(__executable__).name.startswith('python') else Path(__executable__).parent
 
@@ -51,6 +56,7 @@ if __name__ == '__main__':  # start here when run as application
 		config = Config(__parent_path__)
 		labels = Json(config.labels_path)
 		labels.version = __version__
+		copy_tool = CopyTool(labels)
 		logger = Logger(config, labels)
 	except Exception as ex:
 		if args.source and not args.gui:	# error on cli
@@ -100,7 +106,7 @@ if __name__ == '__main__':  # start here when run as application
 			config,
 			labels,
 			settings,
-			RoboCopy(),
+			copy_tool,
 			logger,
 			user_log = args.log
 		).run():
@@ -114,6 +120,7 @@ if __name__ == '__main__':  # start here when run as application
 		config,
 		labels,
 		settings,
+		copy_tool,
 		logger,
 		user_log = args.log,
 		source = source_path,

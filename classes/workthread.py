@@ -19,7 +19,7 @@ class WorkThread(Thread):
 			self._gui.config,
 			self._gui.labels,
 			self._gui.settings,
-			self._gui.robocopy,
+			self._gui.copy,
 			self._gui.logger,
 			user_log = self._gui.log_path,
 			echo = self._gui.echo,

@@ -1,16 +1,26 @@
 {
-    "app_name": "Cirdan",
-    "labels_path": "$APP/labels_de.json",
-    "local_path": "$HOME/AppData/Local/Cirdan/",
-    "target_path": "$HOME/Documents/",
-    "log_path": "$HOME/Documents/_logs/",
-    "update_path": "$HOME/Documents/_dist/Cirdan/",
+    "paths": {
+        "Windows": {
+            "labels_path": "$APP/labels_de.json",
+            "local_path": "$HOME/AppData/Local/Cirdan/",
+            "target_path": "$HOME/Documents/",
+            "log_path": "$HOME/Documents/_logs/",
+            "update_path": "$HOME/Documents/_dist/Cirdan/"
+        },
+        "Linux": {
+            "labels_path": "$APP/labels_de.json",
+            "local_path": "$HOME/.config/Cirdan/",
+            "target_path": "$HOME/Documents/",
+            "log_path": "$HOME/Documents/_logs/",
+            "update_path": "$HOME/Documents/_dist/Cirdan/"
+        }
+    },
     "domain": "example.net",
     "settings_name": "settings.json",
     "destinations": {
-        "Import directory 1": {"sub_path": "import1", "todo": "selection"},
-        "Import directory 2": {"sub_path": "import2", "todo": "static"},
-        "Import directory 3": {"sub_path": "import3", "todo": "static"}
+        "Import 1": {"sub_path": "import1", "todo": "selection"},
+        "Import 2": {"sub_path": "import2", "todo": "static"},
+        "Import 3": {"sub_path": "import3", "todo": "static"}
     },
     "todo": {
         "static": {

@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import logging
 from subprocess import Popen, PIPE, STDOUT, STARTUPINFO, STARTF_USESHOWWINDOW
 
 class RoboCopy:
 	'''Wrapper for RoboCopy'''
 
-	def __init__(self):
+	def __init__(self, labels):
 		'''Create robocopy process'''
+		self._labels = labels
 		self._startupinfo = STARTUPINFO()
 		self._startupinfo.dwFlags |= STARTF_USESHOWWINDOW
 		self._copy_args = ['/fp', '/ns', '/njh', '/njs', '/nc', '/a-:R']
 		self._proc = None
+		self._returncode = None
 		try:
 			for line in self._yield(['/?']):
 				if line.lstrip().lower().startswith('/unicode'):
@@ -24,6 +25,7 @@ class RoboCopy:
 
 	def _popen(self, args):
 		'''Use Popen to run RoboCopy'''
+		self._returncode = None
 		self._cmd = ['robocopy'] + args
 		return Popen(self._cmd,
 			stdout = PIPE,
@@ -39,8 +41,11 @@ class RoboCopy:
 		self._proc = self._popen(args)
 		for line in self._proc.stdout:
 			if stripped := line.strip():
-				yield stripped
-		self.returncode = self._proc.wait()
+				if line.endswith('%'):
+					yield stripped, '\r'
+				else:
+					yield stripped, '\n'
+		self._returncode = self._proc.wait()
 		self._proc = None
 
 	def terminate(self):
@@ -62,4 +67,16 @@ class RoboCopy:
 
 	def __repr__(self):
 		'''Return command line as string'''
-		return ' '.join(f'{item}' for item in self._cmd)
+		if self._returncode is None:
+			return ''
+		try:
+			returncode = f'{self._returncode} - ' + self._labels.__dict__[f'robocopy_returncode_{self._returncode}']
+		except KeyError:
+			returncode = f'{self._returncode}'
+		return self._labels.robocopy_returned.replace('#', returncode)
+
+	def exception_occurred(self):
+		'''Return True if an exception occurred'''
+		if self._returncode is None:
+			return False
+		return self.returncode > 5

@@ -12,7 +12,7 @@ from classes.sendmail import SendMail
 class Worker:
 	'''Main functionality'''
 
-	def __init__(self, sources, todo, config, labels, settings, robocopy, logger,
+	def __init__(self, sources, todo, config, labels, settings, copy_tool, logger,
 		user_log = None,
 		kill = None,
 		echo = print
@@ -23,7 +23,7 @@ class Worker:
 		self._config = config
 		self._labels = labels
 		self._settings = settings
-		self._robocopy = robocopy
+		self._copy = copy_tool
 		self._logger = logger
 		self._user_log = user_log
 		self._kill_switch = kill
@@ -109,24 +109,16 @@ class Worker:
 				hash_thread = HashThread(source.files, max_size=self._config.max_hash_size, kill=self._kill_switch)	# start hashing
 				Log.info(self._labels.starting_hashing)
 				hash_thread.start()
-				Log.info(f'{self._labels.starting_robocopy}: {source} -> {dst_path}')
-				for line in self._robocopy.copy_dir(source.path, dst_path):
-					if line.endswith('%'):
-						self._echo(line, end='\r')
-					else:
-						self._echo(line)
+				Log.info(f'{self._labels.starting_copy}: {source} -> {dst_path}')
+				for line, end in self._copy.copy_dir(source.path, dst_path):
 					if self._kill_switch and self._kill_switch.is_set():
-						self._robocopy.terminate()
+						self._copy.terminate()
 						return
-				try:
-					robocopy_msg = f'{self._robocopy.returncode} - ' + self._labels.__dict__[f'returncode_{self._robocopy.returncode}']
-				except KeyError:
-					robocopy_msg = f'{self._robocopy.returncode}'
-				robocopy_msg = self._labels.robocopy_returned.replace('#', robocopy_msg)
-				if self._robocopy.returncode > 5:
-					Log.warning(robocopy_msg)
+					self._echo(line, end=end)
+				if self._copy.exception_occurred():
+					Log.warning(f'{self._copy}')
 				else:
-					Log.info(robocopy_msg)
+					Log.info(f'{self._copy}')
 				Log.info(self._labels.starting_size_check)	# start size check
 				total_files = len(source.files)
 				missing_paths = 0
@@ -159,13 +151,11 @@ class Worker:
 				Log.info(self._labels.size_check_finished)
 				if hash_thread.is_alive():	# wait untill hashing has finished
 					Log.info(self._labels.hashing_in_progress)
-					index = 0
+					rotator = Rotator(echo=self._echo)
 					while hash_thread.is_alive():
-						self._echo(f'{"|/-\\"[index]}  ', end='\r')
-						index += 1
-						if index > 3:
-							index = 0
-						sleep(.25)
+						if self._kill_switch and self._kill_switch.is_set():
+							return
+						rotator.inc()
 				hash_thread.join()
 				Log.info(self._labels.hashing_finished)
 				dst_tsv_path = dst_path.append_name(self._config.tsv_name, use_strftime=True)	# write tsv files
