@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '1.7.0_2026-10-02'
+__version__ = '1.7.0_2026-10-04'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@proton.me'
 __status__ = 'Testing'
 __description__ = 'Copy to Import/Remote Directory Across Network - Custom upload/copy tool'
 
 from platform import system
-from sys import executable as __executable__, exit
+from sys import exit
 from traceback import format_exc
 from argparse import ArgumentParser
 from classes.path import Path
@@ -27,10 +27,10 @@ if system() == 'Windows':
 else:
 	from classes.rsync import Rsync as CopyTool
 
-__parent_path__ = Path(__file__).parent if Path(__executable__).name.startswith('python') else Path(__executable__).parent
-
 if __name__ == '__main__':  # start here when run as application
 	argparser = ArgumentParser(description=__description__)
+	argparser.add_argument('-c', '--config', type=Path, metavar='FILE',
+		help='Use the given config file instead of the default in the application directory')
 	argparser.add_argument('-d', '--destination', type=str, metavar='STRING',
 		help='Destination to copy to')
 	argparser.add_argument('-g', '--gui', action='store_true',
@@ -45,6 +45,8 @@ if __name__ == '__main__':  # start here when run as application
 		help='Use the given subject for the e-mail (in Casewhen copy process has finished, argument is mail address without domain (e.g. john.doe for john.doe@example.net)')
 	argparser.add_argument('-t', '--todo', type=str, metavar='STRING',
 		help='Write metadata file, parameter will select the metadata content')
+	argparser.add_argument('-u', '--username', type=str, metavar='STRING',
+		help='Use the given username instead of logon')
 	argparser.add_argument('-v', '--version', action='store_true',
 		help='Print version number')
 	argparser.add_argument('source', nargs='?', help='Source directory', type=Path, metavar='DIRECTORY')
@@ -53,18 +55,16 @@ if __name__ == '__main__':  # start here when run as application
 		print(__version__)
 		exit(0)
 	try:	# handle startup error
-		config = Config(__parent_path__)
+		config = Config(args.config)
 		labels = Json(config.labels_path)
 		labels.version = __version__
 		copy_tool = CopyTool(labels)
 		logger = Logger(config, labels)
 	except Exception as ex:
-		if args.source and not args.gui:	# error on cli
-			raise ex
 		Gui.startup_error(f'{ex}\n\n{format_exc().strip()}')	# show error message in window
 		exit(1)
 	try:
-		settings = Settings(config)
+		settings = Settings(config, args.username)
 		if args.destination:
 			settings.destination = args.destination
 		source_path = args.source.resolve() if args.source else None

@@ -98,7 +98,7 @@ class Gui(Tk):
 			frame = Frame(self)
 			frame.grid(row=4, column=1, sticky='we', padx=self._pad)
 			frame.columnconfigure(1, weight=1)
-			self.user = StringVar(value=self.settings.user)
+			self.mail_to = StringVar(value=self.settings.mail_to)
 			self.mail_subject = StringVar(value=self.settings.mail_subject)
 			try:
 				use_mail = SendMail(self.config.mail).is_reachable()
@@ -109,7 +109,7 @@ class Gui(Tk):
 				button = Checkbutton(frame, text=f'{self.labels.sendmail_button}:', variable=self.send_mail)
 				button.grid(row=0, column=0, sticky='w', padx=(0, self._pad))
 				Hovertip(button, self.labels.sendmail_tip)
-				entry = Entry(frame, textvariable=self.user)
+				entry = Entry(frame, textvariable=self.mail_to)
 				entry.grid(row=0, column=1, sticky='we')
 				Hovertip(entry, self.labels.address_tip)
 				label = Label(frame, text=f'@{self.config.domain}')
@@ -310,9 +310,9 @@ class Gui(Tk):
 
 	def _get_settings(self):
 		'''Get settings from GUI'''
-		self.settings.user = self.user.get()
 		self.settings.destination = self.destination.get()
 		self.settings.sendmail = self.send_mail.get()
+		self.settings.mail_to = self.mail_to.get()
 		self.settings.mail_subject = self.mail_subject.get()
 
 	def _save_settings(self):
@@ -330,7 +330,7 @@ class Gui(Tk):
 		if not self.sources:
 			showerror(title=self.labels.error, message=self.labels.missing_source)
 			return
-		if self.settings.sendmail and not self.settings.user:
+		if self.settings.sendmail and not self.settings.mail_to:
 			showerror(title=self.labels.error, message=self.labels.missing_name)
 			return
 		if not self.settings.destination in self.config.destinations:

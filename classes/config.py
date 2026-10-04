@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from sys import executable as __executable__
 from json import load
 from platform import system
 from classes.path import Path
 
+__app_path__ = Path(__file__).parent.parent if Path(__executable__).name.startswith('python') else Path(__executable__).parent
+
 class Config:
 	'''Handle configuration file in JSON format'''
 
-	def __init__(self, app_path=Path().cwd()):
+	def __init__(self, path=None):
 		'''Read config file'''
-		self.app_path = app_path
+		self.app_path = __app_path__
 		self.system = system()
-		with self.app_path.joinpath('config.json').open(encoding='utf-8') as fp:
+		path = path if path else self.app_path.joinpath('config.json')
+		with path.open(encoding='utf-8') as fp:
 			for key, value in load(fp).items():
 				if key == 'paths':
 					for path_key, path_value in value[self.system].items():

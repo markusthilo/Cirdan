@@ -9,10 +9,10 @@
         },
         "Linux": {
             "labels_path": "$APP/labels_de.json",
-            "local_path": "$HOME/.config/Cirdan/",
-            "target_path": "$HOME/Documents/",
-            "log_path": "$HOME/Documents/_logs/",
-            "update_path": "$HOME/Documents/_dist/Cirdan/"
+            "local_path": "$HOME/.local/share/Cirdan/",
+            "target_path": "$APP/test/target/",
+            "log_path": "$APP/test/target/_logs/",
+            "update_path": "$app/test/_dist/Cirdan/"
         }
     },
     "domain": "example.net",
