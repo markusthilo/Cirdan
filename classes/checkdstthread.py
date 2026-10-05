@@ -19,7 +19,7 @@ class CheckDstThread(Thread):
 			whitelist = self._gui.config.source_whitelist,
 			countlist = self._gui.config.count_paths,
 			create_todo_name = self._gui.config.create_todo_name,
-			username = self._gui.logger.username
+			username = self._gui.settings.username
 		)
 
 	def run(self):

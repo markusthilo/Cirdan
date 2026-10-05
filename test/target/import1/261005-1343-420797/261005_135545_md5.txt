@@ -1,0 +1,3 @@
+Dateipfad	Dateigröße	Quelle in Bytes	Ziel in Bytes	Überprüfung	MD5-Hash
+261005-1343-420797/EAV26THI0000/Live_data_forensics_2023_manual.pdf	27.6 MiB = 29.0 MB	28956160	28956160	okay	ef6c5f3b29bf781e6b74a4bbdc6d7691
+261005-1343-420797/EAV26THI0000/2026-06-15_IPED_PolBerlin.pdf	2.78 MiB = 2.92 MB	2919307	2919307	okay	8742fc7bf449e4ae9059c4f639deb74a

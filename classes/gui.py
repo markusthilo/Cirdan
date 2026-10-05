@@ -43,22 +43,21 @@ class Gui(Tk):
 		self._check_dst_thread = None
 		try:
 			self.copy = copy_tool
-			self._defs = Json(self.config.app_path / 'gui.json')
 			self.title(f'{self.labels.title} v{self.labels.version}')
 			self.rowconfigure(0, weight=1)
 			self.columnconfigure(1, weight=1)
 			self.rowconfigure(7, weight=1)
-			self.iconphoto(True, PhotoImage(file=self.config.app_path / self._defs.appicon))
+			self.iconphoto(True, PhotoImage(file=self.config.icon_path))
 			self.protocol('WM_DELETE_WINDOW', self._quit_app)
 			font = nametofont('TkTextFont').actual()
 			font_family = font['family']
 			font_size = font['size']
-			self.min_size_x = font_size * self._defs.x_factor
-			self.min_size_y = font_size * self._defs.y_factor
+			self.min_size_x = font_size * self.config.gui['x_factor']
+			self.min_size_y = font_size * self.config.gui['y_factor']
 			self.minsize(self.min_size_x , self.min_size_y)
 			self.geometry(f'{self.min_size_x}x{self.min_size_y}')
 			self.resizable(True, True)
-			self._pad = int(font_size * self._defs.pad_factor)
+			self._pad = int(font_size * self.config.gui['pad_factor'])
 			self._source_button = Button(self, text=self.labels.source_dir, command=self._select_source)
 			self._source_button.grid(row=0, column=0, sticky='nw', ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
 			Hovertip(self._source_button, self.labels.source_tip)
@@ -83,7 +82,8 @@ class Gui(Tk):
 					command = self._update_todo
 				).grid(row=2, column=1, sticky='w', padx=self._pad)
 			else:
-				Label(self, text=self.settings.destination).grid(row=2, column=1, columnspan=2, sticky='w', padx=self._pad)
+				self.destination.set(next(iter(self.config.reachable_dsts)))
+				Label(self, text=self.destination.get()).grid(row=2, column=1, columnspan=2, sticky='w', padx=self._pad)
 			label = Label(self, text=f'{self.labels.todo}:')
 			label.grid(row=3, column=0, sticky='w', padx=(2*self._pad, 0))
 			Hovertip(label, self.labels.todo_tip)
@@ -361,7 +361,7 @@ class Gui(Tk):
 			self._info_label.configure(text=self.labels.warning)
 			self._warning_state = '1'
 		if self._warning_state == '1':
-			self._info_label.configure(foreground=self._defs.red_fg, background=self._defs.red_bg)
+			self._info_label.configure(foreground=self.config.gui['red_fg'], background=self.config.gui['red_bg'])
 			self._warning_state = '2'
 		elif self._warning_state == '2':
 			self._info_label.configure(foreground=self._label_fg, background=self._label_bg)
@@ -382,7 +382,7 @@ class Gui(Tk):
 		self.write_log.set(False)
 		self.log_path = None
 		if errors:
-			self._info_text.configure(foreground=self._defs.red_fg, background=self._defs.red_bg)
+			self._info_text.configure(foreground=self.config.gui['red_fg'], background=self.config.gui['red_bg'])
 			self._warning_state = 'enable'
 			msg = f'{self.labels.problems}:'
 			if len(errors) in (1, 2, 3):
@@ -392,7 +392,7 @@ class Gui(Tk):
 				msg += f'\n\n{errors[0]}\n\n{errors[1]}\n\n{self.labels.more_problems.replace("#", f"{len(errors)-2}")}'
 			showerror(title=self.labels.warning, message=msg)
 		else:
-			self._info_text.configure(foreground=self._defs.green_fg, background=self._defs.green_bg)
+			self._info_text.configure(foreground=self.config.gui['green_fg'], background=self.config.gui['green_bg'])
 
 	def quit_app(self):
 		'''Save settings end close application window'''

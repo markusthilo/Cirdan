@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from time import sleep, perf_counter
+from time import perf_counter
 from datetime import timedelta
 from classes.logger import Logger as Log
 from classes.path import Path
 from classes.hash import HashThread
+from classes.gimmicks import Rotator
 from classes.regex import RegEx
 from classes.sendmail import SendMail 
 
@@ -28,7 +29,7 @@ class Worker:
 		self._user_log = user_log
 		self._kill_switch = kill
 		self._echo = echo
-		self._mail_address = f'{self._settings.user}@{self._config.domain}' if self._settings.user else None
+		self._mail_address = f'{self._settings.mail_to}@{self._config.domain}' if self._settings.mail_to else None
 		self.errors = list()
 
 	def _error(self, message=None):

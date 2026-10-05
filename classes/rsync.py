@@ -8,6 +8,7 @@ class Rsync:
 
 	def __init__(self, labels):
 		'''Create rsync process'''
+		self._labels = labels
 		self._cmd = ['rsync', '-a', '-v']
 		self._proc = None
 		self._returncode = None
@@ -22,7 +23,7 @@ class Rsync:
 		self._proc = self._popen(args)
 		for line in self._proc.stdout:
 			if stripped := line.strip():
-				yield stripped
+				yield stripped, '\n'
 		self._returncode = self._proc.wait()
 		self._proc = None
 

@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import logging
-from os import getlogin
 from platform import node
 from traceback import format_exc
 from sys import exc_info
@@ -50,9 +49,10 @@ class Logger:
 		'''Log critical error'''
 		return Logger.exception('critical', message=message)
 
-	def __init__(self, config, labels, echo=print):
+	def __init__(self, config, settings, labels, echo=print):
 		'''Generate object to write log files'''
 		self._config = config
+		self._settings = settings
 		self._labels = labels
 		self._logger = logging.getLogger()
 		self._logger.setLevel(logging.DEBUG)
@@ -65,10 +65,9 @@ class Logger:
 		self._user_path = None
 		self._user_handler = None
 		self._user_messages = list()
-		self.username = getlogin()
 		self.hostname = node()
-		self.basic_info = f'{self._labels.hostname}: {self.hostname}, {self._labels.username}: {self.username}, {self._labels.title} v{self._labels.version}'
-		self.id = self._config.id.replace('%h', self.hostname).replace('%u', self.username)
+		self.basic_info = f'{self._labels.hostname}: {self.hostname}, {self._labels.username}: {self._settings.username}, {self._labels.title} v{self._labels.version}'
+		self.id = self._config.id.replace('%h', self.hostname).replace('%u', self._settings.username)
 		self.debug(f'{self.basic_info} {self._labels.launched}')
 
 	def add_file(self, path, level=logging.DEBUG):
@@ -164,7 +163,7 @@ class Logger:
 		logging.shutdown()
 		try:
 			self._lastlog_path.copy(self._config.log_path.joinpath(
-				f'{self.username}_{self._config.crashlog_name}').timed())
+				f'{self._settings.username}_{self._config.crashlog_name}').timed())
 		except:
 			pass
 		return message

@@ -1,0 +1,13 @@
+2026-10-05 13:53:25 DEBUG: Hostname: cachyssd, Username: neo, Copy to Import/Remote Directory Across Network v1.7.0_2026-10-05, Quellverzeichnis: /home/neo/Public/Cirdan/test/source/261005-1343-420797, Zielverzeichnis:: /home/neo/Public/Cirdan/test/target/import1/261005-1343-420797
+2026-10-05 13:53:25 INFO: Starte Hash-Berechnung
+2026-10-05 13:53:25 INFO: Starte Kopiervorgang von #: /home/neo/Public/Cirdan/test/source/261005-1343-420797, 1 File, 2.9 GiB = 3.12 GB -> /home/neo/Public/Cirdan/test/target/import1/261005-1343-420797
+2026-10-05 13:53:53 ERROR: AttributeError: 'Rsync' object has no attribute '_labels', Traceback (most recent call last):
+  File "/home/neo/Public/Cirdan/classes/worker.py", line 122, in run
+    Log.info(f'{self._copy}')
+               ^^^^^^^^^^^^
+  File "/home/neo/Public/Cirdan/classes/rsync.py", line 51, in __repr__
+    returncode = f'{self._returncode} - ' + self._labels.__dict__[f'rsync_returncode_{self._returncode}']
+                                            ^^^^^^^^^^^^
+AttributeError: 'Rsync' object has no attribute '_labels'
+2026-10-05 13:54:05 DEBUG: Saved settings
+2026-10-05 13:54:05 DEBUG: Quitting application

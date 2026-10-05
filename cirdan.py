@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = 'Markus Thilo'
-__version__ = '1.7.0_2026-10-04'
+__version__ = '1.7.0_2026-10-05'
 __license__ = 'GPL-3'
 __email__ = 'markus.thilo@proton.me'
 __status__ = 'Testing'
@@ -56,15 +56,15 @@ if __name__ == '__main__':  # start here when run as application
 		exit(0)
 	try:	# handle startup error
 		config = Config(args.config)
+		settings = Settings(config, args.username)
 		labels = Json(config.labels_path)
 		labels.version = __version__
 		copy_tool = CopyTool(labels)
-		logger = Logger(config, labels)
+		logger = Logger(config, settings, labels)
 	except Exception as ex:
 		Gui.startup_error(f'{ex}\n\n{format_exc().strip()}')	# show error message in window
 		exit(1)
 	try:
-		settings = Settings(config, args.username)
 		if args.destination:
 			settings.destination = args.destination
 		source_path = args.source.resolve() if args.source else None

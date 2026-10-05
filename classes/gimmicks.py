@@ -37,7 +37,6 @@ class Cylon:
 	def inc(self):
 		'''Increment the index'''
 		self._echo('(' + ' ' * self._index + '\u2588' + ' ' * (self._width - self._index) + ')', end='\r')
-
 		if self._go_right:
 			self._index += 1
 			if self._index > self._width:
@@ -50,4 +49,3 @@ class Cylon:
 				self._go_right = True
 		if self._sleep:
 			sleep(self._sleep)
-
