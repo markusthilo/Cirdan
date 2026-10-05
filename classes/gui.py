@@ -12,7 +12,6 @@ from idlelib.tooltip import Hovertip
 from classes.todo import ToDo
 from classes.logger import Logger as Log
 from classes.path import Path
-from classes.json import Json
 from classes.update import Update
 from classes.sendmail import SendMail
 from classes.checksourcethread import CheckSourceThread

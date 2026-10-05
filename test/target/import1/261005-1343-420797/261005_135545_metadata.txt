@@ -1,8 +1,0 @@
-{
-    "task": 1,
-    "paths_count": {
-        {"pattern": ".*/aw_iped$", "matches": 0}
-        {"pattern": ".*\.E01$", "matches": 0}
-        {"pattern": ".*/python.*", "matches": 0}
-    }
-}

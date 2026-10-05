@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from subprocess import Popen, PIPE, STDOUT
+from subprocess import run, Popen, PIPE, STDOUT
 
 class Rsync:
 	'''Wrapper for rsync'''
 
-	def __init__(self, labels):
+	def __init__(self, labels=None):
 		'''Create rsync process'''
 		self._labels = labels
 		self._cmd = ['rsync', '-a', '-v']
 		self._proc = None
 		self._returncode = None
+		try:
+			run(['rsync', '--version'])
+		except:
+			raise RuntimeError('Unable to execute "rsync"')
 
 	def _popen(self, args):
 		'''Use Popen to run rsync'''
@@ -48,11 +52,14 @@ class Rsync:
 		'''Return command line as string'''
 		if self._returncode is None:
 			return ''
-		try:
-			returncode = f'{self._returncode} - ' + self._labels.__dict__[f'rsync_returncode_{self._returncode}']
-		except KeyError:
-			returncode = f'{self._returncode}'
-		return self._labels.rsync_returned.replace('#', returncode)
+		if self._labels:
+			try:
+				returncode = f'{self._returncode} - ' + self._labels.__dict__[f'rsync_returncode_{self._returncode}']
+			except KeyError:
+				returncode = f'{self._returncode}'
+			return self._labels.rsync_returned.replace('#', returncode)
+		else:
+			return f'rsync returned {self._returncode}'
 
 	def exception_occurred(self):
 		'''Return True if an exception occurred'''

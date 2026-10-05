@@ -6,7 +6,7 @@ from subprocess import Popen, PIPE, STDOUT, STARTUPINFO, STARTF_USESHOWWINDOW
 class RoboCopy:
 	'''Wrapper for RoboCopy'''
 
-	def __init__(self, labels):
+	def __init__(self, labels=None):
 		'''Create robocopy process'''
 		self._labels = labels
 		self._startupinfo = STARTUPINFO()
@@ -69,11 +69,14 @@ class RoboCopy:
 		'''Return command line as string'''
 		if self._returncode is None:
 			return ''
-		try:
-			returncode = f'{self._returncode} - ' + self._labels.__dict__[f'robocopy_returncode_{self._returncode}']
-		except KeyError:
-			returncode = f'{self._returncode}'
-		return self._labels.robocopy_returned.replace('#', returncode)
+		if self._labels:
+			try:
+				returncode = f'{self._returncode} - ' + self._labels.__dict__[f'robocopy_returncode_{self._returncode}']
+			except KeyError:
+				returncode = f'{self._returncode}'
+			return self._labels.robocopy_returned.replace('#', returncode)
+		else:
+			return f'Robocopy returned {self._returncode}'
 
 	def exception_occurred(self):
 		'''Return True if an exception occurred'''
