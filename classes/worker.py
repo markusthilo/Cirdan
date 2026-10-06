@@ -5,7 +5,7 @@ from time import perf_counter
 from datetime import timedelta
 from classes.logger import Logger as Log
 from classes.path import Path
-from classes.hash import HashThread
+from classes.copymd5 import CopyMD5
 from classes.gimmicks import Rotator
 from classes.regex import RegEx
 from classes.sendmail import SendMail 
@@ -13,7 +13,7 @@ from classes.sendmail import SendMail
 class Worker:
 	'''Main functionality'''
 
-	def __init__(self, sources, todo, config, labels, settings, copy_tool, logger,
+	def __init__(self, sources, todo, config, labels, settings, logger,
 		user_log = None,
 		kill = None,
 		echo = print
@@ -24,7 +24,6 @@ class Worker:
 		self._config = config
 		self._labels = labels
 		self._settings = settings
-		self._copy = copy_tool
 		self._logger = logger
 		self._user_log = user_log
 		self._kill_switch = kill
@@ -37,7 +36,7 @@ class Worker:
 		self.errors.append(Log.error(message=message))
 
 	def run(self):
-		'''Start copy process'''
+		'''Copy process'''
 		start_time = perf_counter()
 		if not self._sources:
 			self._error(self._labels.no_sources)
@@ -81,84 +80,42 @@ class Worker:
 				'#2', f'{source.path}').replace(
 				'#3', f'{source.size.readable()}')
 			)
-			dst_path = Path(destination_root_path / source.name)
-			try:	# create new destination directory if not already there
-				dst_is_new = dst_path.mk()
-			except:
-				self._error()
-				continue
-			if dst_is_new:
-				Log.info(self._labels.created_destination.replace('#', dst_path.name))
-			elif self._config.destination_blacklist:	# check for blacklisted files in destination
-				Log.info(self._labels.checking_destination.replace('#', f'{dst_path}'))
+			destination_path = destination_root_path / source.name
+			if self._config.destination_blacklist and destination_path.is_dir():	# check for blacklisted files in destination
+				Log.info(self._labels.checking_destination.replace('#', f'{destination_path}'))
 				blacklist = RegEx(self._config.destination_blacklist)
-				for path, relative in dst_path.rrglob('*'):
+				for path in destination_path.rrglob('*'):
 					if self._kill_switch and self._kill_switch.is_set():
 						return
-					self._echo(f'{path}', end='\r')
-					if pattern := blacklist.search(relative):
-						self._error(self._labels.destination_blocked_by.replace('#1', relative).replace('#2', f'{pattern}'))
+					if pattern := blacklist.search(path.name):
+						self._error(self._labels.destination_blocked_by.replace('#1', path.name).replace('#2', f'{pattern}'))
 						self._echo()
 						return self.errors
 		for source in self._sources:	# copy sources one by one
-			try:
-				dst_path = Path(destination_root_path / source.name)
-				Log.info(self._labels.starting_copy.replace('#', f'{source.path}'))
-				if error := self._logger.add_remote(source.path, dst_path):	# add log for one source / one destination
-					self._error(error)
-				self._todo.delete_trigger(dst_path)
-				hash_thread = HashThread(source.files, max_size=self._config.max_hash_size, kill=self._kill_switch)	# start hashing
-				Log.info(self._labels.starting_hashing)
-				hash_thread.start()
-				Log.info(f'{self._labels.starting_copy}: {source} -> {dst_path}')
-				for line, end in self._copy.copy_dir(source.path, dst_path):
-					if self._kill_switch and self._kill_switch.is_set():
-						self._copy.terminate()
-						return
-					self._echo(line, end=end)
-				if self._copy.exception_occurred():
-					Log.warning(f'{self._copy}')
-				else:
-					Log.info(f'{self._copy}')
-				Log.info(self._labels.starting_size_check)	# start size check
-				total_files = len(source.files)
-				missing_paths = 0
-				bad_paths = 0
-				counted_paths = {pattern: 0 for pattern in self._config.count_paths} if self._config.count_paths else dict()
-				for cnt, fd in enumerate(source.files, start=1):
-					self._echo(f'{int(100*cnt/total_files)}%', end='\r')
-					relative = fd['relative']
-					src_size = fd['size']
-					dst_size = dst_path.parent.joinpath(relative).get_filesize()
-					if dst_size is None:
-						Log.warning(self._labels.missing_file.replace('#', relative))
-						missing_paths += 1
-						fd['dst_size'] = None
-						fd['dst_ok'] = False
-					elif dst_size != src_size:
-						Log.warning(self._labels.mismatching_sizes.replace(
-							'#1', relative).replace(
-							'#2', f'{src_size}').replace(
-							'#3', f'{dst_size}')
-						)
-						bad_paths += 1
-						fd['dst_size'] = dst_size
-						fd['dst_ok'] = False
-					else:
-						fd['dst_size'] = dst_size
-						fd['dst_ok'] = True
-					if pattern := source.get_countlist_match(fd['relative']):
-						counted_paths[pattern] += 1
-				Log.info(self._labels.size_check_finished)
-				if hash_thread.is_alive():	# wait untill hashing has finished
-					Log.info(self._labels.hashing_in_progress)
+			destination_path = destination_root_path / source.name
+			tsv = f'{self._labels.tsv_head}\n'
+			if error := self._logger.add_remote(source.path, destination_path):	# add log for one source / one destination
+				self._error(error)
+			self._todo.delete_trigger(destination_path)
+			copymd5 = CopyMD5(source.path, destination_path)
+			Log.info(f'{self._labels.starting}: {copymd5}')
+			for line in copymd5.stdout:
+				self._echo(line)
+				if line.startswith('"'):
+					tsv += line
+				if self._kill_switch and self._kill_switch.is_set():
+					copymd5.terminate()
+					return
+					
+
+
 					rotator = Rotator(echo=self._echo)
 					while hash_thread.is_alive():
 						if self._kill_switch and self._kill_switch.is_set():
 							return
 						rotator.inc()
-				hash_thread.join()
-				Log.info(self._labels.hashing_finished)
+
+
 				dst_tsv_path = dst_path.append_name(self._config.tsv_name, use_strftime=True)	# write tsv files
 				log_tsv_path = self._logger.get_remote_parent().append_name(self._config.tsv_name, use_strftime=True)
 				Log.debug(f'Start writing TSV files: {dst_tsv_path}, {log_tsv_path}')

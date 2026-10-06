@@ -9,7 +9,7 @@
  * follows, then a summary of the file count, byte count, and elapsed time.
  *
  * cl /O2 /utf-8 copymd5.c
- * copymd5 /?
+ * x86_64-w64-mingw32-gcc -O2 -o copymd5.exe copymd5.c -lshell32
  */
 
 #define VERSION "0.0.1-2026-10-06"

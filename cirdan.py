@@ -8,7 +8,6 @@ __email__ = 'markus.thilo@proton.me'
 __status__ = 'Testing'
 __description__ = 'Copy to Import/Remote Directory Across Network - Custom upload/copy tool'
 
-from platform import system
 from sys import exit
 from traceback import format_exc
 from argparse import ArgumentParser
@@ -21,11 +20,6 @@ from classes.source import Source
 from classes.todo import ToDo
 from classes.worker import Worker
 from classes.gui import Gui
-
-if system() == 'Windows':
-	from classes.robocopy import RoboCopy as CopyTool
-else:
-	from classes.rsync import Rsync as CopyTool
 
 if __name__ == '__main__':  # start here when run as application
 	argparser = ArgumentParser(description=__description__)
@@ -59,7 +53,6 @@ if __name__ == '__main__':  # start here when run as application
 		settings = Settings(config, args.username)
 		labels = Json(config.labels_path)
 		labels.version = __version__
-		copy_tool = CopyTool(labels)
 		logger = Logger(config, settings, labels)
 	except Exception as ex:
 		Gui.startup_error(f'{ex}\n\n{format_exc().strip()}')	# show error message in window
@@ -106,7 +99,6 @@ if __name__ == '__main__':  # start here when run as application
 			config,
 			labels,
 			settings,
-			copy_tool,
 			logger,
 			user_log = args.log
 		).run():
@@ -120,7 +112,6 @@ if __name__ == '__main__':  # start here when run as application
 		config,
 		labels,
 		settings,
-		copy_tool,
 		logger,
 		user_log = args.log,
 		source = source_path,

@@ -9,7 +9,6 @@
  * the file count, byte count, and elapsed time.
  *
  * gcc -O2 -o copymd5 copymd5_lin.c -pthread
- * ./copymd5_lin /?
  */
 
 #define VERSION "0.0.1-2026-10-06"

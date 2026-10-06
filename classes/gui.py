@@ -27,7 +27,7 @@ class Gui(Tk):
 		'''Window showing startup error'''
 		showerror(title='Cirdan - Critical error on startup', message=msg)
 
-	def __init__(self, config, labels, settings, copy_tool, logger,
+	def __init__(self, config, labels, settings, logger,
 		user_log=None, source=None, todo=None, no_source_check=False):
 		'''Open application window'''
 		super().__init__()
@@ -41,7 +41,6 @@ class Gui(Tk):
 		self._check_source_thread = None
 		self._check_dst_thread = None
 		try:
-			self.copy = copy_tool
 			self.title(f'{self.labels.title} v{self.labels.version}')
 			self.rowconfigure(0, weight=1)
 			self.columnconfigure(1, weight=1)
