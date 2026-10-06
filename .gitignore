@@ -2,6 +2,12 @@ __pycache__/
 dist/
 build/
 _internal/
+.vs/
 *.exe
+*.obj
 *.manifest
-
+*.build/
+*.onefile-build/
+*.dist/
+*.xml
+test/

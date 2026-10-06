@@ -12,8 +12,6 @@ class RoboCopy:
 		self._startupinfo = STARTUPINFO()
 		self._startupinfo.dwFlags |= STARTF_USESHOWWINDOW
 		self._copy_args = ['/fp', '/ns', '/njh', '/njs', '/nc', '/a-:R']
-		self._proc = None
-		self._returncode = None
 		try:
 			for line in self._yield(['/?']):
 				if line.lstrip().lower().startswith('/unicode'):
@@ -22,6 +20,9 @@ class RoboCopy:
 					self._copy_args.append('/compress')
 		except Exception as ex:
 			raise RuntimeError(f'Unable to execute "robocopy /?":\n{ex}')
+		self._proc = None
+		self._returncode = None
+		self.lists_hashes = False
 
 	def _popen(self, args):
 		'''Use Popen to run RoboCopy'''

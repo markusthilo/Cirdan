@@ -8,14 +8,15 @@ class Rsync:
 
 	def __init__(self, labels=None):
 		'''Create rsync process'''
-		self._labels = labels
-		self._cmd = ['rsync', '-a', '-v']
-		self._proc = None
-		self._returncode = None
 		try:
 			run(['rsync', '--version'])
 		except:
 			raise RuntimeError('Unable to execute "rsync"')
+		self._labels = labels
+		self._cmd = ['rsync', '-a', '-v']
+		self._proc = None
+		self._returncode = None
+		self.lists_hashes = False
 
 	def _popen(self, args):
 		'''Use Popen to run rsync'''
