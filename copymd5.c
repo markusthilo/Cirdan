@@ -43,6 +43,7 @@ static CRITICAL_SECTION g_out_lock;
 static volatile LONG g_out_lock_ready;
 static LONG64 g_files;
 static LONG64 g_bytes;
+static LONG64 g_processed;
 static volatile LONG g_io_error;
 
 static void out_lock(void)
@@ -499,6 +500,20 @@ static DWORD WINAPI flush_stdout(LPVOID param)
 	return 0;
 }
 
+static DWORD WINAPI progress_stdout(LPVOID param)
+{
+	HANDLE stop = param;
+
+	for (;;) {
+		if (WaitForSingleObject(stop, 1000) == WAIT_OBJECT_0)
+			break;
+		out_lock();
+		fwprintf(stdout, L"...processed %lld bytes\r", (long long)g_processed);
+		out_unlock();
+	}
+	return 0;
+}
+
 static void print_result(const BYTE md5[16], LPCWSTR rel, ULONGLONG size, int kind)
 {
 	int i;
@@ -583,6 +598,7 @@ static DWORD copy_tail(LPCWSTR src_path, LPCWSTR dst_path, ULONGLONG offset, DWO
 		err = bail(report, dst_path, L"Write");
 		goto done;
 	}
+	InterlockedAdd64(&g_processed, (LONG64)len);
 
 done:
 	if (src != INVALID_HANDLE_VALUE)
@@ -685,6 +701,7 @@ static DWORD copy_file(LPCWSTR src_path, LPCWSTR dst_path, LPVOID buf[2], BYTE m
 					goto done;
 				}
 				writing = 0;
+				InterlockedAdd64(&g_processed, (LONG64)wr_len);
 			}
 			wr_slot = slot;
 			wr_len = rd_len;
@@ -716,6 +733,7 @@ static DWORD copy_file(LPCWSTR src_path, LPCWSTR dst_path, LPVOID buf[2], BYTE m
 				goto done;
 			}
 			writing = 0;
+			InterlockedAdd64(&g_processed, (LONG64)wr_len);
 		}
 	}
 
@@ -1108,7 +1126,7 @@ int main(void)
 	LPCWSTR src_name;
 	struct job_queue queue;
 	HANDLE threads[MAX_TASKS];
-	HANDLE flush_stop = NULL, flush_thread = NULL;
+	HANDLE flush_stop = NULL, flush_thread = NULL, progress_thread = NULL;
 	LARGE_INTEGER t0, t1, freq;
 	DWORD attr, err;
 	int queue_ready = 0;
@@ -1236,8 +1254,10 @@ int main(void)
 	if (!freq.QuadPart)
 		freq.QuadPart = 1;
 	flush_stop = CreateEventW(NULL, TRUE, FALSE, NULL);
-	if (flush_stop)
+	if (flush_stop) {
 		flush_thread = CreateThread(NULL, 0, flush_stdout, flush_stop, 0, NULL);
+		progress_thread = CreateThread(NULL, 0, progress_stdout, flush_stop, 0, NULL);
+	}
 	if (copy_tree(src_full, dst_root, L"", &queue))
 		InterlockedExchange(&queue.failed, 1);
 	for (t = 0; t < queue.ready; t++)
@@ -1259,8 +1279,13 @@ int main(void)
 		CloseHandle(flush_thread);
 		flush_thread = NULL;
 	}
+	if (progress_thread) {
+		WaitForSingleObject(progress_thread, INFINITE);
+		CloseHandle(progress_thread);
+		progress_thread = NULL;
+	}
 	fflush(stdout);
-	fwprintf(stdout, L"\n...finished: %llu file(s), %llu bytes, took %02llu:%02llu:%02llu.%03llu\n",
+	fwprintf(stdout, L"\n...finished, processed %llu file(s), %llu bytes, took %02llu:%02llu:%02llu.%03llu\n",
 		(unsigned long long)g_files,
 		(unsigned long long)g_bytes,
 		(unsigned long long)hours,
@@ -1276,6 +1301,12 @@ done:
 			SetEvent(flush_stop);
 		WaitForSingleObject(flush_thread, INFINITE);
 		CloseHandle(flush_thread);
+	}
+	if (progress_thread) {
+		if (flush_stop)
+			SetEvent(flush_stop);
+		WaitForSingleObject(progress_thread, INFINITE);
+		CloseHandle(progress_thread);
 	}
 	if (flush_stop)
 		CloseHandle(flush_stop);

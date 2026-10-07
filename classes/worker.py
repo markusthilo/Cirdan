@@ -92,6 +92,7 @@ class Worker:
 						self._echo()
 						return self.errors
 		for source in self._sources:	# copy sources one by one
+			source_size_x100 = source.size * 100
 			destination_path = destination_root_path / source.name
 			tsv = f'{self._labels.tsv_head}\n'
 			if error := self._logger.add_remote(source.path, destination_path):	# add log for one source / one destination
@@ -100,36 +101,27 @@ class Worker:
 			copymd5 = CopyMD5(source.path, destination_path)
 			Log.info(f'{self._labels.starting}: {copymd5}')
 			for line in copymd5.stdout:
-				self._echo(line)
-				if line.startswith('"'):
-					tsv += line
-				if self._kill_switch and self._kill_switch.is_set():
-					copymd5.terminate()
-					return
-					
-
-
-					rotator = Rotator(echo=self._echo)
-					while hash_thread.is_alive():
-						if self._kill_switch and self._kill_switch.is_set():
-							return
-						rotator.inc()
-
-
-				dst_tsv_path = dst_path.append_name(self._config.tsv_name, use_strftime=True)	# write tsv files
-				log_tsv_path = self._logger.get_remote_parent().append_name(self._config.tsv_name, use_strftime=True)
+				try:
+					stripped = line.strip()
+					if stripped.startswith('...processed'):
+						bytes = Size(stripped.split()[1])
+						self.echo(f'{source_size_x100 - bytes} / {source_size_x100}%', end='\r')
+					elif stripped.startswith('...finished'):
+						self._echo(f'{source_size_x100 - bytes} / {source_size_x100}%')
+					elif stripped.startswith('"'):
+						tsv += line
+						self._echo(stripped)
+					if self._kill_switch and self._kill_switch.is_set():
+						copymd5.terminate()
+						return
+					dst_tsv_path = destination_path.append_name(self._config.tsv_name, use_strftime=True)	# write tsv files
+					log_tsv_path = self._logger.get_remote_parent().append_name(self._config.tsv_name, use_strftime=True)
 				Log.debug(f'Start writing TSV files: {dst_tsv_path}, {log_tsv_path}')
 				with dst_tsv_path.open_w() as dst_fh, log_tsv_path.open_w() as log_fh:
 					print(self._labels.tsv_head, file=dst_fh)
 					print(self._labels.tsv_head, file=log_fh)
 					for fd in source.files:
-						if fd['dst_ok']:
-							msg = self._labels.okay
-						elif fd['dst_size']:
-							msg =  self._labels.bad_size
-						else:
-							msg = self._labels.missing
-						line = '\t'.join((
+						if fd['dst_ok']:dst_path
 							fd['relative'],
 							fd['size'].readable(),
 							str(fd['size']),

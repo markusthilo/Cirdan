@@ -44,6 +44,7 @@ static pthread_cond_t g_flush_cond = PTHREAD_COND_INITIALIZER;
 static int g_flush_stop;
 static long long g_files;
 static long long g_bytes;
+static long long g_processed;
 static int g_io_error;
 
 struct md5 {
@@ -459,6 +460,7 @@ static int copy_tail(const char *src_path, const char *dst_path, unsigned long l
 		err = bail(report, dst_path, "Write");
 		goto done;
 	}
+	__sync_fetch_and_add(&g_processed, (long long)len);
 
 done:
 	if (src >= 0)
@@ -543,6 +545,7 @@ static int copy_file_mode(const char *src_path, const char *dst_path, void *buf[
 					goto done;
 				}
 				writing = 0;
+				__sync_fetch_and_add(&g_processed, (long long)wr.len);
 			}
 			err = retry_begin(&wr, dst, 1, buf[slot], rd_len, (off_t)wr_at);
 			if (err) {
@@ -577,6 +580,7 @@ static int copy_file_mode(const char *src_path, const char *dst_path, void *buf[
 				goto done;
 			}
 			writing = 0;
+			__sync_fetch_and_add(&g_processed, (long long)wr.len);
 		}
 	}
 
@@ -977,6 +981,25 @@ static void *flush_stdout(void *arg)
 	return NULL;
 }
 
+static void *progress_stdout(void *arg)
+{
+	(void)arg;
+	pthread_mutex_lock(&g_flush_lock);
+	while (!g_flush_stop) {
+		struct timespec ts;
+
+		clock_gettime(CLOCK_REALTIME, &ts);
+		ts.tv_sec += 1;
+		if (pthread_cond_timedwait(&g_flush_cond, &g_flush_lock, &ts) == ETIMEDOUT) {
+			pthread_mutex_lock(&g_out_lock);
+			fprintf(stdout, "...processed %lld bytes\r", g_processed);
+			pthread_mutex_unlock(&g_out_lock);
+		}
+	}
+	pthread_mutex_unlock(&g_flush_lock);
+	return NULL;
+}
+
 static void help(void)
 {
 	printf("copymd5 for Linux Version %s\n"
@@ -1014,8 +1037,8 @@ int main(int argc, char **argv)
 	const char *src_name;
 	struct job_queue queue;
 	pthread_t threads[MAX_TASKS];
-	pthread_t flush_thread;
-	int flush_started = 0;
+	pthread_t flush_thread, progress_thread;
+	int flush_started = 0, progress_started = 0;
 	struct timespec t0, t1;
 	struct stat st;
 	unsigned long long elapsed_ms, hours, mins, secs, ms;
@@ -1110,6 +1133,8 @@ int main(int argc, char **argv)
 	g_flush_stop = 0;
 	if (pthread_create(&flush_thread, NULL, flush_stdout, NULL) == 0)
 		flush_started = 1;
+	if (pthread_create(&progress_thread, NULL, progress_stdout, NULL) == 0)
+		progress_started = 1;
 	if (copy_tree(src_full, dst_root, "", &queue))
 		queue.failed = 1;
 	for (t = 0; t < queue.ready; t++)
@@ -1138,8 +1163,12 @@ int main(int argc, char **argv)
 		pthread_join(flush_thread, NULL);
 		flush_started = 0;
 	}
+	if (progress_started) {
+		pthread_join(progress_thread, NULL);
+		progress_started = 0;
+	}
 	fflush(stdout);
-	printf("\n...finished: %llu file(s), %llu bytes, took %02llu:%02llu:%02llu.%03llu\n",
+	printf("\n...finished, processed %llu file(s), %llu bytes, took %02llu:%02llu:%02llu.%03llu\n",
 		(unsigned long long)g_files,
 		(unsigned long long)g_bytes,
 		hours, mins, secs, ms);
@@ -1153,6 +1182,13 @@ done:
 		pthread_cond_signal(&g_flush_cond);
 		pthread_mutex_unlock(&g_flush_lock);
 		pthread_join(flush_thread, NULL);
+	}
+	if (progress_started) {
+		pthread_mutex_lock(&g_flush_lock);
+		g_flush_stop = 1;
+		pthread_cond_signal(&g_flush_cond);
+		pthread_mutex_unlock(&g_flush_lock);
+		pthread_join(progress_thread, NULL);
 	}
 	if (started) {
 		for (t = 0; t < queue.ready; t++)
