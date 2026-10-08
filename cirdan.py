@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-__author__ = 'Markus Thilo'
-__version__ = '1.7.0_2026-10-06'
-__license__ = 'GPL-3'
-__email__ = 'markus.thilo@proton.me'
-__status__ = 'Testing'
-__description__ = 'Copy to Import/Remote Directory Across Network - Custom upload/copy tool'
+__author__ = "Markus Thilo"
+__version__ = "2.0.0-Alpha_2026-10-08"
+__license__ = "GPL-3"
+__email__ = "markus.thilo@proton.me"
+__status__ = "Testing"
+__description__ = "Copy to Import/Remote Directory Across Network - a custom upload/copy tool"
 
 from sys import exit
 from traceback import format_exc
@@ -21,29 +21,29 @@ from classes.todo import ToDo
 from classes.worker import Worker
 from classes.gui import Gui
 
-if __name__ == '__main__':  # start here when run as application
+if __name__ == "__main__":  # start here when run as application
 	argparser = ArgumentParser(description=__description__)
 	argparser.add_argument('-c', '--config', type=Path, metavar='FILE',
-		help='Use the given config file instead of the default in the application directory')
-	argparser.add_argument('-d', '--destination', type=str, metavar='STRING',
-		help='Destination to copy to')
-	argparser.add_argument('-g', '--gui', action='store_true',
-		help='Use GUI with given root directory as command line parameters')
-	argparser.add_argument('-l', '--log', type=Path, metavar='FILE',
-		help='File to store log')
-	argparser.add_argument('-m', '--mail', type=str, metavar='STRING',
-		help='Send e-mail when copy process has finished, argument is mail address without domain (e.g. john.doe for john.doe@example.net)')
-	argparser.add_argument('-n', '--nocheck', action='store_true',
-		help='Disable path checks (whitelist, blacklist, length)')
-	argparser.add_argument('-s', '--subject', type=str, metavar='STRING',
-		help='Use the given subject for the e-mail (in Casewhen copy process has finished, argument is mail address without domain (e.g. john.doe for john.doe@example.net)')
-	argparser.add_argument('-t', '--todo', type=str, metavar='STRING',
-		help='Write metadata file, parameter will select the metadata content')
-	argparser.add_argument('-u', '--username', type=str, metavar='STRING',
-		help='Use the given username instead of logon')
-	argparser.add_argument('-v', '--version', action='store_true',
-		help='Print version number')
-	argparser.add_argument('source', nargs='?', help='Source directory', type=Path, metavar='DIRECTORY')
+		help="Use the given config file instead of the default in the application directory")
+	argparser.add_argument("-d", "--destination", type=str, metavar="STRING",
+		help="Destination to copy to")
+	argparser.add_argument("-g", "--gui", action="store_true",
+		help="Use GUI with given root directory as command line parameters")
+	argparser.add_argument("-l", "--log", type=Path, metavar="FILE",
+		help="File to store log")
+	argparser.add_argument("-m", "--mail", type=str, metavar="STRING",
+		help="Send e-mail when copy process has finished, argument is mail address without domain (e.g. john.doe for john.doe@example.net)")
+	argparser.add_argument("-n", "--nocheck", action="store_true",
+		help="Disable path checks (whitelist, blacklist, length)")
+	argparser.add_argument("-s", "--subject", type=str, metavar="STRING",
+		help="Use the given subject for the e-mail (in Casewhen copy process has finished, argument is mail address without domain (e.g. john.doe for john.doe@example.net)")
+	argparser.add_argument("-t", "--todo", type=str, metavar="STRING",
+		help="Write metadata file, parameter will select the metadata content")
+	argparser.add_argument("-u", "--username", type=str, metavar="STRING",
+		help="Use the given username instead of logon")
+	argparser.add_argument("-v", "--version", action="store_true",
+		help="Print version number")
+	argparser.add_argument("source", nargs="?", help="Source directory", type=Path, metavar="DIRECTORY")
 	args = argparser.parse_args()
 	if args.version:
 		print(__version__)
@@ -55,7 +55,7 @@ if __name__ == '__main__':  # start here when run as application
 		labels.version = __version__
 		logger = Logger(config, settings, labels)
 	except Exception as ex:
-		Gui.startup_error(f'{ex}\n\n{format_exc().strip()}')	# show error message in window
+		Gui.startup_error(f"{ex}\n\n{format_exc().strip()}")	# show error message in window
 		exit(1)
 	try:
 		if args.destination:
@@ -63,14 +63,14 @@ if __name__ == '__main__':  # start here when run as application
 		source_path = args.source.resolve() if args.source else None
 		config.reachable_dsts = {
 			key: value for key, value in config.destinations.items()
-			if config.target_path.joinpath(value['sub_path']).is_accessable_dir()
+			if config.target_path.joinpath(value["sub_path"]).is_accessable_dir()
 		}
 		if not config.reachable_dsts:
-			raise NotADirectoryError(f'Unable to find or reach subdirectories of {config.target_path}')
+			raise NotADirectoryError(f"Unable to find or reach subdirectories of {config.target_path}")
 		if settings.destination and not settings.destination in config.reachable_dsts:
 			settings.destination = next(iter(config.reachable_dsts.keys()))
 		if not config.log_path.is_accessable_dir():
-			raise NotADirectoryError(f'Unable to find or reach log directory {config.log_path}')
+			raise NotADirectoryError(f"Unable to find or reach log directory {config.log_path}")
 	except Exception as ex:
 		msg = logger.crash(ex)
 		if not args.source or args.gui:
@@ -82,7 +82,7 @@ if __name__ == '__main__':  # start here when run as application
 		settings.user = args.mail
 		settings.mail_subject = args.subject
 		if not config.log_path.is_accessable_dir():
-			logger.crash(labels.bad_log_dir.replace('#', f'{config.log_path}'))
+			logger.crash(labels.bad_log_dir.replace("#", f"{config.log_path}"))
 			exit(1)
 		if not args.mail:
 			settings.sendmail = False

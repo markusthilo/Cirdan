@@ -10,4 +10,5 @@ _internal/
 *.onefile-build/
 *.dist/
 *.xml
+copymd5
 test/
