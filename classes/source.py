@@ -8,52 +8,50 @@ from classes.size import Size
 class Source:
 	"""Source directory"""
 
-	def __init__(self,
-		directory: Path,
-		max_path_len: int | None = None,
-		whitelist: str | None = None,
-		blacklist: str | None = None,
-		countlist: str | None = None
-	) -> None:
-		self.path = Path(directory)
-		self.name = self.path.name
-		self.max_path_len = max_path_len
-		self.whitelist = RegEx(whitelist) if whitelist else None
-		self.blacklist = RegEx(blacklist) if blacklist else None
-		self.countlist = RegEx(countlist) if countlist else None
-		self.files = None
+	def __init__(self, path: Path, config: Config) -> None:
+		self.path = path
+		self._config = config
+		self._whitelist = RegEx(self._config.source_whitelist) if self._config.source_whitelist else None
+		self._blacklist = RegEx(self._config.source_blacklist) if self._config.source_blacklist else None
+		self._countlist = RegEx(self._config.count_paths) if self._config.count_paths else None
+		self.counted_paths = {pattern: 0 for pattern in self._countlist} if self._countlist else None
+		self.files = 0
 		self.size = Size(0)
-		self.whitelist_match = False
+		self.whitelist_match = None
 
 	def __repr__(self) -> str:
-		'''Printable path'''
+		"""Printable path"""
 		string = f'{self.path}'
-		if self.files:
-			string += ', 1 File' if len(self.files) == 1 else f', {len(self.files)} Files'
-		if self.size:
+		if self.files is not None:
+			string += ', 1 File' if self.files == 1 else f', {self.files} Files'
+		if self.size is not None:
 			string += f', {self.size}'
 		return string
 
 	def check(self) -> Generator[tuple[Path, int | str | None], None, None]:
-		'''Check source directory tree'''
+		"""Check source directory tree"""
 		self.whitelist_match = False
-		self.files = list()
+		self.files = 0
 		self.size = Size(0)
 		for path, relative in self.path.rrglob("*"):
-			if self.whitelist and self.whitelist.search(relative):
+			if self._whitelist and self._whitelist.search(relative):
 				self.whitelist_match = True
-			if self.max_path_len and len(relative) > self.max_path_len:
+			if self._config.max_path_length and len(relative) > self._config.max_path_length:
 				yield path, len(relative)
-			if self.blacklist:
-				if pattern := self.blacklist.search(relative):
+			if self._blacklist:
+				if pattern := self._blacklist.search(relative):
 					yield path, pattern
 			if path.is_file():
-				size = path.get_filesize()
-				self.files.append({"path": path, "relative": relative, "size": size})
-				self.size += size
+				self.files += 1
+				self.size += path.get_filesize()
 			yield path, None
 
-	def get_countlist_match(self, relative: str) -> str | None:
-		"""Return RegEx pattern from countlist to given relative path"""
-		if self.countlist:
-			return self.countlist.search(relative)
+	def count_paths(self) -> Generator[str, None, None]:
+		"""Count paths given by "count_paths" RegEx patterns"""
+		if self._countlist:
+			for path, relative in self.path.rrglob("*"):
+				if pattern := self._countlist.search(relative):
+					self.counted_paths[pattern] += 1
+				yield relative
+		else:
+			yield ""

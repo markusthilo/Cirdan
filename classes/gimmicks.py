@@ -40,12 +40,12 @@ class Cylon:
 		return "(" + " " * self._index + "\u2588" + " " * (self._width - self._index) + ")"
 
 class IndicatorThread(Thread):
-	'''Thread that shows an indicator while the work is running'''
+	"""Thread that shows an indicator while the work is running"""
 
-	def __init__(self, message='% #', indicator='rotator', echo=print, sleep=.25):
-		'''Pass all attributes from GUI to work thread'''
+	def __init__(self, message="#1 #2", indicator="rotator", echo=print, sleep=.25):
+		"""Pass all attributes from GUI to work thread"""
 		self._message = message
-		self._indicator = Cylon() if indicator == 'cylon' else Rotator()
+		self._indicator = Cylon() if indicator == "cylon" else Rotator()
 		self._echo = echo
 		self._sleep = sleep
 		self._kill_event = Event()
@@ -53,15 +53,15 @@ class IndicatorThread(Thread):
 		super().__init__()
 
 	def run(self):
-		'''Run thread'''
+		"""Run thread"""
 		while not self._kill_event.is_set():
 			self._echo(self._message.replace("%", f"{self._percentage}").replace("#", self._indicator.get()), end="\r")
 			sleep(self._sleep)
 
 	def set_percentage(self, percentage):
-		'''Set the percentage'''
+		"""Set the percentage"""
 		self._percentage = percentage
 
 	def kill(self):
-		'''Kill thread'''
+		"""Kill thread"""
 		self._kill_event.set()

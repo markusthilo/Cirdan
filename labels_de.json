@@ -50,7 +50,7 @@
 	"created_destination": "Zielverzeichnis # wurde erstellt",
 	"checking_destination": "Prüfe Zielverzeichnis #",
     "destination_blocked_by": "Zielverzeichnis ist blockiert durch verbotenen Pfad (Blacklist): #1 / RegEx-Muster: \"#2\"",
-	"starting": "Starte: #",
+	"copying": "Kopiere #",
     "found_files_in_source": "#1 Datei(en) wurden im Verzeichnis #2 gefunden, Gesamtgröße: #3",
 	"update_error": "Die neue Version konnte nicht kopiert bzw. heruntergeladen werden",
     "quit": "Beenden",
@@ -75,7 +75,8 @@
     "read_error": "Lesefehler: #",
     "write_error": "Schreibfehler: #",
     "mismatch": "Dateigrößenabweichungen: #",
-    "size_missmatch": "Größenabweichung über alle Dateien: #1 != #2",
-    "copy_finished": "Fertig - das Kopieren dauerte #",
+    "file_count_mismatch": "Dateizahlabweichung: #1 (Quelle) != #2 (Ziel)",
+    "size_missmatch": "Größenabweichung über alle Dateien: #1 (Quelle) != #2 (Ziel)",
+    "copy_finished": "Fertig - #1 Dateien kopiert, Gesamtgröße: #2, Dauer: #3",
     "mail_error": "Fehler beim Versenden der E-Mail an #"
 }

@@ -50,7 +50,7 @@
 	"created_destination": "Created destination directory #",
 	"checking_destination": "Checking destination directory #",
     "destination_blocked_by": "Destination directory is blocked by blacklisted file: #1 / regex pattern: \"#2\"",
-	"starting": "Starting: #",
+	"copying": "Copying #",
     "found_files_in_source": "Found #1 file(s) in source directory #2, total size: #3",
 	"update_error": "The new version could not be copied or downloaded",
     "quit": "Exit",
@@ -72,10 +72,11 @@
     "worker_killed": "Worker process was terminated",
     "killing_running": "Abort the running process",
     "tsv_header": "Path\tMD5\tBytes\tResult",
+    "copy_finished": "Finished - copied #1 files, total size: #2, took #3",
     "read_error": "Read error(s): #",
     "write_error": "Write error(s): #",
     "mismatch": "File size mismatch: #",
-    "size_missmatch": "Size mismatch over all files: #1 != #2",
-    "copy_finished": "Finished - copying took #",
+    "file_count_mismatch": "File count mismatch: #1 (source) != #2 (destination)",
+    "size_missmatch": "Size mismatch over all files: #1 (source) != #2 (destination)",
     "mail_error": "Error sending mail to #"
 }

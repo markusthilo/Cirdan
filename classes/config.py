@@ -4,27 +4,56 @@
 from sys import executable as __executable__
 from json import load
 from platform import system
+from pprint import pformat
 from classes.path import Path
 
 __app_path__ = Path(__file__).parent.parent if Path(__executable__).name.startswith('python') else Path(__executable__).parent
 
 class Config:
-	'''Handle configuration file in JSON format'''
+	"""Configuration from JSON file"""
 
-	def __init__(self, path=None):
-		'''Read config file'''
+	def __init__(self, path: str | Path | None = None, remote: str | Path | None = None):
 		self.app_path = __app_path__
 		self.system = system()
-		path = path if path else self.app_path.joinpath('config.json')
-		with path.open(encoding='utf-8') as fp:
+		path = Path(path).resolve() if path else self.app_path.joinpath("config.json")
+		with path.open(encoding="utf-8") as fp:
 			for key, value in load(fp).items():
-				if key == 'paths':
+				if key == "paths":
 					for path_key, path_value in value[self.system].items():
-						if path_value.startswith('$HOME/') or path_value.startswith('$HOME\\'):
-							self.__dict__[path_key] = Path().home().joinpath(path_value[6:]).resolve()
-						elif path_value.startswith('$APP/') or path_value.startswith('$APP\\'):
-							self.__dict__[path_key] = self.app_path.joinpath(path_value[5:]).resolve()
-						else:
-							self.__dict__[path_key] = Path(path_value).resolve()
+						self.__dict__[path_key] = self._resolve_path(path_value)
 				else:	
 					self.__dict__[key] = value
+		if remote:
+			self.remote_path = Path(remote).resolve()
+
+	def gen_destination_paths(self) -> None:
+		"""Generate remote paths and check if reachable"""
+		self.destination_paths = {
+			key: value for key, value in config.destinations.items()
+			if config.target_path.joinpath(value["sub_path"]).is_accessable_dir()
+		}
+		if not config.reachable_dsts:
+			raise NotADirectoryError(f"Unable to find or reach subdirectories of {config.target_path}")
+
+	def _resolve_path(self, path_value: str) -> Path:
+		"""Expand $HOME / $APP prefixes (case-insensitive) and resolve"""
+		normalized = path_value.replace("\\", "/")
+		upper = normalized.upper()
+		if upper.startswith("$HOME/"):
+			return Path().home().joinpath(normalized[6:]).resolve()
+		if upper.startswith("$APP/"):
+			return self.app_path.joinpath(normalized[5:]).resolve()
+		return Path(path_value).resolve()
+
+	def __repr__(self) -> str:
+		"""Readable key/value listing of the loaded configuration"""
+		lines = ["Config:"]
+		width = max((len(key) for key in self.__dict__), default=0)
+		for key, value in self.__dict__.items():
+			formatted = pformat(value, width=76, sort_dicts=False)
+			if "\n" in formatted:
+				indented = formatted.replace("\n", "\n" + " " * (width + 3))
+				lines.append(f"  {key:<{width}} = {indented}")
+			else:
+				lines.append(f"  {key:<{width}} = {formatted}")
+		return "\n".join(lines)

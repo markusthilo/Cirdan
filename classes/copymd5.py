@@ -7,10 +7,10 @@ from classes.path import Path
 
 __system__ = system()
 if __system__ == "Windows":
-    from subprocess import Popen, STARTUPINFO, STARTF_USESHOWWINDOW, PIPE, STDOUT
+    from subprocess import Popen, STARTUPINFO, STARTF_USESHOWWINDOW, PIPE
     __app_path__ = Path(__file__).parent.parent if Path(__executable__).name.startswith('python') else Path(__executable__).parent
 elif __system__ == "Linux":
-    from subprocess import Popen, PIPE, STDOUT
+    from subprocess import Popen, PIPE
     __app_path__ = Path(__file__).parent.parent
 else:
     raise RuntimeError(f"Unsupported platform: {__system__}")
@@ -29,7 +29,7 @@ class CopyMD5(Popen):
 				self.cmd,
 				startupinfo=startupinfo,
 				stdout = PIPE,
-				stderr = STDOUT,
+				stderr = PIPE,
 				encoding = "utf-8",
 				errors = "ignore",
 				universal_newlines = True,
@@ -39,7 +39,7 @@ class CopyMD5(Popen):
 			super().__init__(
 				self.cmd,
 				stdout = PIPE,
-				stderr = STDOUT,
+				stderr = PIPE,
 				encoding = "utf-8",
 				errors = "ignore",
 				universal_newlines = True,

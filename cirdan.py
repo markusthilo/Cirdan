@@ -2,17 +2,17 @@
 # -*- coding: utf-8 -*-
 
 __author__ = "Markus Thilo"
-__version__ = "2.0.0-Alpha_2026-10-08"
+__version__ = "2.0.0-Dev_2026-10-10"
 __license__ = "GPL-3"
 __email__ = "markus.thilo@proton.me"
-__status__ = "Testing"
+__status__ = "Development"
 __description__ = "Copy to Import/Remote Directory Across Network - a custom upload/copy tool"
 
 from sys import exit
 from traceback import format_exc
 from argparse import ArgumentParser
 from classes.path import Path
-from classes.json import Json
+from classes.labels import Labels
 from classes.config import Config
 from classes.settings import Settings
 from classes.logger import Logger
@@ -35,6 +35,8 @@ if __name__ == "__main__":  # start here when run as application
 		help="Send e-mail when copy process has finished, argument is mail address without domain (e.g. john.doe for john.doe@example.net)")
 	argparser.add_argument("-n", "--nocheck", action="store_true",
 		help="Disable path checks (whitelist, blacklist, length)")
+	argparser.add_argument("-r", "--remote", type=Path, metavar="DIRECTORY",
+		help='Path of parent directory to copy to (overwrites "remote_path" in config file, needs -d/--destination to be set)')
 	argparser.add_argument("-s", "--subject", type=str, metavar="STRING",
 		help="Use the given subject for the e-mail (in Casewhen copy process has finished, argument is mail address without domain (e.g. john.doe for john.doe@example.net)")
 	argparser.add_argument("-t", "--todo", type=str, metavar="STRING",
@@ -48,18 +50,20 @@ if __name__ == "__main__":  # start here when run as application
 	if args.version:
 		print(__version__)
 		exit(0)
-	try:	# handle startup error
-		config = Config(args.config)
-		settings = Settings(config, args.username)
-		labels = Json(config.labels_path)
-		labels.version = __version__
+	if args.path and not args.destination:
+		msg = "Destination (-d/--destination) is required when using -p/--path"
+		Gui.startup_error(msg)
+		argparser.error(msg)
+	try:	# handle startup error before logging
+		config = Config(args.config, args.remote)
+		settings = Settings(config, args.destination, args.username, args.mail, args.subject)
+		labels = Labels(config, __version__)
 		logger = Logger(config, settings, labels)
-	except Exception as ex:
-		Gui.startup_error(f"{ex}\n\n{format_exc().strip()}")	# show error message in window
-		exit(1)
-	try:
-		if args.destination:
-			settings.destination = args.destination
+	except:	# error before logging
+		ex = format_exc()
+		Gui.startup_error(ex)
+		raise RuntimeError(ex)
+	try:	# now we have logging
 		source_path = args.source.resolve() if args.source else None
 		config.reachable_dsts = {
 			key: value for key, value in config.destinations.items()
@@ -79,7 +83,7 @@ if __name__ == "__main__":  # start here when run as application
 	todo = ToDo(args.todo, settings, config)
 	if source_path and not args.gui:	# no gui
 		settings.sendmail = bool(args.mail)
-		settings.user = args.mail
+		settings.mail_to = args.mail
 		settings.mail_subject = args.subject
 		if not config.log_path.is_accessable_dir():
 			logger.crash(labels.bad_log_dir.replace("#", f"{config.log_path}"))
@@ -100,12 +104,12 @@ if __name__ == "__main__":  # start here when run as application
 			labels,
 			settings,
 			logger,
-			user_log = args.log
+			user_log = args.log,
 		).run():
 			exit(1)
 		exit(0)
 	if args.mail:
-		settings.user = args.mail
+		settings.mail_to = args.mail
 		if args.subject:
 			settings.mail_subject = args.subject
 	Gui(
