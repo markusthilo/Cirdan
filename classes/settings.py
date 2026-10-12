@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from typing import TYPE_CHECKING
+from platform import node
 from json import load, dump
 from getpass import getuser
 from pprint import pformat
 from classes.path import Path
 from classes.destination import Destination
+
+if TYPE_CHECKING:
+	from classes.config import Config
 
 class Settings:
 	"""User settings to save locally per user"""
@@ -23,24 +28,21 @@ class Settings:
 			raise ValueError("Destination path provided without destination name")
 		self.config = config
 		self._path = self.config.local_path / self.config.settings_name
-		self.destinations = dict[str, Destination]()
-		for dst_name in self.config.destinations:
-			dst = Destination(self, dst_name)
-			if dst.is_accessible():
-				self.destinations[dst_name] = dst
 		items = self._load_items()
 		if destination and destination_path:
 			self.destination = Destination(self, destination, destination_path)
 		elif destination:
-			self.destination = self.destinations[destination] if destination in self.destinations else None
+			self.destination = self.config.accessible_destinations[destination] if destination in self.config.accessible_destinations else None
 		else:
 			self.destination = None
 		if not self.destination:
 			self.destination_path = None
-		self.username = username if username else items["username"] if items["username"] else getuser()
-		self.sendmail = True if mail_to else bool(items["sendmail"])
+		self.username = username if username else items["username"] if "usernmae" in items and items["username"] else getuser()
+		self.sendmail = True if mail_to else bool(items["sendmail"]) if "sendmail" in items else False
 		self.mail_to = mail_to if mail_to else items["mail_to"] if "mail_to" in items else ""
 		self.mail_subject = mail_subject if mail_subject else items["mail_subject"] if "mail_subject" in items else config.mail["default-subject"]
+		self.hostname = node()
+		self.id = f'{{"hostname": {self.hostname}, "username": {self.username}}}'
 
 	def __repr__(self) -> str:
 		"""Readable key/value listing of the user settings"""

@@ -4,10 +4,8 @@
 import logging
 from sys import exc_info
 from traceback import format_exc
-from platform import node
 from collections.abc import Callable
 from classes.path import Path
-from classes.config import Config
 from classes.settings import Settings
 from classes.labels import Labels
 
@@ -54,8 +52,9 @@ class Logger:
 		"""Log critical error"""
 		return Logger.exception("critical", message=message)
 
-	def __init__(self, config: Config, settings: Settings, labels: Labels, echo: Callable[..., None] = print) -> None:
-		self._config = config
+	def __init__(self, settings: Settings, labels: Labels, echo: Callable[..., None] = print) -> None:
+		self._settings = settings
+		self._config = settings.config
 		self._settings = settings
 		self._labels = labels
 		self._logger = logging.getLogger()
@@ -70,9 +69,7 @@ class Logger:
 		self._user_path: Path | None = None
 		self._user_handler: logging.Handler | None = None
 		self._user_messages: list[str] = []
-		self.hostname = node()
-		self.basic_info = f"{self._labels.hostname}: {self.hostname}, {self._labels.username}: {self._settings.username}, {self._labels.title} v{self._labels.version}"
-		self.id = self._config.id.replace("%h", self.hostname).replace("%u", self._settings.username)
+		self.basic_info = f"{self._labels.hostname}: {self._settings.hostname}, {self._labels.username}: {self._settings.username}, {self._labels.title} v{self._labels.version}"
 		self.debug(f"{self.basic_info} {self._labels.launched}")
 
 	def add_file(self, path: Path, level: int = logging.DEBUG) -> logging.Handler:

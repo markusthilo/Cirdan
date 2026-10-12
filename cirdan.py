@@ -66,22 +66,13 @@ if __name__ == "__main__":  # start here when run as application
 		raise RuntimeError(msg)
 	try:	# now we have logging
 		source_path = args.source.resolve() if args.source else None
-		config.gen_destination_paths()
+		todo = ToDo(args.todo, settings, config)
 	except Exception:
 		msg = logger.crash()
 		if not args.source or args.gui:
 			Gui.startup_error(msg)	# show error message in window
 		raise RuntimeError(msg)
-	todo = ToDo(args.todo, settings, config)
 	if source_path and not args.gui:	# no gui
-		settings.sendmail = bool(args.mail)
-		settings.mail_to = args.mail
-		settings.mail_subject = args.subject
-		if not config.log_path.is_accessable_dir():
-			logger.crash(labels.bad_log_dir.replace("#", f"{config.log_path}"))
-			exit(1)
-		if not args.mail:
-			settings.sendmail = False
 		if Worker(
 			[
 				Source(source_path,
@@ -92,7 +83,6 @@ if __name__ == "__main__":  # start here when run as application
 				)
 			],
 			todo,
-			config,
 			labels,
 			settings,
 			logger,
@@ -105,7 +95,6 @@ if __name__ == "__main__":  # start here when run as application
 		if args.subject:
 			settings.mail_subject = args.subject
 	Gui(
-		config,
 		labels,
 		settings,
 		logger,

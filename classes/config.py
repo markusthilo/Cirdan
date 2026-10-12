@@ -6,6 +6,7 @@ from json import load
 from platform import system
 from pprint import pformat
 from classes.path import Path
+from classes.destination import Destination
 
 __app_path__ = Path(__file__).parent.parent if Path(__executable__).name.startswith('python') else Path(__executable__).parent
 
@@ -23,6 +24,11 @@ class Config:
 						self.__dict__[path_key] = self._resolve_path(path_value)
 				else:	
 					self.__dict__[key] = value
+		self.accessible_destinations = dict[str, Destination]()
+		for dst_name in self.destinations:
+			dst = Destination(self, dst_name)
+			if dst.is_accessible():
+				self.accessible_destinations[dst_name] = dst
 
 	def _resolve_path(self, path_value: str) -> Path:
 		"""Expand $HOME / $APP prefixes (case-insensitive) and resolve"""
