@@ -30,15 +30,9 @@ class Path(PathlibPath):
 		"""Return size of file"""
 		return Size(self.stat().st_size)
 
-	def is_accessable_dir(self):
-		"""Check if path is accessable (necessary due to bad results with .is_dir() in AD environment)"""
-		if not self.is_dir():
-			return False
-		try:
-			self.iterdir()
-		except:
-			return False
-		return True
+	def is_accessible(self) -> bool:
+		"""Check if path is accessible (necessary due to bad results with .is_dir() in AD environment)"""
+		return self.is_dir() and self.iterdir()
 
 	def rrglob(self, pattern, case_sensitive=None, recurse_symlinks=False):
 		"""Recursive glob that gives paths relative to parent"""

@@ -12,7 +12,7 @@ __app_path__ = Path(__file__).parent.parent if Path(__executable__).name.startsw
 class Config:
 	"""Configuration from JSON file"""
 
-	def __init__(self, path: str | Path | None = None, remote: str | Path | None = None):
+	def __init__(self, path: str | Path | None = None):
 		self.app_path = __app_path__
 		self.system = system()
 		path = Path(path).resolve() if path else self.app_path.joinpath("config.json")
@@ -23,17 +23,6 @@ class Config:
 						self.__dict__[path_key] = self._resolve_path(path_value)
 				else:	
 					self.__dict__[key] = value
-		if remote:
-			self.remote_path = Path(remote).resolve()
-
-	def gen_destination_paths(self) -> None:
-		"""Generate remote paths and check if reachable"""
-		self.destination_paths = {
-			key: value for key, value in config.destinations.items()
-			if config.target_path.joinpath(value["sub_path"]).is_accessable_dir()
-		}
-		if not config.reachable_dsts:
-			raise NotADirectoryError(f"Unable to find or reach subdirectories of {config.target_path}")
 
 	def _resolve_path(self, path_value: str) -> Path:
 		"""Expand $HOME / $APP prefixes (case-insensitive) and resolve"""

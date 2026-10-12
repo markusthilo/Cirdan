@@ -16,9 +16,9 @@
             "local_path": "$HOME/.local/share/Cirdan/",
             "log_path": "$APP/test/target/_logs/",
             "update_path": "$APP/test/_dist/Cirdan/",
-            "import1_path": "$APP/test/import1/",
-            "import2_path": "$APP/test/import2/",
-            "import3_path": "$APP/test/import3/"
+            "import1_path": "$APP/test/target/import1/",
+            "import2_path": "$APP/test/target/import2/",
+            "import3_path": "$APP/test/target/import3/"
         }
     },
     "destinations": {
@@ -70,7 +70,7 @@
     },
     "domain": "example.net",
     "settings_name": "settings.json",
-    "create_todo_name": "not_ready.txt",
+    "halted_name": "not_ready.txt",
     "log_name": "log.txt",
     "lastlog_name": "lastlog.txt",
     "crashlog_name": "crashlog.txt",

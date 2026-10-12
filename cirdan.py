@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = "Markus Thilo"
-__version__ = "2.0.0-Dev_2026-10-10"
+__version__ = "2.0.0-Dev_2026-10-12"
 __license__ = "GPL-3"
 __email__ = "markus.thilo@proton.me"
 __status__ = "Development"
@@ -51,35 +51,27 @@ if __name__ == "__main__":  # start here when run as application
 		print(__version__)
 		exit(0)
 	if args.path and not args.destination:
-		msg = "Destination (-d/--destination) is required when using -p/--path"
+		msg = "Destination (-r/--remote) is required when using -p/--path"
 		Gui.startup_error(msg)
 		argparser.error(msg)
 	try:	# handle startup error before logging
-		config = Config(args.config, args.remote)
+		config = Config(args.config)
 		settings = Settings(config, args.destination, args.username, args.mail, args.subject)
 		labels = Labels(config, __version__)
 		logger = Logger(config, settings, labels)
 	except:	# error before logging
-		ex = format_exc()
-		Gui.startup_error(ex)
-		raise RuntimeError(ex)
-	try:	# now we have logging
-		source_path = args.source.resolve() if args.source else None
-		config.reachable_dsts = {
-			key: value for key, value in config.destinations.items()
-			if config.target_path.joinpath(value["sub_path"]).is_accessable_dir()
-		}
-		if not config.reachable_dsts:
-			raise NotADirectoryError(f"Unable to find or reach subdirectories of {config.target_path}")
-		if settings.destination and not settings.destination in config.reachable_dsts:
-			settings.destination = next(iter(config.reachable_dsts.keys()))
-		if not config.log_path.is_accessable_dir():
-			raise NotADirectoryError(f"Unable to find or reach log directory {config.log_path}")
-	except Exception as ex:
-		msg = logger.crash(ex)
+		msg = format_exc()
 		if not args.source or args.gui:
 			Gui.startup_error(msg)	# show error message in window
-		exit(1)
+		raise RuntimeError(msg)
+	try:	# now we have logging
+		source_path = args.source.resolve() if args.source else None
+		config.gen_destination_paths()
+	except Exception:
+		msg = logger.crash()
+		if not args.source or args.gui:
+			Gui.startup_error(msg)	# show error message in window
+		raise RuntimeError(msg)
 	todo = ToDo(args.todo, settings, config)
 	if source_path and not args.gui:	# no gui
 		settings.sendmail = bool(args.mail)
