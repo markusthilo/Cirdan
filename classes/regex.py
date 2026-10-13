@@ -4,14 +4,17 @@
 from re import compile as re_compile
 
 class RegEx:
-	'''Search by regular expressions'''
+	"""Search by regular expressions"""
 
 	def __init__(self, patterns):
-		'''Compile regular expressions'''
-		self._compiled = tuple(re_compile(pattern) for pattern in patterns)
+		self._compiled = tuple[re_compile](re_compile(pattern) for pattern in patterns)
 
-	def search(self, arg_str):
-		'''Return first matching pattern'''
+	def get_patterns(self) -> tuple[str]:
+		"""Return compiled patterns"""
+		return tuple[str](regex.pattern for regex in self._compiled)
+
+	def search(self, arg_str: str) -> str | None:
+		"""Return first matching pattern"""
 		for regex in self._compiled:
 			if regex.search(arg_str):
 				return regex.pattern

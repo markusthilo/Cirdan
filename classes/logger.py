@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import logging
+from typing import TYPE_CHECKING
 from sys import exc_info
 from traceback import format_exc
 from collections.abc import Callable
 from classes.path import Path
-from classes.settings import Settings
-from classes.labels import Labels
+if TYPE_CHECKING:
+	from classes.settings import Settings
 
 class Logger:
 	"""Configure Logging"""
@@ -52,24 +53,23 @@ class Logger:
 		"""Log critical error"""
 		return Logger.exception("critical", message=message)
 
-	def __init__(self, settings: Settings, labels: Labels, echo: Callable[..., None] = print) -> None:
+	def __init__(self, settings: Settings, echo: Callable[..., None] = print) -> None:
 		self._settings = settings
-		self._config = settings.config
-		self._settings = settings
-		self._labels = labels
+		self._labels = self._settings.labels
+		self.basic_info = f"{self._labels.hostname}: {self._settings.hostname},{self._labels.username}: {self._settings.username},"
+		self.basic_info +=f"{self._settings.app_path} = {self._labels.title} v{self._settings.version}"
 		self._logger = logging.getLogger()
 		self._logger.setLevel(logging.DEBUG)
 		self._echo_handler: logging.Handler | None = None
 		self._echo_handler = self.set_echo(echo=echo)
-		self._config.local_path.mkdir(parents=True, exist_ok=True)
-		self._lastlog_path = self._config.local_path.joinpath(self._config.lastlog_name)
+		self._settings.local_path.mkdir(parents=True, exist_ok=True)
+		self._lastlog_path = self._settings.local_path.joinpath(self._settings.lastlog_name)
 		self._lastlog_handler = self.add_file(self._lastlog_path)
 		self._remote_path: Path | None = None
 		self._remote_handler: logging.Handler | None = None
 		self._user_path: Path | None = None
 		self._user_handler: logging.Handler | None = None
 		self._user_messages: list[str] = []
-		self.basic_info = f"{self._labels.hostname}: {self._settings.hostname}, {self._labels.username}: {self._settings.username}, {self._labels.title} v{self._labels.version}"
 		self.debug(f"{self.basic_info} {self._labels.launched}")
 
 	def add_file(self, path: Path, level: int = logging.DEBUG) -> logging.Handler:
@@ -89,7 +89,6 @@ class Logger:
 				if text:
 					echo(text)
 				return len(msg)
-
 			def flush(self) -> None:
 				pass
 
@@ -136,7 +135,7 @@ class Logger:
 	def add_remote(self, source: Path, destination: Path) -> str | None:
 		"""Add remote log file; return error message on failure"""
 		msg = f"{self.basic_info}, {self._labels.source_dir}: {source}, {self._labels.destination}: {destination}"
-		self._remote_path = self._config.log_path.joinpath(source.name, self._config.log_name).timed()
+		self._remote_path = self._settings.log_path.joinpath(source.name, self._settings.log_name).timed()
 		try:
 			self._remote_path.parent.mkdir(parents=True, exist_ok=True)
 			self._remote_handler = self.add_file(self._remote_path)
@@ -151,7 +150,7 @@ class Logger:
 					pass
 				self._remote_handler = None
 			self.error()
-			self._remote_path = self._config.log_path.joinpath(f"{source.name}_{self._config.log_name}").timed()
+			self._remote_path = self._settings.log_path.joinpath(f"{source.name}_{self._settings.log_name}").timed()
 			try:
 				self._remote_path.parent.mkdir(parents=True, exist_ok=True)
 				self._remote_handler = self.add_file(self._remote_path)
@@ -186,8 +185,8 @@ class Logger:
 		self._lastlog_handler.close()
 		logging.shutdown()
 		try:
-			self._lastlog_path.copy(self._config.log_path.joinpath(
-				f"{self._settings.username}_{self._config.crashlog_name}").timed())
+			self._lastlog_path.copy(self._settings.log_path.joinpath(
+				f"{self._settings.username}_{self._settings.crashlog_name}").timed())
 		except Exception:
 			pass
 		return message

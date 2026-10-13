@@ -17,8 +17,6 @@ class Worker:
 	def __init__(self,
 		sources: list[Source],
 		destination: Destination,
-		todo: Todo,
-		config: Config,
 		labels: Labels,
 		settings: Settings,
 		logger: Logger,

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from typing import TYPE_CHECKING
 from time import perf_counter
+from traceback import format_exc
 from threading import current_thread, main_thread
 from collections.abc import Callable
 from tkinter import Tk, PhotoImage, StringVar, BooleanVar, TclError
@@ -11,7 +13,6 @@ from tkinter.scrolledtext import ScrolledText
 from tkinter.messagebox import askyesno, showerror
 from tkinter.filedialog import askdirectory, asksaveasfilename
 from idlelib.tooltip import Hovertip
-from classes.todo import ToDo
 from classes.logger import Logger as Log
 from classes.path import Path
 from classes.update import Update
@@ -20,10 +21,11 @@ from classes.checksourcethread import CheckSourceThread
 from classes.workthread import WorkThread
 from classes.checkdstthread import CheckDstThread
 from classes.tododialog import ToDoDialog
-from classes.config import Config
-from classes.settings import Settings
 from classes.source import Source
 from classes.destination import Destination
+from classes.tododialog import ToDoDialog
+if TYPE_CHECKING:
+	from classes.settings import Settings
 
 class Gui(Tk):
 	"""GUI look and feel"""
@@ -37,122 +39,120 @@ class Gui(Tk):
 			pass
 
 	def __init__(self,
-		config: Config,
-		labels: Labels,
 		settings: Settings,
 		logger: Log,
 		user_log: Path | None = None,
-		remote_path: Path | None = None,
 		source: Path | None = None,
-		todo: ToDo | None = None,
 		no_source_check: bool = False
 	) -> None:
 		"""Open application window"""
 		super().__init__()
-		self.config = config
-		self.labels = labels
 		self.settings = settings
+		self._labels = self.settings.labels
 		self.log_path = user_log
 		self.no_source_check = no_source_check
 		self.logger = logger
+		self._todo_dialog: ToDoDialog | None = None
 		self._work_thread: WorkThread | None = None
 		self._check_source_thread: CheckSourceThread | None = None
 		self._check_dst_thread: CheckDstThread | None = None
 		try:
-			self.title(f"{self.labels.title} v{self.labels.version}")
+			self.title(f"{self._labels.title} v{self.settings.version}")
 			self.rowconfigure(0, weight=1)
 			self.columnconfigure(1, weight=1)
 			self.rowconfigure(7, weight=1)
-			self.iconphoto(True, PhotoImage(file=self.config.icon_path))
+			self.iconphoto(True, PhotoImage(file=self.settings.icon_path))
 			self.protocol("WM_DELETE_WINDOW", self._quit_app)
 			font = nametofont("TkTextFont").actual()
 			font_family = font["family"]
 			font_size = font["size"]
-			self.min_size_x = font_size * self.config.gui["x_factor"]
-			self.min_size_y = font_size * self.config.gui["y_factor"]
+			self.min_size_x = font_size * self.settings.gui["x_factor"]
+			self.min_size_y = font_size * self.settings.gui["y_factor"]
 			self.minsize(self.min_size_x , self.min_size_y)
 			self.geometry(f"{self.min_size_x}x{self.min_size_y}")
 			self.resizable(True, True)
-			self._pad = int(font_size * self.config.gui["pad_factor"])
-			self._source_button = Button(self, text=self.labels.source_dir, command=self._select_source)
+			self._pad = int(font_size * self.settings.gui["pad_factor"])
+			self._source_button = Button(self, text=self._labels.source_dir, command=self._select_source)
 			self._source_button.grid(row=0, column=0, sticky="nw", ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
-			Hovertip(self._source_button, self.labels.source_tip)
+			Hovertip(self._source_button, self._labels.source_tip)
 			self.sources: list[Source] = list()
 			self._source_text = ScrolledText(self, font=(font_family, font_size), padx=self._pad, pady=self._pad)
 			self._source_text.grid(row=0, column=1, sticky="nswe", ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
 			self._source_text.configure(state="disabled")
 			self._source_text.bind("<Key>", lambda dummy: "break")
-			self._delete_button = Button(self, text=self.labels.delete_source, command=self._delete_source)
+			self._delete_button = Button(self, text=self._labels.delete_source, command=self._delete_source)
 			self._delete_button.grid(row=1, column=1, sticky="ne", padx=self._pad)#, pady=self._pad)
-			Hovertip(self._delete_button, self.labels.delete_source_tip)
-			label = Label(self, text=self.labels.destination)
+			Hovertip(self._delete_button, self._labels.delete_source_tip)
+			label = Label(self, text=self._labels.destination)
 			label.grid(row=2, column=0, sticky="w", padx=(2*self._pad, 0))
-			Hovertip(label, self.labels.destination_tip)
+			Hovertip(label, self._labels.destination_tip)
 			self.destination = StringVar()
-			if len(self.config.reachable_dsts) > 1:
+			if len(self.settings.accessible_destinations) > 1:
 				OptionMenu(
 					self,
 					self.destination,
-					self.settings.destination if self.settings.destination else self.labels.select_destination,
-					*self.config.reachable_dsts,
-					command = self._update_todo
-				).grid(row=2, column=1, sticky="w", padx=self._pad)
+					self.settings.destination if self.settings.destination else self._labels.select_destination,
+					*self.settings.accessible_destinations.keys(),
+					command = self._destination_selected
+				).grid(row=2, column=1, sticky="ew", padx=self._pad)
 			else:
-				self.destination.set(next(iter(self.config.reachable_dsts)))
-				Label(self, text=self.destination.get()).grid(row=2, column=1, columnspan=2, sticky="w", padx=self._pad)
-			label = Label(self, text=f"{self.labels.todo}:")
+				self.destination.set(self.settings.destination)
+				Label(self, text=self.settings.destination).grid(row=2, column=1, columnspan=2, sticky="w", padx=self._pad)
+			label = Label(self, text=f"{self._labels.todo}:")
 			label.grid(row=3, column=0, sticky="w", padx=(2*self._pad, 0))
-			Hovertip(label, self.labels.todo_tip)
+			Hovertip(label, self._labels.todo_tip)
+			frame = Frame(self)
+			frame.grid(row=3, column=1, sticky="ew", padx=self._pad)
 			self._todo = StringVar()
-			self._todo_menu = OptionMenu(self, self._todo)
-			self._todo_menu.grid(row=3, column=1, sticky="w", padx=self._pad)
-			Hovertip(self._todo_menu, self.labels.todo_tip)
-			self._update_todo("_",)
-			if todo and todo.key:
-				self._todo.set(todo.key)
-			self.todo: ToDo | None = None
+			self._todo_boolean = BooleanVar()
+			button = Checkbutton(frame, text="\u2194 ",variable=self._todo_boolean, command=self._toggle_todo)
+			button.pack(side="left")
+			self._todo_menu = OptionMenu(frame, self._todo, command=self._todo_selected)
+			self._todo_menu.pack(side="left", expand=True, fill="x")
+			Hovertip(frame, self._labels.todo_tip)
+			self._destination_selected("_",)
 			frame = Frame(self)
 			frame.grid(row=4, column=1, sticky="we", padx=self._pad)
 			frame.columnconfigure(1, weight=1)
 			self.mail_to = StringVar(value=self.settings.mail_to)
 			self.mail_subject = StringVar(value=self.settings.mail_subject)
 			try:
-				use_mail = SendMail(self.config.mail).is_reachable()
+				use_mail = SendMail(self.settings.mail).is_reachable()
 			except:
 				use_mail = False
 			if use_mail:
 				self.send_mail = BooleanVar(value=self.settings.sendmail)
-				button = Checkbutton(frame, text=f"{self.labels.sendmail_button}:", variable=self.send_mail)
+				button = Checkbutton(frame, text=f"{self._labels.sendmail_button}:", variable=self.send_mail)
 				button.grid(row=0, column=0, sticky="w", padx=(0, self._pad))
-				Hovertip(button, self.labels.sendmail_tip)
+				Hovertip(button, self._labels.sendmail_tip)
 				entry = Entry(frame, textvariable=self.mail_to)
 				entry.grid(row=0, column=1, sticky="we")
-				Hovertip(entry, self.labels.address_tip)
-				label = Label(frame, text=f"@{self.config.domain}")
+				Hovertip(entry, self._labels.address_tip)
+				label = Label(frame, text=f"@{self._config.domain}")
 				label.grid(row=0, column=2, sticky="w")
-				Hovertip(label, self.labels.address_tip)
-				label = Label(frame, text=f"{self.labels.mail_subject}:")
+				Hovertip(label, self._labels.address_tip)
+				label = Label(frame, text=f"{self._labels.mail_subject}:")
 				label.grid(row=1, column=0, sticky="e", padx=(0, self._pad))
-				Hovertip(label, self.labels.mail_subject_tip)
+				Hovertip(label, self._labels.mail_subject_tip)
 				entry = Entry(frame, textvariable=self.mail_subject)
 				entry.grid(row=1, column=1, columnspan=2, sticky="we")
-				Hovertip(entry, self.labels.mail_subject_tip)
+				Hovertip(entry, self._labels.mail_subject_tip)
 			else:
 				self.send_mail = BooleanVar(value=False)
 			frame = Frame(self)
 			frame.grid(row=5, column=1, sticky="we", padx=self._pad)
 			self.write_log = BooleanVar(value=bool(self.log_path))
-			button = Checkbutton(frame, text=self.labels.log_button, variable=self.write_log, comman=self._select_log)
-			button.pack(side="right", padx=self._pad)
-			Hovertip(button, self.labels.log_tip)
+			button = Checkbutton(frame, text=self._labels.log_button, variable=self.write_log, comman=self._select_log)
+			button.pack(side="right")
+			Hovertip(button, self._labels.log_tip)
 			frame = Frame(self)
 			frame.grid(row=6, column=1, sticky="we", padx=self._pad)
-			self._create_todo_button = Button(frame, text=self.labels.create_todo, command=self._create_todo)
+			self._create_todo_button = Button(frame, text=self._labels.create_todo, command=self._open_todo_window)
 			self._create_todo_button.pack(side="left", padx=(0, self._pad))
-			Hovertip(self._create_todo_button, self.labels.create_todo_tip)
-			self._exec_button = Button(frame, text=self.labels.start_button, command=self._execute)
-			self._exec_button.pack(side="right", padx=self._pad)
-			Hovertip(self._exec_button, self.labels.start_tip)
+			Hovertip(self._create_todo_button, self._labels.create_todo_tip)
+			self._exec_button = Button(frame, text=self._labels.start_button, command=self._execute)
+			self._exec_button.pack(side="right")
+			Hovertip(self._exec_button, self._labels.start_tip)
 			self._info_text = ScrolledText(self, font=(font_family, font_size), padx=self._pad, pady=self._pad)
 			self._info_text.grid(row=7, column=0, columnspan=2, sticky="nsew",
 				ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
@@ -167,57 +167,105 @@ class Gui(Tk):
 			self._info_label.grid(row=8, column=0, sticky="w", padx=self._pad, pady=self._pad)
 			self._label_fg = self._info_label.cget("foreground")
 			self._label_bg = self._info_label.cget("background")
-			self._quit_button = Button(self, text=self.labels.quit, command=self._quit_app)
+			self._quit_button = Button(self, text=self._labels.quit, command=self._quit_app)
 			self._quit_button.grid(row=8, column=1, sticky="e", padx=self._pad, pady=self._pad)
-			if True or not self.config.app_path.resolve().drive.startswith("\\\\"):	# check for updates
-				update = Update(self.labels.version, self.config.update_path)
+			if True or not self._config.app_path.resolve().drive.startswith("\\\\"):	# check for updates
+				update = Update(self.settings.version, self.settings.update_path)
 				if update.new_version and askyesno(
-					title = self.labels.update_title.replace("#", update.new_version),
-					message = self.labels.update_message,
+					title = self._labels.update_title.replace("#", update.new_version),
+					message = self._labels.update_message,
 					default = "no"
 				):
 					try:
-						update.download(self.config.app_path)
+						update.download(self._config.app_path)
 						self.destroy()
 						return
 					except:
 						msg = Log.error()
-						showerror(parent=self, title=self.labels.error, message=f"{self.labels.update_error}:\n{msg}")
+						showerror(parent=self, title=self._labels.error, message=f"{self._labels.update_error}:\n{msg}")
 			self._init_warning()
 			if source:
 				self._check_source_thread = CheckSourceThread(Path(source).resolve(), self)
 				self._check_source_thread.start()
 		except:
 			msg = self.logger.crash()
-			showerror(title=self.labels.error, message=msg)
+			showerror(title=self._labels.error, message=msg)
 			self.destroy()
 
-	def _update_todo(self, *_: object) -> None:
-		"""Change todo menu when changing destination"""
-		try:
-			todo_options = list(self.config.todo[self.config.destinations[self.destination.get()]["todo"]].keys())
-		except KeyError:
-			self._todo_menu.set_menu(self.labels.select_destination_first)
+	def _destination_selected(self, *_: object) -> None:
+		"""Set destination and change todo menu when changing destination"""
+		destination = self.destination.get()
+		if destination in self.settings.accessible_destinations:
+			self.settings.set_destination(destination)
+			self._todo_menu.set_menu(self._labels.select_todo, *self.settings.destination.todos.keys())
 		else:
-			self._todo_menu.set_menu(self.labels.select_todo, *todo_options)
+			self._todo_menu.set_menu(self._labels.select_destination_first)
+		self._todo_boolean.set(False)
 
-	def _create_todo(self) -> None:
-		"""Check destination to open todo dialog"""
-		if self.destination.get() not in self.config.destinations:
-			showerror(title=self.labels.error, message=self.labels.select_destination_first)
+	def _todo_selected(self, *_: object) -> None:
+		"""Set selected todo"""
+		todo = self._todo.get()
+		if todo in self.settings.destination.todos:
+			self.settings.set_todo(self._todo.get())
+			self._todo_menu.set_menu(todo, *self.settings.destination.todos.keys())
+			if self.settings.destination.todos[todo]["do_something"]:
+				self._todo_boolean.set(True)
+			else:
+				self._todo_boolean.set(False)
+		else:
+			self.settings.set_todo(None)
+			self._todo_menu.set_menu(self._labels.select_todo, *self.settings.destination.todos.keys())
+			self._todo_boolean.set(False)
+
+	def _toggle_todo(self) -> None:
+		"""Toggle todo checkbox"""
+		if not self.settings.destination:
+			self._todo_boolean.set(False)
 			return
-		self._get_settings()
-		self._clear_info()
-		self._disable_buttons()
-		self._check_dst_thread = CheckDstThread(self)
-		self._check_dst_thread.start()
+		if self._todo_boolean.get():
+			self._todo_menu.tk.call("ttk::menubutton::Popdown", self._todo_menu)
+		else:
+			self._todo_menu.set_menu(self.settings.destination.do_nothing, *self.settings.destination.todos.keys())
+			self._todo_boolean.set(False)
 
+	def _open_todo_window(self) -> None:
+		"""Check destination to open todo dialog"""
+		if not self.settings.destination:
+			showerror(title=self._labels.error, message=self._labels.select_destination_first)
+			return
+		sub_dir_paths = self.settings.destination.check_sub_dirs(self.settings.username)
+		if not sub_dir_paths:
+			showerror(title=self._labels.error, message=self._labels.no_sub_dirs_todo)
+			return
+		self._disable_buttons()
+		self._todo_dialog = ToDoDialog(self)
+		self._todo_dialog.wait_window()
+		self._enable_buttons()
+		self._todo_dialog = None
+
+	def create_todo(self, selected_path: Path, todo: str) -> None:
+		"""Create todo"""
+		self._todo_dialog.destroy()
+		self._todo_dialog = None
+		if "%p" in self.settings.destination.todos[todo]["meta_content"]:
+			counted_paths = self.settings.destination.count_paths(selected_path, self.echo)
+		else:
+			counted_paths = None
+		try:
+			self.settings.destination.delete_trigger(todo, selected_path)
+			self.settings.destination.write_meta(todo, selected_path, counted_paths)
+			self.settings.destination.write_trigger(todo, selected_path)
+		except:
+			showerror(parent=self, title=self._labels.error, message=self.logger.error())
+			return
+		self.echo(self._labels.todo_created.replace('#1', f'{todo}').replace('#2', selected_path.name))
+		
 	def abort_no_subdirs(self) -> None:
 		"""Show error when no suitable subdirectory exists, then close"""
 		self._call_ui(self._abort_no_subdirs)
 
 	def _abort_no_subdirs(self) -> None:
-		showerror(title=self.labels.error, message=self.labels.no_sub_dirs_todo)
+		showerror(title=self._labels.error, message=self._labels.no_sub_dirs_todo)
 		self._enable_buttons()
 		self._check_dst_thread = None
 
@@ -234,10 +282,10 @@ class Gui(Tk):
 
 	def _select_source(self) -> None:
 		"""Select directory to add into field"""
-		if source := askdirectory(title=self.labels.select_dir, mustexist=True):
+		if source := askdirectory(title=self._labels.select_dir, mustexist=True):
 			source = Path(source).resolve()
 			if source in self.sources:
-				showerror(title=self.labels.error, message=self.labels.already_added.replace("#", f"{source}"))
+				showerror(title=self._labels.error, message=self._labels.already_added.replace("#", f"{source}"))
 				return
 			self._disable_buttons()
 			self._check_source_thread = CheckSourceThread(source, self)
@@ -255,7 +303,7 @@ class Gui(Tk):
 		self._source_text.configure(state="disabled")
 		self._enable_buttons()
 		self.sources.append(source)
-		Log.info(self.labels.added_source.replace("#", f"{source}"))
+		Log.info(self._labels.added_source.replace("#", f"{source}"))
 
 	def abort_source_check(self) -> None:
 		"""Run this after checking source and not adding it"""
@@ -264,7 +312,7 @@ class Gui(Tk):
 	def _abort_source_check(self) -> None:
 		self._check_source_thread = None
 		self._enable_buttons()
-		Log.info(self.labels.aborted_source_check)
+		Log.info(self._labels.aborted_source_check)
 
 	def _delete_source(self) -> None:
 		"""Delete last source directory from list"""
@@ -284,12 +332,12 @@ class Gui(Tk):
 	def _select_log(self) -> None:
 		"""Select directory"""
 		if self.write_log.get():
-			defaultextension = Path(self.config.log_name).suffix.lstrip(".")
+			defaultextension = Path(self.settings.log_name).suffix.lstrip(".")
 			filename = asksaveasfilename(
-				title = self.labels.logfile,
+				title = self._labels.logfile,
 				filetypes = (
-					(f"{self.labels.logfile} (*.{defaultextension})", f"*.{defaultextension}"),
-					(self.labels.allfiles, "*.*")
+					(f"{self._labels.logfile} (*.{defaultextension})", f"*.{defaultextension}"),
+					(self._labels.allfiles, "*.*")
 				),
 				defaultextension = defaultextension,
 				confirmoverwrite = True
@@ -376,22 +424,22 @@ class Gui(Tk):
 		"""Start copy process / worker"""
 		self._get_settings()
 		if not self.sources:
-			showerror(title=self.labels.error, message=self.labels.missing_source)
+			showerror(title=self._labels.error, message=self._labels.missing_source)
 			return
 		if self.settings.sendmail and not self.settings.mail_to:
-			showerror(title=self.labels.error, message=self.labels.missing_name)
+			showerror(title=self._labels.error, message=self._labels.missing_name)
 			return
-		if not self.settings.destination in self.config.destinations:
+		if not self.settings.destination in self._config.destinations:
 			showerror(
-				title = self.labels.error,
-				message = self.labels.bad_destination.replace("#", f"{self.settings.destination}")
+				title = self._labels.error,
+				message = self._labels.bad_destination.replace("#", f"{self.settings.destination}")
 			)
 			return
 		todo = self._todo.get()
-		if todo == self.labels.select_todo:
-			showerror(title=self.labels.error, message=self.labels.missing_todo_msg)
+		if todo == self._labels.select_todo:
+			showerror(title=self._labels.error, message=self._labels.missing_todo_msg)
 			return
-		self.todo = ToDo(self._todo.get(), self.settings, self.config)
+		self.todo = ToDo(self._todo.get(), self.settings, self._config)
 		self._save_settings()
 		self._disable_buttons()
 		self._clear_info()
@@ -406,10 +454,10 @@ class Gui(Tk):
 	def _warning(self) -> None:
 		"""Show flashing warning"""
 		if self._warning_state == "enable":
-			self._info_label.configure(text=self.labels.warning)
+			self._info_label.configure(text=self._labels.warning)
 			self._warning_state = "1"
 		if self._warning_state == "1":
-			self._info_label.configure(foreground=self.config.gui["red_fg"], background=self.config.gui["red_bg"])
+			self._info_label.configure(foreground=self._config.gui["red_fg"], background=self._config.gui["red_bg"])
 			self._warning_state = "2"
 		elif self._warning_state == "2":
 			self._info_label.configure(foreground=self._label_fg, background=self._label_bg)
@@ -427,24 +475,24 @@ class Gui(Tk):
 		self._work_thread = None
 		self._enable_buttons()
 		if errors is None:
-			Log.info(self.labels.worker_killed)
+			Log.info(self._labels.worker_killed)
 			return
 		self._clear_source_text()
 		self.write_log.set(False)
 		self.log_path = None
 		if errors:
-			self._info_text.configure(foreground=self.config.gui["red_fg"], background=self.config.gui["red_bg"])
+			self._info_text.configure(foreground=self._config.gui["red_fg"], background=self._config.gui["red_bg"])
 			self._warning_state = "enable"
-			msg = f"{self.labels.problems}:"
+			msg = f"{self._labels.problems}:"
 			if len(errors) in (1, 2, 3):
 				for error in errors:
 					msg += f"\n\n{error}"
 			elif errors:
-				more = self.labels.more_problems.replace("#", f"{len(errors)-2}")
+				more = self._labels.more_problems.replace("#", f"{len(errors)-2}")
 				msg += f"\n\n{errors[0]}\n\n{errors[1]}\n\n{more}"
-			showerror(title=self.labels.warning, message=msg)
+			showerror(title=self._labels.warning, message=msg)
 		else:
-			self._info_text.configure(foreground=self.config.gui["green_fg"], background=self.config.gui["green_bg"])
+			self._info_text.configure(foreground=self._config.gui["green_fg"], background=self._config.gui["green_bg"])
 
 	def quit_app(self) -> None:
 		"""Save settings end close application window"""
@@ -458,9 +506,9 @@ class Gui(Tk):
 	def _quit_app(self) -> None:
 		"""Quit app, ask if copy process is running"""
 		if self._work_thread:
-			if not askyesno(title=self.labels.warning, message=self.labels.running_warning):
+			if not askyesno(title=self._labels.warning, message=self._labels.running_warning):
 				return
-			Log.info(self.labels.killing_running)
+			Log.info(self._labels.killing_running)
 			try:
 				self._work_thread.kill()
 			except:

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = "Markus Thilo"
-__version__ = "2.0.0-Dev_2026-10-12"
+__version__ = "2.0.0-Dev_2026-10-13"
 __license__ = "GPL-3"
 __email__ = "markus.thilo@proton.me"
 __status__ = "Development"
@@ -12,19 +12,16 @@ from sys import exit
 from traceback import format_exc
 from argparse import ArgumentParser
 from classes.path import Path
-from classes.labels import Labels
-from classes.config import Config
 from classes.settings import Settings
 from classes.logger import Logger
 from classes.source import Source
-from classes.todo import ToDo
 from classes.worker import Worker
 from classes.gui import Gui
 
 if __name__ == "__main__":  # start here when run as application
 	argparser = ArgumentParser(description=__description__)
 	argparser.add_argument('-c', '--config', type=Path, metavar='FILE',
-		help="Use the given config file instead of the default in the application directory")
+		help="Use the given config file instead of config.json in the application directory")
 	argparser.add_argument("-d", "--destination", type=str, metavar="STRING",
 		help="Destination to copy to")
 	argparser.add_argument("-g", "--gui", action="store_true",
@@ -35,8 +32,8 @@ if __name__ == "__main__":  # start here when run as application
 		help="Send e-mail when copy process has finished, argument is mail address without domain (e.g. john.doe for john.doe@example.net)")
 	argparser.add_argument("-n", "--nocheck", action="store_true",
 		help="Disable path checks (whitelist, blacklist, length)")
-	argparser.add_argument("-r", "--remote", type=Path, metavar="DIRECTORY",
-		help='Path of parent directory to copy to (overwrites "remote_path" in config file, needs -d/--destination to be set)')
+	argparser.add_argument("-p", "--path", type=Path, metavar="DIRECTORY",
+		help='Path of parent directory to copy to (overwrites "destinations"/"path" in config file, needs -d/--destination)')
 	argparser.add_argument("-s", "--subject", type=str, metavar="STRING",
 		help="Use the given subject for the e-mail (in Casewhen copy process has finished, argument is mail address without domain (e.g. john.doe for john.doe@example.net)")
 	argparser.add_argument("-t", "--todo", type=str, metavar="STRING",
@@ -51,14 +48,12 @@ if __name__ == "__main__":  # start here when run as application
 		print(__version__)
 		exit(0)
 	if args.path and not args.destination:
-		msg = "Destination (-r/--remote) is required when using -p/--path"
+		msg = "Destination (-d/--destination) is required when using -p/--path"
 		Gui.startup_error(msg)
 		argparser.error(msg)
 	try:	# handle startup error before logging
-		config = Config(args.config)
-		settings = Settings(config, args.destination, args.username, args.mail, args.subject)
-		labels = Labels(config, __version__)
-		logger = Logger(config, settings, labels)
+		settings = Settings(__version__, args.config, args.destination, args.path,args.username, args.mail, args.subject)
+		logger = Logger(settings)
 	except:	# error before logging
 		msg = format_exc()
 		if not args.source or args.gui:
@@ -66,7 +61,7 @@ if __name__ == "__main__":  # start here when run as application
 		raise RuntimeError(msg)
 	try:	# now we have logging
 		source_path = args.source.resolve() if args.source else None
-		todo = ToDo(args.todo, settings, config)
+		settings.set_todo(args.todo)
 	except Exception:
 		msg = logger.crash()
 		if not args.source or args.gui:
@@ -82,8 +77,6 @@ if __name__ == "__main__":  # start here when run as application
 					countlist = config.count_paths
 				)
 			],
-			todo,
-			labels,
 			settings,
 			logger,
 			user_log = args.log,
@@ -94,12 +87,4 @@ if __name__ == "__main__":  # start here when run as application
 		settings.mail_to = args.mail
 		if args.subject:
 			settings.mail_subject = args.subject
-	Gui(
-		labels,
-		settings,
-		logger,
-		user_log = args.log,
-		source = source_path,
-		todo = todo,
-		no_source_check = args.nocheck
-	).mainloop()	# launch gui window 
+	Gui(settings, logger, args.log, source_path, args.nocheck).mainloop()	# launch gui window 

@@ -32,13 +32,15 @@
                 "trigger_name": "ready.txt",
                 "meta_name": "%y%m%d_%H%M%S_metadata.txt",
                 "meta_content": "{\n    \"task\": 0\n    \"paths_count\": %p\n}",
-                "delete_name": "not_ready.txt"
+                "delete_name": "not_ready.txt",
+                "do_something": true
             },
             "Do nothing": {
                 "trigger_name": "not_ready.txt",
                 "meta_name": null,
                 "meta_content": null,
-                "delete_name": null
+                "delete_name": null,
+                "do_something": false
             }
         },
         "selection": {
@@ -46,25 +48,29 @@
                 "trigger_name": "ready.txt",
                 "meta_name": "%y%m%d_%H%M%S_metadata.txt",
                 "meta_content": "{\n    \"task\": 1,\n    \"paths_count\": %p\n}",
-                "delete_name": "not_ready.txt"
+                "delete_name": "not_ready.txt",
+                "do_something": true
             },
             "Task 2": {
                 "trigger_name": "ready.txt",
                 "meta_name": "%y%m%d_%H%M%S_metadata.txt",
                 "meta_content": "{\n    \"task\": 2\n}",
-                "delete_name": "not_ready.txt"
+                "delete_name": "not_ready.txt",
+                "do_something": true
             },
             "Task 3": {
                 "trigger_name": "ready.txt",
                 "meta_name": "%y%m%d_%H%M%S_metadata.txt",
                 "meta_content": "{\n    \"task\": 3\n}",
-                "delete_name": "not_ready.txt"
+                "delete_name": "not_ready.txt",
+                "do_something": true
             },
             "Do nothing": {
                 "trigger_name": "not_ready.txt",
                 "meta_name": null,
                 "meta_content": null,
-                "delete_name": null
+                "delete_name": null,
+                "do_something": false
             }
         }
     },
