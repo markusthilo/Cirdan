@@ -52,7 +52,7 @@ if __name__ == "__main__":  # start here when run as application
 		Gui.startup_error(msg)
 		argparser.error(msg)
 	try:	# handle startup error before logging
-		settings = Settings(__version__, args.config, args.destination, args.path,args.username, args.mail, args.subject)
+		settings = Settings(__version__, args.config, args.destination, args.path, args.username, args.mail, args.subject)
 		logger = Logger(settings)
 	except:	# error before logging
 		msg = format_exc()
@@ -62,29 +62,17 @@ if __name__ == "__main__":  # start here when run as application
 	try:	# now we have logging
 		source_path = args.source.resolve() if args.source else None
 		settings.set_todo(args.todo)
+		if args.mail:
+			settings.mail_to = args.mail
+			if args.subject:
+				settings.mail_subject = args.subject
 	except Exception:
 		msg = logger.crash()
 		if not args.source or args.gui:
 			Gui.startup_error(msg)	# show error message in window
 		raise RuntimeError(msg)
 	if source_path and not args.gui:	# no gui
-		if Worker(
-			[
-				Source(source_path,
-					max_path_len = None if args.nocheck else config.max_path_length,
-					whitelist = None if args.nocheck else config.source_whitelist,
-					blacklist = None if args.nocheck else config.source_blacklist,
-					countlist = config.count_paths
-				)
-			],
-			settings,
-			logger,
-			user_log = args.log,
-		).run():
+		if Worker([Source(source_path, settings)], settings, logger, user_log = args.log).run():
 			exit(1)
 		exit(0)
-	if args.mail:
-		settings.mail_to = args.mail
-		if args.subject:
-			settings.mail_subject = args.subject
 	Gui(settings, logger, args.log, source_path, args.nocheck).mainloop()	# launch gui window 

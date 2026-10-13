@@ -65,6 +65,7 @@ class Settings:
 				self.local_path.mkdir(parents=True, exist_ok=True)
 			except OSError:
 				pass
+		self.tolerant = False
 		self.username = username if username else items["username"] if "usernmae" in items and items["username"] else getuser()
 		self.sendmail = True if mail_to else bool(items["sendmail"]) if "sendmail" in items else False
 		self.mail_to = mail_to if mail_to else items["mail_to"] if "mail_to" in items else ""
