@@ -1,199 +1,298 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from pickletools import read_unicodestring1
-from time import sleep
+from collections.abc import Callable
+from threading import Event
 from classes.logger import Logger as Log
 from classes.path import Path
 from classes.copymd5 import CopyMD5
 from classes.size import Size
 from classes.gimmicks import IndicatorThread
 from classes.regex import RegEx
-from classes.sendmail import SendMail 
+from classes.sendmail import SendMail
+from classes.source import Source
+from classes.settings import Settings
 
 class Worker:
 	"""Main functionality of Cirdan"""
 
-	def __init__(self,
+	def __init__(
+		self,
 		sources: list[Source],
-		destination: Destination,
-		labels: Labels,
 		settings: Settings,
-		logger: Logger,
+		logger: Log,
 		user_log: Path | None = None,
-		kill: threading.Event | None = None,
-		echo: Callable[[str], None] = print
-	):
+		kill: Event | None = None,
+		echo: Callable[..., None] = print,
+	) -> None:
 		self._sources = sources
-		self._todo = todo
-		self._config = config
-		self._labels = labels
 		self._settings = settings
+		self._labels = settings.labels
+		self._destination = settings.destination
 		self._logger = logger
 		self._user_log = user_log
 		self._kill_switch = kill
 		self._echo = echo
-		self._mail_address = f'{self._settings.mail_to}@{self._config.domain}' if self._settings.mail_to else None
-		self.errors = 0
-		self._dst_errors = 0
+		self._mail_address = (
+			f"{self._settings.mail_to}@{self._settings.domain}"
+			if self._settings.mail_to else None
+		)
+		self.errors: list[str] = []
+
+	def _killed(self) -> bool:
+		"""True when the kill switch has been set"""
+		return bool(self._kill_switch and self._kill_switch.is_set())
 
 	def _error(self, message: str | None = None) -> None:
 		"""Handle error"""
-		self._echo(Log.error(message=message))
-		self.errors += 1
-		self._dst_errors += 1
+		msg = Log.error(message=message)
+		self._echo(msg)
+		self.errors.append(msg)
 
-	def run(self) -> list[str]:
-		"""Copy process"""
-		if not self._sources:
-			self._error(self._labels.no_sources)
-			return self.errors
-		if not self._destination_root_path:
-			try:
-				self._destination_root_path = self._config.target_path.joinpath(
-					self._config.destinations[self._settings.destination]["sub_path"]
-					)
-			except:
-				self._error(self._labels.bad_destination.replace("#", f"{self._settings.destination}"))
-				return self.errors
-		if not destination_root_path.is_accessable_dir():
-			self._error(self._labels.bad_destination.replace("#", f"{destination_root_path}"))
-			return self.errors
-		if self._user_log:	# start additional log if selected
-			self._logger.add_user(self._user_log)
-		for source in self._sources:	# check destination and create subdirs if necessary
+	def _check_sources(self, destination_root_path: Path) -> list[str] | None:
+		"""Validate sources (and existing destination trees); None means killed"""
+		for source in self._sources:
 			Log.info(self._labels.checking_source.replace("#", f"{source}"))
-			for path, bad in source.check():
-				if self._kill_switch and self._kill_switch.is_set():
-					return
+			for path, bad in source.check(kill=self._kill_switch):
+				if self._killed():
+					return None
 				self._echo(f"{path}", end="\r")
 				if isinstance(bad, int):
 					self._echo()
-					self._error(self._labels.path_too_long.replace(
-					"#1", f"{path}").replace(
-					"#2", f"{bad}").replace(
-					"#3", f"{self._config.max_path_length}")
-				)
+					self._error(
+						self._labels.path_too_long
+						.replace("#1", f"{path}")
+						.replace("#2", f"{bad}")
+						.replace("#3", f"{self._settings.max_path_length}")
+					)
 					return self.errors
 				if isinstance(bad, str):
 					self._echo()
-					self._error(self._labels.blacklisted.replace("#1", f"{path}").replace("#2", f"{bad}"))
+					self._error(
+						self._labels.blacklisted
+						.replace("#1", f"{path}")
+						.replace("#2", f"{bad}")
+					)
 					return self.errors
+			if self._killed():
+				return None
 			if source.whitelist and not source.whitelist_match:
 				self._echo()
 				self._error(self._labels.no_whitelist_match.replace("#", f"{source.path}"))
 				return self.errors
-			Log.info(self._labels.found_files_in_source.replace(
-				"#1", f"{source.files}").replace(
-				"#2", f"{source.path}").replace(
-				"#3", f"{source.size}")
+			Log.info(
+				self._labels.found_files_in_source
+				.replace("#1", f"{source.files}")
+				.replace("#2", f"{source.path}")
+				.replace("#3", f"{source.size}")
 			)
-			if self._config.destination_blacklist:
+			if self._settings.destination_blacklist:
 				destination_path = destination_root_path / source.name
-				if destination_path.is_dir():	# check for blacklisted files in destination
-					Log.info(self._labels.checking_destination.replace("#", f'{destination_path}'))
-					blacklist = RegEx(self._config.destination_blacklist)
+				if destination_path.is_dir():
+					Log.info(self._labels.checking_destination.replace("#", f"{destination_path}"))
+					blacklist = RegEx(self._settings.destination_blacklist)
 					for path, relative in destination_path.rrglob("*"):
-						if self._kill_switch and self._kill_switch.is_set():
-							return
-						if pattern := blacklist.search(path.name):
-							self._error(self._labels.destination_blocked_by.replace("#1", path.name).replace("#2", f'{pattern}'))
+						if self._killed():
+							return None
+						if pattern := blacklist.search(relative):
+							self._error(
+								self._labels.destination_blocked_by
+								.replace("#1", path.name)
+								.replace("#2", f"{pattern}")
+							)
 							self._echo()
 							return self.errors
-		for source in self._sources:	# copy sources one by one
-			destination_path = destination_root_path / source.name
-			processed_files = 0
-			read_errors = 0
-			write_errors = 0
-			mismatches = 0
-			tsv = f"{self._labels.tsv_header}\n"
-			if error := self._logger.add_remote(source.path, destination_path):	# add log for one source / one destination
-				self._error(error)
-			self._todo.delete_trigger(destination_path)
-			Log.info(self._labels.copying.replace("#", f"{source.name}"))
-			indicator = IndicatorThread(message=f"% {self._labels.of} {source.name} #", echo=self._echo)
-			indicator.start()
+		return self.errors if self.errors else []
+
+	def _copy_source(self, source: Source, destination_root_path: Path) -> bool | None:
+		"""
+		Copy one source. Returns True on success, False on failure, None if killed.
+		"""
+		destination_path = destination_root_path / source.name
+		processed_files = 0
+		read_errors = 0
+		write_errors = 0
+		mismatches = 0
+		total_files: int | None = None
+		total_bytes: Size | None = None
+		total_time = ""
+		tsv = f"{self._labels.tsv_header}\n"
+
+		if error := self._logger.add_remote(source.path, destination_path):
+			self._error(error)
+
+		todo = self._settings.selected_todo
+		if todo:
+			self._destination.delete_trigger(todo, destination_path)
+
+		Log.info(self._labels.copying.replace("#", f"{source.name}"))
+		indicator = IndicatorThread(
+			message=f"% {self._labels.of} {source.name} #",
+			echo=self._echo,
+		)
+		indicator.start()
+		try:
 			copymd5 = CopyMD5(source.path, destination_root_path)
 			for line in copymd5.stdout:
-				if self._kill_switch and self._kill_switch.is_set():
+				if self._killed():
 					copymd5.terminate()
-					indicator.kill()
-					return
-				if stripped := line.strip():
-					if stripped.startswith('"'):
-						tsv += line
-						splitted = stripped.split("\t")
-						if splitted[-1] == "OK":
-							processed_files += 1
-							size = Size(splitted[-2])
-						elif splitted[-2] == "ERROR":
-							mismatches += 1
-							size = '-'
-						elif splitted[-2] == "FAILED":
-							read_errors += 1
-							size = '-'
-						else:
-							write_errors += 1
-							size = Size(splitted[-2])
-						self._echo(" ".join(splitted[:-3]).strip('"') + f"    {size}    {splitted[-1]}")
+					return None
+				if not (stripped := line.strip()):
+					continue
+				if stripped.startswith('"'):
+					tsv += line if line.endswith("\n") else f"{line}\n"
+					splitted = stripped.split("\t")
+					if len(splitted) < 4:
 						continue
-					if stripped.startswith("...processed"):
-						processed_bytes = Size(stripped.split()[1])
-						indicator.set_percentage(processed_bytes % source.size)
-						continue
-					if stripped.startswith("...finished"):
-						total_files = int(stripped.split()[2])
-						total_bytes = Size(stripped.split()[4])
-						total_time = stripped.split()[7]
-						indicator.set_percentage(100)
-						Log.info(self._labels.copy_finished.replace(
-							"#1", f'{total_files}').replace(
-							"#2", f'{total_bytes}').replace(
-							"#3", f'{total_time}')
-						)
-						continue
-			indicator.kill()
-			returncode = copymd5.wait()
-			if returncode != 0:
-				self._error(f"{copymd5} returned {returncode}: {copymd5.stderr.read()}")
-			if read_errors:
-				self._error(self._labels.read_error.replace("#", f"{read_errors}"))
-			if write_errors:
-				self._error(self._labels.write_error.replace("#", f"{write_errors}"))
-			if mismatches:
-				self._error(self._labels.mismatch.replace("#", f"{mismatches}"))
-			if total_files != source.files:
-				self._error(self._labels.file_count_mismatch.replace("#1", f"{total_files}").replace("#2", f"{source.files}"))
-			if total_bytes != source.size:
-				self._error(self._labels.size_missmatch.replace("#1", f"{total_bytes}").replace("#2", f"{source.size}"))
-			Log.debug(f"Writing TSV files")
-			destination_path.write_text_file(self._config.tsv_name, tsv, use_strftime=True)
-			self._logger.get_remote_parent().write_text_file(self._config.tsv_name, tsv, use_strftime=True)
-			self._todo.write_meta(destination_path, processed_files)
-			self._todo.write_trigger(destination_path, self._logger.id)
-			if self._settings.sendmail and self._mail_address:	# send mail to user
-				try:
-					SendMail(self._config.mail).send(
-						self._mail_address,
-						self._settings.mail_subject(
-							f"{source.name}",
-							f"{total_files}",
-							f"{total_bytes}",
-							f"{total_time}",
-							f"{read_errors}",
-							f"{write_errors}",
-							f"{mismatches}",
-
-						)
+					status = splitted[-1]
+					mid = splitted[-2]
+					if status == "OK":
+						processed_files += 1
+						size: Size | str = Size(mid)
+					elif mid == "ERROR":
+						mismatches += 1
+						size = "-"
+					elif mid == "FAILED":
+						read_errors += 1
+						size = "-"
+					else:
+						write_errors += 1
+						try:
+							size = Size(mid)
+						except (TypeError, ValueError):
+							size = mid
+					self._echo(
+						" ".join(splitted[:-3]).strip('"') + f"    {size}    {status}"
 					)
-				except:
-					self._error(self._labels.mail_error.replace("#", f"{self._mail_address}"))
-			try:
-				self._logger.close_remote()
-			except:
-				Log.warning()
+					continue
+				if stripped.startswith("...processed"):
+					parts = stripped.split()
+					if len(parts) >= 2:
+						processed_bytes = Size(parts[1])
+						indicator.set_percentage(processed_bytes % source.size)
+					continue
+				if stripped.startswith("...finished"):
+					parts = stripped.split()
+					# ...finished, processed N file(s), N bytes, took TIME
+					try:
+						total_files = int(parts[2])
+						total_bytes = Size(parts[4])
+						total_time = parts[7] if len(parts) > 7 else ""
+					except (IndexError, ValueError):
+						Log.warning(f"Could not parse finished line: {stripped}")
+						continue
+					indicator.set_percentage(100)
+					Log.info(
+						self._labels.copy_finished
+						.replace("#1", f"{total_files}")
+						.replace("#2", f"{total_bytes}")
+						.replace("#3", f"{total_time}")
+					)
+			returncode = copymd5.wait()
+		finally:
+			indicator.kill()
+			indicator.join(timeout=1)
+
+		ok = returncode == 0
+		if returncode != 0:
+			self._error(f"{copymd5} returned {returncode}: {copymd5.read_stderr()}")
+		if read_errors:
+			self._error(self._labels.read_error.replace("#", f"{read_errors}"))
+			ok = False
+		if write_errors:
+			self._error(self._labels.write_error.replace("#", f"{write_errors}"))
+			ok = False
+		if mismatches:
+			self._error(self._labels.mismatch.replace("#", f"{mismatches}"))
+			ok = False
+		if total_files is not None and total_files != source.files:
+			self._error(
+				self._labels.file_count_mismatch
+				.replace("#1", f"{source.files}")
+				.replace("#2", f"{total_files}")
+			)
+			ok = False
+		if total_bytes is not None and total_bytes != source.size:
+			self._error(
+				self._labels.size_missmatch
+				.replace("#1", f"{source.size}")
+				.replace("#2", f"{total_bytes}")
+			)
+			ok = False
+
+		Log.debug("Writing TSV files")
 		try:
-			self._logger.close_user()
-		except:
+			destination_path.mkdir(parents=True, exist_ok=True)
+			destination_path.write_text_file(self._settings.tsv_name, tsv, use_strftime=True)
+			if remote_parent := self._logger.get_remote_parent():
+				remote_parent.write_text_file(self._settings.tsv_name, tsv, use_strftime=True)
+		except OSError:
+			self._error()
+
+		if ok and todo:
+			try:
+				self._destination.write_meta(
+					todo, destination_path, source.counted_paths or {}
+				)
+				self._destination.write_trigger(todo, destination_path)
+			except Exception:
+				self._error()
+
+		if ok and self._settings.sendmail and self._mail_address:
+			try:
+				SendMail(self._settings.mail).send(
+					self._mail_address,
+					self._settings.mail_subject,
+					(
+						f"{source.name}",
+						f"{total_bytes if total_bytes is not None else source.size}",
+						f"{total_files if total_files is not None else processed_files}",
+						f"{read_errors}",
+						f"{write_errors}",
+						f"{mismatches}",
+					),
+				)
+			except Exception:
+				self._error(self._labels.mail_error.replace("#", f"{self._mail_address}"))
+
+		try:
+			self._logger.close_remote()
+		except Exception:
 			Log.warning()
-		return self.errors
+
+		return ok
+
+	def run(self) -> list[str] | None:
+		"""Copy process; return error list, or None if killed"""
+		try:
+			if not self._sources:
+				self._error(self._labels.no_sources)
+				return self.errors
+			if not self._destination:
+				self._error(self._labels.bad_destination.replace("#", ""))
+				return self.errors
+			destination_root_path = self._destination.path
+			if not destination_root_path.is_accessible():
+				self._error(
+					self._labels.bad_destination.replace("#", f"{destination_root_path}")
+				)
+				return self.errors
+			if self._user_log:
+				self._logger.add_user(self._user_log)
+
+			checked = self._check_sources(destination_root_path)
+			if checked is None:
+				return None
+			if self.errors:
+				return self.errors
+
+			for source in self._sources:
+				result = self._copy_source(source, destination_root_path)
+				if result is None:
+					return None
+			return self.errors
+		finally:
+			try:
+				self._logger.close_user()
+			except Exception:
+				Log.warning()

@@ -2,26 +2,30 @@
 # -*- coding: utf-8 -*-
 
 import logging
-from typing import TYPE_CHECKING
 from sys import exc_info
 from traceback import format_exc
 from collections.abc import Callable
 from classes.path import Path
-if TYPE_CHECKING:
-	from classes.settings import Settings
+from classes.settings import Settings
 
 class Logger:
 	"""Configure Logging"""
 
+	_NAME = "cirdan"
+
+	@staticmethod
+	def _get_logger() -> logging.Logger:
+		return logging.getLogger(Logger._NAME)
+
 	@staticmethod
 	def debug(message: str) -> None:
 		"""Log debug message"""
-		logging.debug(message)
+		Logger._get_logger().debug(message)
 
 	@staticmethod
 	def info(message: str) -> None:
 		"""Log info message"""
-		logging.info(message)
+		Logger._get_logger().info(message)
 
 	@staticmethod
 	def exception(level: str, message: str | None = None) -> str:
@@ -29,13 +33,13 @@ class Logger:
 		parts: list[str] = []
 		if message:
 			parts.append(f"{message}")
-		ex_type, ex_text, traceback = exc_info()
-		if ex_type:
-			parts.append(f"{ex_type.__name__}: {ex_text}")
-		if traceback:
+		if exc_info()[0] is not None:
 			parts.append(format_exc().strip())
-		msg = ", ".join(parts) if parts else "Unknown error"
-		logging.__dict__[level.lower()](msg)
+		msg = "\n".join(parts) if parts else "Unknown error"
+		log_fn = getattr(Logger._get_logger(), level.lower(), None)
+		if not callable(log_fn):
+			raise ValueError(f"Unknown log level: {level}")
+		log_fn(msg)
 		return msg
 
 	@staticmethod
@@ -56,10 +60,14 @@ class Logger:
 	def __init__(self, settings: Settings, echo: Callable[..., None] = print) -> None:
 		self._settings = settings
 		self._labels = self._settings.labels
-		self.basic_info = f"{self._labels.hostname}: {self._settings.hostname},{self._labels.username}: {self._settings.username},"
-		self.basic_info +=f"{self._settings.app_path} = {self._labels.title} v{self._settings.version}"
-		self._logger = logging.getLogger()
+		self.basic_info = (
+			f"{self._labels.hostname}: {self._settings.hostname}, "
+			f"{self._labels.username}: {self._settings.username}, "
+			f"{self._labels.title} v{self._settings.version}"
+		)
+		self._logger = Logger._get_logger()
 		self._logger.setLevel(logging.DEBUG)
+		self._logger.propagate = False
 		self._echo_handler: logging.Handler | None = None
 		self._echo_handler = self.set_echo(echo=echo)
 		self._settings.local_path.mkdir(parents=True, exist_ok=True)
@@ -71,10 +79,11 @@ class Logger:
 		self._user_handler: logging.Handler | None = None
 		self._user_messages: list[str] = []
 		self.debug(f"{self.basic_info} {self._labels.launched}")
+		self.debug(f"App path: {self._settings.app_path}")
 
 	def add_file(self, path: Path, level: int = logging.DEBUG) -> logging.Handler:
 		"""Add log file"""
-		handler = logging.FileHandler(mode="w", filename=path)
+		handler = logging.FileHandler(mode="w", filename=str(path), encoding="utf-8")
 		handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
 		handler.setLevel(level)
 		self._logger.addHandler(handler)
@@ -83,12 +92,14 @@ class Logger:
 	def set_echo(self, echo: Callable[..., None] = print) -> logging.Handler:
 		"""Set how to echo messages"""
 		level = logging.INFO
+
 		class echo_stream:
 			def write(self, msg: str) -> int:
 				text = msg.strip()
 				if text:
 					echo(text)
 				return len(msg)
+
 			def flush(self) -> None:
 				pass
 
@@ -103,18 +114,23 @@ class Logger:
 
 	def add_user(self, path: Path, level: int = logging.INFO) -> None:
 		"""Add user log, logs to RAM / variable until closing"""
+		if self._user_handler:
+			self.close_user()
 		self.debug(f"Setting up user log, path: {path}")
 		self._user_path = path.resolve()
 		self._user_messages = []
 		logger = self
+
 		class store_stream:
 			def write(self, msg: str) -> int:
 				text = msg.strip()
 				if text:
 					logger._user_messages.append(text)
 				return len(msg)
+
 			def flush(self) -> None:
 				pass
+
 		self._user_handler = logging.StreamHandler(stream=store_stream())
 		self._user_handler.setLevel(level)
 		self._logger.addHandler(self._user_handler)
@@ -130,10 +146,13 @@ class Logger:
 		self.debug("Closing user log")
 		if self._user_path:
 			self._user_path.write_text("\n".join(self._user_messages), encoding="utf-8")
+		self._user_path = None
 		self._user_messages = []
 
 	def add_remote(self, source: Path, destination: Path) -> str | None:
 		"""Add remote log file; return error message on failure"""
+		if self._remote_handler:
+			self.close_remote()
 		msg = f"{self.basic_info}, {self._labels.source_dir}: {source}, {self._labels.destination}: {destination}"
 		self._remote_path = self._settings.log_path.joinpath(source.name, self._settings.log_name).timed()
 		try:
@@ -181,6 +200,10 @@ class Logger:
 		message = self.critical(message=message)
 		self.close_remote()
 		self.close_user()
+		if self._echo_handler:
+			self._logger.removeHandler(self._echo_handler)
+			self._echo_handler.close()
+			self._echo_handler = None
 		self._logger.removeHandler(self._lastlog_handler)
 		self._lastlog_handler.close()
 		logging.shutdown()

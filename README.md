@@ -6,9 +6,9 @@ Copy directories to a fixed destination and build md5 hashes. Some criteria are 
 
 The GUI is close to a well known copy tool so the old dogs don´t need to learn new tricks.
 
-RoboCopy is used so this is for Windows.
+Works on Windows and Linux. Uploads use the bundled `copymd5` tool; the update installer mirrors files with pathlib.
 ## Requirements
-Python 3.13 works fine. Newer versions should be no problem.
+Python 3.14 or newer.
 
 In addition to the standard libraries `PyInstaller` is required in case you want to build executables:
 

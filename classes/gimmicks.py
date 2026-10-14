@@ -3,25 +3,26 @@
 
 from time import sleep
 from threading import Thread, Event
+from collections.abc import Callable
 
 class Rotator:
 	"""Rotating cursor"""
+
+	_FRAMES = "|/-\\"
 
 	def __init__(self) -> None:
 		self._index = -1
 
 	def get(self) -> str:
 		"""Return character for rotation"""
-		self._index += 1
-		if self._index > 3:
-			self._index = 0
-		return "|/-\\"[self._index]
+		self._index = (self._index + 1) % len(self._FRAMES)
+		return self._FRAMES[self._index]
 
 class Cylon:
 	"""(      █       )"""
 
 	def __init__(self, width: int = 16) -> None:
-		self._width = width - 3 if width > 3 else 1
+		self._width = max(width - 3, 1)
 		self._index = self._width // 2
 		self._go_right = True
 
@@ -30,38 +31,53 @@ class Cylon:
 		if self._go_right:
 			self._index += 1
 			if self._index > self._width:
-				self._index = self._width - 1
+				self._index = self._width
 				self._go_right = False
 		else:
 			self._index -= 1
 			if self._index < 0:
-				self._index = 1
+				self._index = 0
 				self._go_right = True
 		return "(" + " " * self._index + "\u2588" + " " * (self._width - self._index) + ")"
 
 class IndicatorThread(Thread):
 	"""Thread that shows an indicator while the work is running"""
 
-	def __init__(self, message="#1 #2", indicator="rotator", echo=print, sleep=.25):
-		"""Pass all attributes from GUI to work thread"""
+	def __init__(
+		self,
+		message: str | None = "% #",
+		indicator: str = "rotator",
+		echo: Callable[..., None] = print,
+		interval: float = 0.25,
+	) -> None:
+		"""Start a spinner / progress indicator that calls echo"""
 		self._message = message
 		self._indicator = Cylon() if indicator == "cylon" else Rotator()
 		self._echo = echo
-		self._sleep = sleep
+		self._interval = interval
 		self._kill_event = Event()
-		self._percentage = 0
-		super().__init__()
+		self._percentage = "0%"
+		super().__init__(daemon=True)
 
-	def run(self):
+	def run(self) -> None:
 		"""Run thread"""
 		while not self._kill_event.is_set():
-			self._echo(self._message.replace("%", f"{self._percentage}").replace("#", self._indicator.get()), end="\r")
-			sleep(self._sleep)
+			frame = self._indicator.get()
+			if self._message:
+				text = self._message.replace("%", self._percentage, 1).replace("#", frame, 1)
+			else:
+				text = frame
+			self._echo(text, end="\r")
+			sleep(self._interval)
 
-	def set_percentage(self, percentage):
-		"""Set the percentage"""
-		self._percentage = percentage
+	def set_percentage(self, percentage: int | float | str) -> None:
+		"""Set the percentage (int/float or string, with or without a trailing %)"""
+		if isinstance(percentage, str):
+			text = percentage.strip()
+			self._percentage = text if text.endswith("%") else f"{text}%"
+		else:
+			self._percentage = f"{int(percentage)}%"
 
-	def kill(self):
-		"""Kill thread"""
+	def kill(self) -> None:
+		"""Ask the indicator thread to stop"""
 		self._kill_event.set()

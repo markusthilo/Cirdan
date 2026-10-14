@@ -1,31 +1,25 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from os import remove
-from os.path import exists
 from shutil import move, rmtree
 import PyInstaller.__main__
+from classes.path import Path
 from cirdan import __version__
 
-if __name__ == '__main__':	# start here
-	print('Removing existing executables')
-	if exists('cirdan.exe'):
-		remove('cirdan.exe')
-	if exists('downloader.exe'):
-		remove('downloader.exe')
-	print('Launching PyInstaller')
-	PyInstaller.__main__.run(['--noconfirm', 'make.spec'])
-	move('dist/cirdan.exe', './')
-	move('dist/downloader.exe', './')
-	print('Cleaning up')
-	if exists('build'):
-		rmtree('build')
-	if exists('dist'):
-		rmtree('dist')
-	if exists('__pycache__'):
-		rmtree('__pycache__')
-	if exists('classes/__pycache__'):
-		rmtree('classes/__pycache__')
-	with open('version.txt', 'w') as f:
-		print(__version__, file=f)
-	print('Done!')
+if __name__ == "__main__":
+	print("Removing existing executables")
+	for name in ("cirdan.exe", "downloader.exe"):
+		path = Path(name)
+		if path.is_file():
+			path.unlink()
+	print("Launching PyInstaller")
+	PyInstaller.__main__.run(["--noconfirm", "make.spec"])
+	move("dist/cirdan.exe", "./")
+	move("dist/downloader.exe", "./")
+	print("Cleaning up")
+	for name in ("build", "dist", "__pycache__", "classes/__pycache__"):
+		path = Path(name)
+		if path.is_dir():
+			rmtree(path)
+	Path("version.txt").write_text(f"{__version__}\n", encoding="utf-8")
+	print("Done!")
