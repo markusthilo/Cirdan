@@ -104,7 +104,14 @@ class Gui(Tk):
 			self._todo_menu = OptionMenu(frame, self._todo, command=self._todo_selected)
 			self._todo_menu.pack(side="left", expand=True, fill="x")
 			Hovertip(frame, self.labels.todo_tip)
-			self._destination_selected()
+			if self.settings.selected_todo:
+				self._todo.set(self.settings.selected_todo)
+				self._todo_menu.set_menu(self.settings.selected_todo, *self.settings.destination.todos.keys())
+				self._todo_boolean.set(True)
+			else:
+				self._todo.set(self.labels.select_todo)
+				self._todo_menu.set_menu(self.labels.select_todo, *self.settings.destination.todos.keys())
+				self._todo_boolean.set(False)
 			frame = Frame(self)
 			frame.grid(row=4, column=1, sticky="we", padx=self._pad)
 			frame.columnconfigure(1, weight=1)
@@ -215,14 +222,14 @@ class Gui(Tk):
 
 	def _toggle_todo(self) -> None:
 		"""Toggle todo checkbox"""
+		todo_boolean = self._todo_boolean.get()
+		self._todo_boolean.set(False)
 		if not self.settings.destination:
-			self._todo_boolean.set(False)
 			return
-		if self._todo_boolean.get():
+		if todo_boolean:
 			self._todo_menu.tk.call("ttk::menubutton::Popdown", self._todo_menu)
 		else:
 			self._todo_menu.set_menu(self.settings.destination.do_nothing, *self.settings.destination.todos.keys())
-			self._todo_boolean.set(False)
 
 	def _open_todo_window(self) -> None:
 		"""Check destination to open todo dialog"""
@@ -233,6 +240,7 @@ class Gui(Tk):
 		if not sub_dir_paths:
 			showerror(title=self.labels.error, message=self.labels.no_sub_dirs_todo)
 			return
+		self._clear_info()
 		self._disable_buttons()
 		self._todo_dialog = ToDoDialog(self)
 		self._todo_dialog.wait_window()

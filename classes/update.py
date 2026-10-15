@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from typing import Literal
+
+
 from datetime import datetime
 from sys import executable
 from subprocess import Popen
@@ -8,6 +11,8 @@ from classes.path import Path
 
 class Update:
 	"""Check for new version and start download if available"""
+
+	Weights = tuple[Literal[10000000000], Literal[100000000], Literal[1000000]]
 
 	@staticmethod
 	def _int(string: str) -> int:
@@ -18,7 +23,7 @@ class Update:
 			while len(parts) < 3:
 				parts.append(0)
 			return (
-				sum(value * weight for value, weight in zip(parts, (10_000_000_000, 100_000_000, 1_000_000)))
+				sum(value * weight for value, weight in zip[tuple[int, Weights]](parts, Weights))
 				+ int(datetime.fromisoformat(date).timestamp() / 86400)
 			)
 		except (ValueError, TypeError, OSError):

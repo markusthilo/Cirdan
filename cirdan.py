@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 
 __author__ = "Markus Thilo"
-__version__ = "2.0.0-Dev_2026-10-14"
+__version__ = "2.0.0-Dev_2026-10-15"
 __license__ = "GPL-3"
 __email__ = "markus.thilo@proton.me"
 __status__ = "Development"
 __description__ = "Copy to Import/Remote Directory Across Network - a custom upload/copy tool"
 
-from sys import exit, version_info
+from sys import exit
 from traceback import format_exc
 from argparse import ArgumentParser
 from classes.path import Path
@@ -19,15 +19,13 @@ from classes.worker import Worker
 from classes.gui import Gui
 
 if __name__ == "__main__":  # start here when run as application
-	if version_info < (3, 14):
-		raise SystemExit("Cirdan requires Python 3.14 or newer")
 	argparser = ArgumentParser(description=__description__)
 	argparser.add_argument("-c", "--config", type=Path, metavar="FILE",
 		help="Use the given config file instead of config.json in the application directory")
 	argparser.add_argument("-d", "--destination", type=str, metavar="STRING",
 		help="Destination to copy to")
 	argparser.add_argument("-g", "--gui", action="store_true",
-		help="Force GUI even when a source directory is given")
+		help="Force GUI mode (default when no source directory is given)")
 	argparser.add_argument("-l", "--log", type=Path, metavar="FILE",
 		help="File to store log")
 	argparser.add_argument("-m", "--mail", type=str, metavar="STRING",
@@ -39,7 +37,7 @@ if __name__ == "__main__":  # start here when run as application
 	argparser.add_argument("-s", "--subject", type=str, metavar="STRING",
 		help="Use the given subject for the e-mail")
 	argparser.add_argument("-t", "--todo", type=str, metavar="STRING",
-		help="Write metadata file, parameter will select the metadata content")
+		help="Write metadata file, parameter will select the metadata content (needs -d/--destination)")
 	argparser.add_argument("-u", "--username", type=str, metavar="STRING",
 		help="Use the given username instead of logon")
 	argparser.add_argument("-v", "--version", action="store_true",
@@ -54,18 +52,24 @@ if __name__ == "__main__":  # start here when run as application
 		msg = "Destination (-d/--destination) is required when using -p/--path"
 		if use_gui:
 			Gui.startup_error(msg)
-		argparser.error(msg)
+		raise RuntimeError(msg) from None
+	if args.todo and not args.destination:
+		msg = "Destination (-d/--destination) is required when using -t/--todo"
+		if use_gui:
+			Gui.startup_error(msg)
+		raise RuntimeError(msg) from None
 	try:	# handle startup error before logging
 		settings = Settings(
 			__version__,
-			config=args.config,
-			destination=args.destination,
-			destination_path=args.path,
-			no_source_check=args.nocheck,
-			username=args.username,
-			mail_to=args.mail,
-			mail_subject=args.subject,
-			user_log=args.log,
+			config = args.config,
+			destination = args.destination,
+			destination_path = args.path,
+			todo = args.todo,
+			no_source_check = args.nocheck,
+			username = args.username,
+			mail_to = args.mail,
+			mail_subject = args.subject,
+			user_log = args.log,
 		)
 		logger = Logger(settings)
 	except Exception:	# error before logging
@@ -81,11 +85,13 @@ if __name__ == "__main__":  # start here when run as application
 		if use_gui:
 			Gui.startup_error(msg)
 		raise RuntimeError(msg) from None
-	if source_path and not args.gui:	# no gui
+	if  use_gui:	# gui mode
+		Gui(settings, logger, source_path).mainloop()	# launch gui window
+	else:	# console mode
 		if not source_path.is_dir():
 			msg = logger.crash(f"Source is not a directory: {source_path}")
 			raise RuntimeError(msg) from None
 		if Worker([Source(source_path, settings)], settings, logger).run():
 			exit(1)
-		exit(0)
-	Gui(settings, logger, source_path).mainloop()	# launch gui window
+	exit(0)
+	

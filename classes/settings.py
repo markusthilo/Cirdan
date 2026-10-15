@@ -26,6 +26,7 @@ class Settings:
 		destination: str | None = None,
 		destination_path: Path | str | None = None,
 		no_source_check: bool = False,
+		todo: str | None = None,
 		username: str | None = None,
 		mail_to: str | None = None,
 		mail_subject: str | None = None,
@@ -63,13 +64,13 @@ class Settings:
 			except OSError:
 				pass
 		self._init_destination(destination, destination_path, items)
+		self.selected_todo = todo
 		self.no_source_check = no_source_check
 		self.username = username or items.get("username") or getuser()
 		self.sendmail = True if mail_to else bool(items.get("sendmail", False))
 		self.mail_to = mail_to or items.get("mail_to", "")
 		self.mail_subject = mail_subject or items.get("mail_subject") or self.mail["default-subject"]
 		self.user_log = user_log
-		self.selected_todo = None
 		self.id = f'{{\n  "hostname": "{self.hostname}",\n  "username": "{self.username}"\n}}'
 
 	def __repr__(self) -> str:
