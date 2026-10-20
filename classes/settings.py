@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from typing import Any
-from sys import executable as __executable__
+from sys import executable as executable
 from platform import node, system
 from json import load, dump
 from getpass import getuser
@@ -11,10 +11,11 @@ from types import SimpleNamespace
 from classes.path import Path
 from classes.destination import Destination
 
+__executable__ = Path(executable)
 __app_path__ = (
 	Path(__file__).parent.parent
-	if Path(__executable__).name.startswith("python")
-	else Path(__executable__).parent
+	if __executable__.name.startswith("python")
+	else __executable__.parent
 )
 
 class Settings:
