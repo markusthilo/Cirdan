@@ -18,6 +18,13 @@ class Console:
 		return answer in ("y", "yes")
 
 	@staticmethod
+	def ask_path(prompt: str, default: Path | str) -> Path:
+		"""Ask for a path; empty input keeps default"""
+		default_path = Path(default)
+		answer = input(f"{prompt} [{default_path}]: ").strip().strip('"')
+		return Path(answer) if answer else default_path
+
+	@staticmethod
 	def info(message: str) -> None:
 		print(message)
 
@@ -65,9 +72,13 @@ class SudoCopy:
 		if not self.source.is_dir():
 			raise NotADirectoryError(f"Source is not a directory: {self.source}")
 
+	def ensure_destination(self, echo: bool = True) -> None:
+		"""Create the destination directory (and parents) if missing"""
+		Sudo.run(["mkdir", "-p", str(self.destination)], echo=echo)
+
 	def run(self) -> None:
 		"""Create destination and copy source contents into it"""
-		Sudo.run(["mkdir", "-p", str(self.destination)])
+		self.ensure_destination()
 		# Trailing /. copies contents into destination (not a nested sourcedir/)
 		Sudo.run(["cp", "-a", f"{self.source}/.", str(self.destination)])
 
@@ -110,18 +121,39 @@ class DesktopEntry:
 		return self.desktop_path
 
 class LinInstaller:
-	"""Install Cirdan under /opt/cirdan and register a .desktop launcher"""
+	"""Install Cirdan with sudo cp and register a .desktop launcher"""
 
-	INSTALL_DIR = Path("/opt/cirdan")
+	DEFAULT_INSTALL_DIR = Path("/opt/Cirdan")
 	DESKTOP_PATH = Path("/usr/share/applications/cirdan.desktop")
 
-	def __init__(self, source: Path | str) -> None:
+	def __init__(self, source: Path | str, destination: Path | str | None = None) -> None:
 		self.source = Path(source)
-		self.install_dir = self.INSTALL_DIR
+		self.install_dir = Path(destination) if destination else self.DEFAULT_INSTALL_DIR
 		self.desktop_path = self.DESKTOP_PATH
 
+	@classmethod
+	def from_argv(cls, args: list[str]) -> "LinInstaller":
+		"""Build installer from CLI args; ask for destination if only source is given"""
+		if len(args) == 1:
+			source = Path(args[0])
+			destination = Console.ask_path("Install directory", cls.DEFAULT_INSTALL_DIR)
+		elif len(args) == 2:
+			source = Path(args[0])
+			destination = Path(args[1])
+		else:
+			raise SystemExit(
+				f"Usage: {argv[0]} <sourcedir> [destinationdir]\n"
+				f"  If destinationdir is omitted, you will be asked "
+				f"(default: {cls.DEFAULT_INSTALL_DIR})"
+			)
+		return cls(source, destination)
+
+	def ensure_destination(self) -> None:
+		"""Create the install directory if it does not exist"""
+		SudoCopy(self.source, self.install_dir).ensure_destination()
+
 	def copy(self) -> None:
-		"""Copy source tree into /opt/cirdan"""
+		"""Copy source tree into the install directory (creates destination if needed)"""
 		SudoCopy(self.source, self.install_dir).run()
 
 	def install_desktop_entry(self) -> Path:
@@ -141,6 +173,7 @@ class LinInstaller:
 
 	def run(self) -> None:
 		"""Full install flow"""
+		self.ensure_destination()
 		self.copy()
 		script = self.install_dir / "cirdan.py"
 		if not script.is_file():
@@ -151,10 +184,8 @@ class LinInstaller:
 			Console.error(f"Could not create desktop entry: {ex}")
 
 if __name__ == "__main__":
-	if len(argv) != 2:
-		raise SystemExit(f"Usage: {argv[0]} <sourcedir>")
 	try:
-		LinInstaller(argv[1]).run()
+		LinInstaller.from_argv(argv[1:]).run()
 	except Exception as ex:
 		raise SystemExit(str(ex)) from ex
 	exit(0)
