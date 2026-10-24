@@ -133,8 +133,12 @@ class LinInstaller:
 
 	@classmethod
 	def from_argv(cls, args: list[str]) -> "LinInstaller":
-		"""Build installer from CLI args; ask for destination if only source is given"""
-		if len(args) == 1:
+		"""Build installer from CLI args; ask for destination if source-only or no args"""
+		if len(args) == 0:
+			source = Path(__file__).resolve().parent
+			Console.info(f"Using installer directory as source: {source}")
+			destination = Console.ask_path("Install directory", cls.DEFAULT_INSTALL_DIR)
+		elif len(args) == 1:
 			source = Path(args[0])
 			destination = Console.ask_path("Install directory", cls.DEFAULT_INSTALL_DIR)
 		elif len(args) == 2:
@@ -142,7 +146,8 @@ class LinInstaller:
 			destination = Path(args[1])
 		else:
 			raise SystemExit(
-				f"Usage: {argv[0]} <sourcedir> [destinationdir]\n"
+				f"Usage: {argv[0]} [sourcedir] [destinationdir]\n"
+				f"  No args: source = directory of this installer\n"
 				f"  If destinationdir is omitted, you will be asked "
 				f"(default: {cls.DEFAULT_INSTALL_DIR})"
 			)
