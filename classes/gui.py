@@ -8,7 +8,7 @@ from tkinter import Tk, PhotoImage, StringVar, BooleanVar, TclError
 from tkinter.font import nametofont
 from tkinter.ttk import Frame, Label, Entry, Button, Checkbutton, OptionMenu
 from tkinter.scrolledtext import ScrolledText
-from tkinter.messagebox import askyesno, showerror
+from tkinter.messagebox import askyesno, showerror, showinfo
 from tkinter.filedialog import askdirectory, asksaveasfilename
 from idlelib.tooltip import Hovertip
 from classes.logger import Logger as Log
@@ -107,7 +107,7 @@ class Gui(Tk):
 			if self.settings.selected_todo:
 				self._todo.set(self.settings.selected_todo)
 				self._todo_menu.set_menu(self.settings.selected_todo, *self.settings.destination.todos.keys())
-				self._todo_boolean.set(True)
+				self._todo_boolean.set(bool(self.settings.destination.todos[self.settings.selected_todo]["do_something"]))
 			else:
 				self._todo.set(self.labels.select_todo)
 				self._todo_menu.set_menu(self.labels.select_todo, *self.settings.destination.todos.keys())
@@ -170,21 +170,26 @@ class Gui(Tk):
 			self._label_bg = self._info_label.cget("background")
 			self._quit_button = Button(self, text=self.labels.quit, command=self._quit_app)
 			self._quit_button.grid(row=8, column=1, sticky="e", padx=self._pad, pady=self._pad)
-			# Skip update check when running from a network share (UNC path)
-			if not str(self.settings.app_path.resolve()).startswith("\\\\"):
-				update = Update(self.settings.version, self.settings.update_path)
-				if update.new_version and askyesno(
-					title=self.labels.update_title.replace("#", update.new_version),
-					message=self.labels.update_message,
-					default="no"
-				):
-					try:
-						update.download(self.settings.app_path)
-						self.destroy()
-						return
-					except Exception:
-						msg = Log.error()
-						showerror(parent=self, title=self.labels.error, message=f"{self.labels.update_error}:\n{msg}")
+			update = Update(self.settings.version, self.settings.update_path, self.settings.app_path)
+			if update.new_version is not None:
+				if update.installer_cmd is None:
+					showinfo(
+						title=self.labels.update_title.replace("#", update.new_version),
+						message=self.labels.update_message.replace("#", self.settings.update_path)
+					)
+				else:
+					if askyesno(
+						title=self.labels.update_title.replace("#", update.new_version),
+						message=self.labels.update_question,
+						default="no"
+					):
+						try:
+							update.install()
+							self.destroy()
+							return
+						except Exception:
+							msg = Log.error()
+							showerror(parent=self, title=self.labels.error, message=f"{self.labels.update_error}:\n{msg}")
 			self._init_warning()
 			if source:
 				self._check_source_thread = CheckSourceThread(self, source)
