@@ -5,7 +5,7 @@
             "icon_path": "$APP/icons/cirdan.png",
             "local_path": "$HOME/AppData/Local/Cirdan/",
             "log_path": "$HOME/Documents/_logs/",
-            "update_path": "$HOME/Documents/_dist/Cirdan/",
+            "update_path": "P:/Cirdan/",
             "import1_path": "$HOME/Documents/import1/",
             "import2_path": "$HOME/Documents/import2/",
             "import3_path": "$HOME/Documents/import3/"
@@ -15,7 +15,7 @@
             "icon_path": "$APP/icons/cirdan.png",
             "local_path": "$HOME/.local/share/Cirdan/",
             "log_path": "$APP/test/target/_logs/",
-            "update_path": "$APP/test/_dist/Cirdan/",
+            "update_path": "$APP/",
             "import1_path": "$APP/test/target/import1/",
             "import2_path": "$APP/test/target/import2/",
             "import3_path": "$APP/test/target/import3/"

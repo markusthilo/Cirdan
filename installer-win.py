@@ -2,8 +2,10 @@
 # -*- coding: utf-8 -*-
 
 from sys import argv, exit
+from argparse import ArgumentParser
 from subprocess import Popen, PIPE, STARTUPINFO, STARTF_USESHOWWINDOW, run, CompletedProcess
 from classes.path import Path
+from classes.settings import Config
 
 class Console:
 	"""Interactive console prompts"""
@@ -154,24 +156,21 @@ class WinInstaller:
 
 	@classmethod
 	def from_argv(cls, args: list[str]) -> "WinInstaller":
-		"""Build installer from CLI args; ask for destination if source-only or no args"""
-		if len(args) == 0:
-			source = Path(__file__).resolve().parent
-			Console.info(f"Using installer directory as source: {source}")
-			destination = Console.ask_path("Install directory", cls.DEFAULT_INSTALL_DIR)
-		elif len(args) == 1:
-			source = Path(args[0])
-			destination = Console.ask_path("Install directory", cls.DEFAULT_INSTALL_DIR)
-		elif len(args) == 2:
-			source = Path(args[0])
-			destination = Path(args[1])
-		else:
-			raise SystemExit(
-				f"Usage: {argv[0]} [sourcedir] [destinationdir]\n"
-				f"  No args: source = directory of this installer\n"
-				f"  If destinationdir is omitted, you will be asked "
-				f"(default: {cls.DEFAULT_INSTALL_DIR})"
-			)
+		"""Source comes from Config; one optional argument is the install directory"""
+		parser = ArgumentParser(
+			description="Install Cirdan by mirroring the source directory from config.json (update_path)",
+		)
+		parser.add_argument(
+			"destination",
+			nargs="?",
+			type=Path,
+			metavar="DIRECTORY",
+			help=f"Install directory. If omitted, you will be asked (default: {cls.DEFAULT_INSTALL_DIR})",
+		)
+		parsed = parser.parse_args(args)
+		source = Config().update_path
+		Console.info(f"Source: {source}")
+		destination = parsed.destination or Console.ask_path("Install directory", cls.DEFAULT_INSTALL_DIR)
 		return cls(source, destination)
 
 	def ensure_destination(self) -> None:

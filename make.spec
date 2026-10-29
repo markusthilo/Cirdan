@@ -34,8 +34,8 @@ cirdan_exe = EXE(
     icon=['icons/cirdan.ico'],
 )
 
-downloader_a = Analysis(
-    ['downloader.py'],
+installer_a = Analysis(
+    ['installer-win.py'],
     pathex=[],
     binaries=[],
     datas=[],
@@ -47,14 +47,14 @@ downloader_a = Analysis(
     noarchive=False,
     optimize=0,
 )
-downloader_pyz = PYZ(downloader_a.pure)
-downloader_exe = EXE(
-    downloader_pyz,
-    downloader_a.scripts,
-    downloader_a.binaries,
-    downloader_a.datas,
+installer_pyz = PYZ(installer_a.pure)
+installer = EXE(
+    installer_pyz,
+    installer_a.scripts,
+    installer_a.binaries,
+    installer_a.datas,
     [],
-    name='downloader',
+    name='installer-win',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -65,5 +65,5 @@ downloader_exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['icons/downloader.ico'],
+    icon=['icons/installer.ico'],
 )

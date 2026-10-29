@@ -55,7 +55,7 @@ class Update:
 			and not __executable__.name.startswith("python")
 			and installer_path.is_file()
 		):
-			self.installer_cmd = [f"{installer_path}", f"{self._src_path}", f"{self._install_path}"]
+			self.installer_cmd = [f"{installer_path}", f"{self._install_path}"]
 
 	def install(self) -> Popen[bytes]:
 		"""Launch installer"""

@@ -2,8 +2,11 @@
 # -*- coding: utf-8 -*-
 
 from sys import argv, exit
+from os import R_OK, W_OK, X_OK, access
+from argparse import ArgumentParser
 from subprocess import run, CompletedProcess, DEVNULL
 from classes.path import Path
+from classes.settings import Config
 
 class Console:
 	"""Interactive console prompts"""
@@ -63,8 +66,8 @@ class Sudo:
 		if result.returncode != 0:
 			raise RuntimeError(f"sudo tee failed for {path}")
 
-class SudoCopy:
-	"""Copy a source tree into an install directory with sudo cp -a"""
+class InstallCopy:
+	"""Copy a source tree into an install directory with cp -a, using sudo when needed"""
 
 	def __init__(self, source: Path, destination: Path) -> None:
 		self.source = Path(source).resolve()
@@ -72,15 +75,47 @@ class SudoCopy:
 		if not self.source.is_dir():
 			raise NotADirectoryError(f"Source is not a directory: {self.source}")
 
+	@staticmethod
+	def user_can_rw(path: Path) -> bool:
+		"""True when the user can read and write path, or create it under such a directory"""
+		current = Path(path)
+		if current.exists():
+			return current.is_dir() and access(current, R_OK | W_OK | X_OK)
+		while not current.exists():
+			parent = current.parent
+			if parent == current:
+				return False
+			current = parent
+		return current.is_dir() and access(current, R_OK | W_OK | X_OK)
+
+	def _run(self, cmd: list[str], use_sudo: bool) -> None:
+		if use_sudo:
+			Sudo.run(cmd)
+			return
+		Console.info(" ".join(cmd))
+		result = run(cmd, text=True, encoding="utf-8", errors="replace", check=False)
+		if result.returncode != 0:
+			raise RuntimeError(f"Command failed ({result.returncode}): {' '.join(cmd)}")
+
 	def ensure_destination(self, echo: bool = True) -> None:
 		"""Create the destination directory (and parents) if missing"""
+		if self.destination.is_dir():
+			return
+		if self.destination.exists():
+			raise NotADirectoryError(f"Destination is not a directory: {self.destination}")
+		if self.user_can_rw(self.destination):
+			if echo:
+				Console.info(f"Creating {self.destination}")
+			self.destination.mkdir(parents=True, exist_ok=True)
+			return
 		Sudo.run(["mkdir", "-p", str(self.destination)], echo=echo)
 
 	def run(self) -> None:
 		"""Create destination and copy source contents into it"""
 		self.ensure_destination()
 		# Trailing /. copies contents into destination (not a nested sourcedir/)
-		Sudo.run(["cp", "-a", f"{self.source}/.", str(self.destination)])
+		cmd = ["cp", "-a", f"{self.source}/.", str(self.destination)]
+		self._run(cmd, use_sudo=not self.user_can_rw(self.destination))
 
 class DesktopEntry:
 	"""Freedesktop application launcher (.desktop)"""
@@ -121,7 +156,7 @@ class DesktopEntry:
 		return self.desktop_path
 
 class LinInstaller:
-	"""Install Cirdan with sudo cp and register a .desktop launcher"""
+	"""Install Cirdan with cp -a and register a .desktop launcher"""
 
 	DEFAULT_INSTALL_DIR = Path("/opt/Cirdan")
 	DESKTOP_PATH = Path("/usr/share/applications/cirdan.desktop")
@@ -133,33 +168,30 @@ class LinInstaller:
 
 	@classmethod
 	def from_argv(cls, args: list[str]) -> "LinInstaller":
-		"""Build installer from CLI args; ask for destination if source-only or no args"""
-		if len(args) == 0:
-			source = Path(__file__).resolve().parent
-			Console.info(f"Using installer directory as source: {source}")
-			destination = Console.ask_path("Install directory", cls.DEFAULT_INSTALL_DIR)
-		elif len(args) == 1:
-			source = Path(args[0])
-			destination = Console.ask_path("Install directory", cls.DEFAULT_INSTALL_DIR)
-		elif len(args) == 2:
-			source = Path(args[0])
-			destination = Path(args[1])
-		else:
-			raise SystemExit(
-				f"Usage: {argv[0]} [sourcedir] [destinationdir]\n"
-				f"  No args: source = directory of this installer\n"
-				f"  If destinationdir is omitted, you will be asked "
-				f"(default: {cls.DEFAULT_INSTALL_DIR})"
-			)
+		"""Source comes from Config; one optional argument is the install directory"""
+		parser = ArgumentParser(
+			description="Install Cirdan by copying the source directory from config.json (update_path)",
+		)
+		parser.add_argument(
+			"destination",
+			nargs="?",
+			type=Path,
+			metavar="DIRECTORY",
+			help=f"Install directory. If omitted, you will be asked (default: {cls.DEFAULT_INSTALL_DIR})",
+		)
+		parsed = parser.parse_args(args)
+		source = Config().update_path
+		Console.info(f"Source: {source}")
+		destination = parsed.destination or Console.ask_path("Install directory", cls.DEFAULT_INSTALL_DIR)
 		return cls(source, destination)
 
 	def ensure_destination(self) -> None:
 		"""Create the install directory if it does not exist"""
-		SudoCopy(self.source, self.install_dir).ensure_destination()
+		InstallCopy(self.source, self.install_dir).ensure_destination()
 
 	def copy(self) -> None:
 		"""Copy source tree into the install directory (creates destination if needed)"""
-		SudoCopy(self.source, self.install_dir).run()
+		InstallCopy(self.source, self.install_dir).run()
 
 	def install_desktop_entry(self) -> Path:
 		"""Create /usr/share/applications/cirdan.desktop"""

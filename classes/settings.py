@@ -17,8 +17,47 @@ __app_path__ = (
 	if __executable__.name.startswith("python")
 	else __executable__.parent
 )
+__system__ = system()
 
-class Settings:
+class Config:
+	"""Load static configuration from file"""
+
+	def __init__(self, path: Path | str | None = None) -> None:
+		path = Path(path).resolve() if path else __app_path__.joinpath("config.json")
+		self._repr_name = "Config"
+		with path.open(encoding="utf-8") as fp:
+			for key, value in load(fp).items():
+				if key == "paths":
+					for path_key, path_value in value[__system__].items():
+						self.__dict__[path_key] = self._resolve_path(path_value)
+				else:
+					self.__dict__[key] = value
+
+	def _resolve_path(self, path_value: str) -> Path:
+		"""Expand $HOME / $APP prefixes (case-insensitive) and resolve"""
+		normalized = path_value.replace("\\", "/")
+		upper = normalized.upper()
+		if upper.startswith("$HOME/"):
+			return Path().home().joinpath(normalized[6:]).resolve()
+		if upper.startswith("$APP/"):
+			return __app_path__.joinpath(normalized[5:]).resolve()
+		return Path(path_value).resolve()
+
+	def __repr__(self) -> str:
+		"""Readable key/value listing"""
+		lines = [f"{self._repr_name}:"]
+		width = max((len(key) for key in self.__dict__.keys()), default=0)
+		for key in self.__dict__.keys():
+			value = self.__dict__[key] if key in self.__dict__ else None
+			formatted = pformat(value, width=76, sort_dicts=False)
+			if "\n" in formatted:
+				indented = formatted.replace("\n", "\n" + " " * (width + 3))
+				lines.append(f"  {key:<{width}} = {indented}")
+			else:
+				lines.append(f"  {key:<{width}} = {formatted}")
+		return "\n".join(lines)
+
+class Settings(Config):
 	"""User settings, configuration and labels"""
 
 	def __init__(self,
@@ -37,16 +76,10 @@ class Settings:
 			raise ValueError("Destination path provided without destination name")
 		self.version = version
 		self.app_path = __app_path__
-		self.system = system()
+		self.system = __system__
+		self._repr_name = "Settings"
 		self.hostname = node()
-		config_path = Path(config).resolve() if config else self.app_path.joinpath("config.json")
-		with config_path.open(encoding="utf-8") as fp:
-			for key, value in load(fp).items():
-				if key == "paths":
-					for path_key, path_value in value[self.system].items():
-						self.__dict__[path_key] = self._resolve_path(path_value)
-				else:
-					self.__dict__[key] = value
+		super().__init__(config)
 		with self.labels_path.open(encoding="utf-8") as fp:
 			self.labels = SimpleNamespace(**load(fp))
 		self._path = self.local_path / self.settings_name
@@ -73,30 +106,6 @@ class Settings:
 		self.mail_subject = mail_subject or items.get("mail_subject") or self.mail["default-subject"]
 		self.user_log = user_log
 		self.id = f'{{\n  "hostname": "{self.hostname}",\n  "username": "{self.username}"\n}}'
-
-	def __repr__(self) -> str:
-		"""Readable key/value listing of the user settings"""
-		lines = ["Settings:"]
-		width = max((len(key) for key in self.__dict__.keys()), default=0)
-		for key in self.__dict__.keys():
-			value = self.__dict__[key] if key in self.__dict__ else None
-			formatted = pformat(value, width=76, sort_dicts=False)
-			if "\n" in formatted:
-				indented = formatted.replace("\n", "\n" + " " * (width + 3))
-				lines.append(f"  {key:<{width}} = {indented}")
-			else:
-				lines.append(f"  {key:<{width}} = {formatted}")
-		return "\n".join(lines)
-
-	def _resolve_path(self, path_value: str) -> Path:
-		"""Expand $HOME / $APP prefixes (case-insensitive) and resolve"""
-		normalized = path_value.replace("\\", "/")
-		upper = normalized.upper()
-		if upper.startswith("$HOME/"):
-			return Path().home().joinpath(normalized[6:]).resolve()
-		if upper.startswith("$APP/"):
-			return self.app_path.joinpath(normalized[5:]).resolve()
-		return Path(path_value).resolve()
 
 	def _init_destination(
 		self,
