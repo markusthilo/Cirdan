@@ -28,6 +28,7 @@ class CheckSourceThread(Thread):
 
 		def ask() -> None:
 			try:
+				self._gui._prepare_dialog()
 				result.append(askyesno(
 					parent=self._gui,
 					title=title,

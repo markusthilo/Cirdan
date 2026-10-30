@@ -4,11 +4,11 @@
             "labels_path": "$APP/labels_de.json",
             "icon_path": "$APP/icons/cirdan.png",
             "local_path": "$HOME/AppData/Local/Cirdan/",
-            "log_path": "$HOME/Documents/_logs/",
+            "log_path": "P:/Cirdan/test/target/_logs/",
             "update_path": "P:/Cirdan/",
-            "import1_path": "$HOME/Documents/import1/",
-            "import2_path": "$HOME/Documents/import2/",
-            "import3_path": "$HOME/Documents/import3/"
+            "import1_path": "P:/Cirdan//test/target/import1/",
+            "import2_path": "P:/Cirdan//test/target/import2/",
+            "import3_path": "P:/Cirdan//test/target/import3/"
         },
         "Linux": {
             "labels_path": "$APP/labels_de.json",
@@ -98,7 +98,7 @@
     ],
     "count_paths": [
         ".*/aw_iped$",
-        ".*\\.E01$",
+        ".*\\.[eE]01$",
         ".*/python.*"
     ],
 	"mail": {

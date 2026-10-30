@@ -41,6 +41,8 @@ class Update:
 		self._src_path = Path(src_path).resolve()
 		self._install_path = Path(install_path).resolve()
 		self.installer_cmd: list[str] | None = None
+		if self._install_path.as_posix().startswith("//"):
+			return
 		try:
 			remote_version = self._src_path.joinpath("version.txt").read_text(encoding="utf-8").strip()
 		except OSError:
@@ -49,12 +51,7 @@ class Update:
 		if self.new_version is None:
 			return
 		installer_path = self._src_path.joinpath(Update.INSTALLER_EXE)
-		if (
-			__system__ == "Windows"
-			and not self._install_path.as_posix().startswith("//")
-			and not __executable__.name.startswith("python")
-			and installer_path.is_file()
-		):
+		if __system__ == "Windows" and not __executable__.name.startswith("python") and installer_path.is_file():
 			self.installer_cmd = [f"{installer_path}", f"{self._install_path}"]
 
 	def install(self) -> Popen[bytes]:

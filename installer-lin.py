@@ -67,29 +67,39 @@ class Sudo:
 			raise RuntimeError(f"sudo tee failed for {path}")
 
 class InstallCopy:
-	"""Copy a source tree into an install directory with cp -a, using sudo when needed"""
+	"""Copy a source tree into an install directory with rsync -a, using sudo when needed"""
 
 	def __init__(self, source: Path, destination: Path) -> None:
 		self.source = Path(source).resolve()
 		self.destination = Path(destination)
+		self.used_sudo = False
 		if not self.source.is_dir():
 			raise NotADirectoryError(f"Source is not a directory: {self.source}")
 
 	@staticmethod
 	def user_can_rw(path: Path) -> bool:
-		"""True when the user can read and write path, or create it under such a directory"""
+		"""True when the user can replace path, including read-only files in a writable directory"""
 		current = Path(path)
-		if current.exists():
+		if not current.exists():
+			while not current.exists():
+				parent = current.parent
+				if parent == current:
+					return False
+				current = parent
 			return current.is_dir() and access(current, R_OK | W_OK | X_OK)
-		while not current.exists():
-			parent = current.parent
-			if parent == current:
-				return False
-			current = parent
-		return current.is_dir() and access(current, R_OK | W_OK | X_OK)
+		if not current.is_dir() or not access(current, R_OK | W_OK | X_OK):
+			return False
+		try:
+			for child in current.rglob("*"):
+				if child.is_dir() and not child.is_symlink() and not access(child, W_OK | X_OK):
+					return False
+		except OSError:
+			return False
+		return True
 
 	def _run(self, cmd: list[str], use_sudo: bool) -> None:
 		if use_sudo:
+			self.used_sudo = True
 			Sudo.run(cmd)
 			return
 		Console.info(" ".join(cmd))
@@ -108,13 +118,21 @@ class InstallCopy:
 				Console.info(f"Creating {self.destination}")
 			self.destination.mkdir(parents=True, exist_ok=True)
 			return
+		self.used_sudo = True
 		Sudo.run(["mkdir", "-p", str(self.destination)], echo=echo)
 
 	def run(self) -> None:
 		"""Create destination and copy source contents into it"""
 		self.ensure_destination()
-		# Trailing /. copies contents into destination (not a nested sourcedir/)
-		cmd = ["cp", "-a", f"{self.source}/.", str(self.destination)]
+		# Trailing slash copies contents into destination (not a nested sourcedir/).
+		# Exclude __pycache__ and any name starting with a dot (.git, .gitignore, ...).
+		cmd = [
+			"rsync", "-a",
+			"--exclude", ".*",
+			"--exclude", "__pycache__",
+			f"{self.source}/",
+			f"{self.destination}/",
+		]
 		self._run(cmd, use_sudo=not self.user_can_rw(self.destination))
 
 class DesktopEntry:
@@ -165,6 +183,7 @@ class LinInstaller:
 		self.source = Path(source)
 		self.install_dir = Path(destination) if destination else self.DEFAULT_INSTALL_DIR
 		self.desktop_path = self.DESKTOP_PATH
+		self.used_sudo = False
 
 	@classmethod
 	def from_argv(cls, args: list[str]) -> "LinInstaller":
@@ -191,7 +210,9 @@ class LinInstaller:
 
 	def copy(self) -> None:
 		"""Copy source tree into the install directory (creates destination if needed)"""
-		InstallCopy(self.source, self.install_dir).run()
+		install_copy = InstallCopy(self.source, self.install_dir)
+		install_copy.run()
+		self.used_sudo = install_copy.used_sudo
 
 	def install_desktop_entry(self) -> Path:
 		"""Create /usr/share/applications/cirdan.desktop"""
@@ -200,7 +221,9 @@ class LinInstaller:
 		return path
 
 	def offer_desktop_entry(self) -> Path | None:
-		"""Interactively offer the applications-menu launcher"""
+		"""Offer the applications-menu launcher when the install used sudo"""
+		if not self.used_sudo:
+			return None
 		if not Console.ask_yes_no(
 			f"Create application menu entry ({self.desktop_path})?",
 			default=True,

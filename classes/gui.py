@@ -6,7 +6,7 @@ from threading import current_thread, main_thread
 from collections.abc import Callable
 from tkinter import Tk, PhotoImage, StringVar, BooleanVar, TclError
 from tkinter.font import nametofont
-from tkinter.ttk import Frame, Label, Entry, Button, Checkbutton, OptionMenu
+from tkinter.ttk import Frame, Label, Entry, Button, Checkbutton, OptionMenu, Style
 from tkinter.scrolledtext import ScrolledText
 from tkinter.messagebox import askyesno, showerror, showinfo
 from tkinter.filedialog import askdirectory, asksaveasfilename
@@ -18,6 +18,7 @@ from classes.sendmail import SendMail
 from classes.checksourcethread import CheckSourceThread
 from classes.workthread import WorkThread
 from classes.tododialog import ToDoDialog
+from classes.messagedialog import prepare_message_parent
 from classes.source import Source
 from classes.settings import Settings
 
@@ -31,6 +32,90 @@ class Gui(Tk):
 			showerror(title="Cirdan - Critical error on startup", message=msg)
 		except Exception:
 			pass
+
+	def _prepare_dialog(self) -> None:
+		"""Map this window so the next message box stays in front of it"""
+		prepare_message_parent(self)
+
+	def _style_option_menus(self) -> None:
+		"""Left-align OptionMenu text and draw the same border as a button"""
+		style = Style(self)
+		style.configure(
+			"TMenubutton",
+			anchor="w",
+			relief="raised",
+			borderwidth=1,
+			padding=(0,0) 	#(self._pad, self._pad),
+		)
+		style.map("TMenubutton", relief=[("pressed", "sunken")])
+		if self.settings.system == "Windows":
+			self._style_windows_option_border(style)
+			return
+
+		def restyle(elements: list) -> list:
+			styled = []
+			for name, options in elements:
+				options = dict(options)
+				element = str(name)
+				if element.endswith(".border"):
+					element = "Button.border"
+					options["sticky"] = "nswe"
+					options["border"] = "1"
+				if element.endswith("label"):
+					options["side"] = "left"
+					options["sticky"] = "w"
+				children = options.get("children")
+				if children:
+					options["children"] = restyle(children)
+				styled.append((element, options))
+			return styled
+
+		style.layout("TMenubutton", restyle(style.layout("TMenubutton")))
+
+	def _style_windows_option_border(self, style: Style) -> None:
+		"""Windows themes omit the OptionMenu border, so paint one explicitly"""
+		try:
+			style.element_create("Cirdan.Menubutton.border", "from", "clam", "border")
+		except TclError:
+			pass
+		arrow = "Menubutton.indicator"
+		for name in ("Menubutton.dropdown", "Menubutton.indicator"):
+			try:
+				style.element_options(name)
+			except TclError:
+				continue
+			arrow = name
+			break
+		background = style.lookup(".", "background") or "SystemButtonFace"
+		style.configure(
+			"TMenubutton",
+			background=background,
+			bordercolor="SystemButtonShadow",
+			lightcolor="SystemButtonHighlight",
+			darkcolor="SystemButtonShadow",
+		)
+		style.layout("TMenubutton", [(
+			"Cirdan.Menubutton.border", {
+				"sticky": "nswe",
+				"border": "1",
+				"children": [(
+					"Menubutton.focus", {
+						"sticky": "nswe",
+						"children": [
+							(arrow, {"side": "right", "sticky": "ns"}),
+							("Menubutton.padding", {
+								"expand": "1",
+								"sticky": "nswe",
+								"children": [(
+									"Menubutton.label",
+									{"side": "left", "sticky": "w"},
+								)],
+							}),
+						],
+					},
+				)],
+			},
+		)])
 
 	def __init__(self, settings: Settings, logger: Log, source: Path | None = None) -> None:
 		"""Open application window"""
@@ -58,6 +143,7 @@ class Gui(Tk):
 			self.geometry(f"{self.min_size_x}x{self.min_size_y}")
 			self.resizable(True, True)
 			self._pad = int(font_size * self.settings.gui["pad_factor"])
+			self._style_option_menus()
 			self._source_button = Button(self, text=self.labels.source_dir, command=self._select_source)
 			self._source_button.grid(row=0, column=0, sticky="nw", ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
 			Hovertip(self._source_button, self.labels.source_tip)
@@ -69,8 +155,8 @@ class Gui(Tk):
 			self._delete_button = Button(self, text=self.labels.delete_source, command=self._delete_source)
 			self._delete_button.grid(row=1, column=1, sticky="ne", padx=self._pad)
 			Hovertip(self._delete_button, self.labels.delete_source_tip)
-			label = Label(self, text=self.labels.destination)
-			label.grid(row=2, column=0, sticky="w", padx=(2*self._pad, 0))
+			label = Label(self, text=f"{self.labels.destination}:")
+			label.grid(row=2, column=0, sticky="w", padx=(2*self._pad, 0), pady=self._pad)
 			Hovertip(label, self.labels.destination_tip)
 			self.destination = StringVar()
 			selected_destination = (
@@ -93,7 +179,7 @@ class Gui(Tk):
 					text=self.settings.destination.name if self.settings.destination else self.labels.select_destination,
 				).grid(row=2, column=1, columnspan=2, sticky="w", padx=self._pad)
 			label = Label(self, text=f"{self.labels.todo}:")
-			label.grid(row=3, column=0, sticky="w", padx=(2*self._pad, 0))
+			label.grid(row=3, column=0, sticky="w", padx=(2*self._pad, 0), pady=(0, self._pad))
 			Hovertip(label, self.labels.todo_tip)
 			frame = Frame(self)
 			frame.grid(row=3, column=1, sticky="ew", padx=self._pad)
@@ -104,13 +190,18 @@ class Gui(Tk):
 			self._todo_menu = OptionMenu(frame, self._todo, command=self._todo_selected)
 			self._todo_menu.pack(side="left", expand=True, fill="x")
 			Hovertip(frame, self.labels.todo_tip)
-			if self.settings.selected_todo:
-				self._todo.set(self.settings.selected_todo)
-				self._todo_menu.set_menu(self.settings.selected_todo, *self.settings.destination.todos.keys())
-				self._todo_boolean.set(bool(self.settings.destination.todos[self.settings.selected_todo]["do_something"]))
+			if self.settings.destination:
+				if self.settings.selected_todo:
+					self._todo.set(self.settings.selected_todo)
+					self._todo_menu.set_menu(self.settings.selected_todo, *self.settings.destination.todos.keys())
+					self._todo_boolean.set(bool(self.settings.destination.todos[self.settings.selected_todo]["do_something"]))
+				else:
+					self._todo.set(self.labels.select_todo)
+					self._todo_menu.set_menu(self.labels.select_todo, *self.settings.destination.todos.keys())
+					self._todo_boolean.set(False)
 			else:
-				self._todo.set(self.labels.select_todo)
-				self._todo_menu.set_menu(self.labels.select_todo, *self.settings.destination.todos.keys())
+				self._todo.set(self.labels.select_destination_first)
+				self._todo_menu.set_menu(self.labels.select_destination_first)
 				self._todo_boolean.set(False)
 			frame = Frame(self)
 			frame.grid(row=4, column=1, sticky="we", padx=self._pad)
@@ -172,15 +263,15 @@ class Gui(Tk):
 			self._quit_button.grid(row=8, column=1, sticky="e", padx=self._pad, pady=self._pad)
 			update = Update(self.settings.version, self.settings.update_path, self.settings.app_path)
 			if update.new_version is not None:
+				msg = self.labels.update_info.replace("#1", f"{update.new_version}").replace("#2", f"{self.settings.update_path}")
+				self._prepare_dialog()
 				if update.installer_cmd is None:
-					showinfo(
-						title=self.labels.update_title.replace("#", update.new_version),
-						message=self.labels.update_message.replace("#", self.settings.update_path)
-					)
+					showinfo(parent=self, title=self.labels.update_title, message=msg)
 				else:
 					if askyesno(
-						title=self.labels.update_title.replace("#", update.new_version),
-						message=self.labels.update_question,
+						parent=self,
+						title=self.labels.update_title,
+						message=msg + "\n\n" + self.labels.update_question,
 						default="no"
 					):
 						try:
@@ -189,6 +280,7 @@ class Gui(Tk):
 							return
 						except Exception:
 							msg = Log.error()
+							self._prepare_dialog()
 							showerror(parent=self, title=self.labels.error, message=f"{self.labels.update_error}:\n{msg}")
 			self._init_warning()
 			if source:
@@ -196,7 +288,8 @@ class Gui(Tk):
 				self._check_source_thread.start()
 		except Exception:
 			msg = self.logger.crash()
-			showerror(title=self.labels.error, message=msg)
+			self._prepare_dialog()
+			showerror(parent=self, title=self.labels.error, message=msg)
 			self.destroy()
 
 	def _destination_selected(self, *_: object) -> None:
@@ -239,11 +332,13 @@ class Gui(Tk):
 	def _open_todo_window(self) -> None:
 		"""Check destination to open todo dialog"""
 		if not self.settings.destination:
-			showerror(title=self.labels.error, message=self.labels.select_destination_first)
+			self._prepare_dialog()
+			showerror(parent=self, title=self.labels.error, message=self.labels.select_destination_first)
 			return
 		sub_dir_paths = self.settings.destination.check_sub_dirs(self.settings.username)
 		if not sub_dir_paths:
-			showerror(title=self.labels.error, message=self.labels.no_sub_dirs_todo)
+			self._prepare_dialog()
+			showerror(parent=self, title=self.labels.error, message=self.labels.no_sub_dirs_todo)
 			return
 		self._clear_info()
 		self._disable_buttons()
@@ -266,6 +361,7 @@ class Gui(Tk):
 			self.settings.destination.write_meta(todo, selected_path, counted_paths)
 			self.settings.destination.write_trigger(todo, selected_path)
 		except Exception:
+			self._prepare_dialog()
 			showerror(parent=self, title=self.labels.error, message=self.logger.error())
 			return
 		self.echo(self.labels.todo_created.replace('#1', f'{todo}').replace('#2', selected_path.name))
@@ -275,7 +371,8 @@ class Gui(Tk):
 		if source := askdirectory(title=self.labels.select_dir, mustexist=True):
 			source = Path(source).resolve()
 			if any(source == item.path for item in self.sources):
-				showerror(title=self.labels.error, message=self.labels.already_added.replace("#", f"{source}"))
+				self._prepare_dialog()
+				showerror(parent=self, title=self.labels.error, message=self.labels.already_added.replace("#", f"{source}"))
 				return
 			self._disable_buttons()
 			self._check_source_thread = CheckSourceThread(self, source)
@@ -418,20 +515,25 @@ class Gui(Tk):
 		if self._work_thread and self._work_thread.is_alive():
 			return
 		if not self.sources:
-			showerror(title=self.labels.error, message=self.labels.missing_source)
+			self._prepare_dialog()
+			showerror(parent=self, title=self.labels.error, message=self.labels.missing_source)
 			return
 		if self.settings.sendmail and not self.settings.mail_to:
-			showerror(title=self.labels.error, message=self.labels.missing_name)
+			self._prepare_dialog()
+			showerror(parent=self, title=self.labels.error, message=self.labels.missing_name)
 			return
 		if not self.settings.destination:
+			self._prepare_dialog()
 			showerror(
+				parent=self,
 				title=self.labels.error,
 				message=self.labels.bad_destination.replace("#", f"{self.destination.get()}")
 			)
 			return
 		todo = self._todo.get()
 		if not todo or todo == self.labels.select_todo:
-			showerror(title=self.labels.error, message=self.labels.missing_todo_msg)
+			self._prepare_dialog()
+			showerror(parent=self, title=self.labels.error, message=self.labels.missing_todo_msg)
 			return
 		self.settings.set_todo(todo)
 		if not self.write_log.get():
@@ -472,8 +574,8 @@ class Gui(Tk):
 		self._enable_buttons()
 		if errors is None:
 			Log.info(self.labels.worker_killed)
+			self._clear_source_text()
 			return
-		self._clear_source_text()
 		self.write_log.set(False)
 		self.log_path = None
 		if errors:
@@ -486,8 +588,10 @@ class Gui(Tk):
 			elif errors:
 				more = self.labels.more_problems.replace("#", f"{len(errors)-2}")
 				msg += f"\n\n{errors[0]}\n\n{errors[1]}\n\n{more}"
-			showerror(title=self.labels.warning, message=msg)
+			self._prepare_dialog()
+			showerror(parent=self, title=self.labels.warning, message=msg)
 		else:
+			self._clear_source_text()
 			self._info_text.configure(foreground=self.settings.gui["green_fg"], background=self.settings.gui["green_bg"])
 
 	def quit_app(self) -> None:
@@ -502,7 +606,8 @@ class Gui(Tk):
 	def _quit_app(self) -> None:
 		"""Quit app; abort running worker without quitting, kill source check then quit"""
 		if self._work_thread and self._work_thread.is_alive():
-			if askyesno(title=self.labels.warning, message=self.labels.running_warning):
+			self._prepare_dialog()
+			if askyesno(parent=self, title=self.labels.warning, message=self.labels.running_warning):
 				Log.info(self.labels.killing_running)
 				try:
 					self._work_thread.kill()
@@ -510,7 +615,8 @@ class Gui(Tk):
 					pass
 			return
 		if self._check_source_thread and self._check_source_thread.is_alive():
-			if not askyesno(title=self.labels.warning, message=self.labels.running_warning):
+			self._prepare_dialog()
+			if not askyesno(parent=self, title=self.labels.warning, message=self.labels.running_warning):
 				return
 			Log.info(self.labels.killing_running)
 			try:

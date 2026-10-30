@@ -214,7 +214,7 @@ class Worker:
 			ok = False
 		if total_bytes is not None and total_bytes != source.size:
 			self._error(
-				self._labels.size_missmatch
+				self._labels.size_mismatch
 				.replace("#1", f"{source.size}")
 				.replace("#2", f"{total_bytes}")
 			)

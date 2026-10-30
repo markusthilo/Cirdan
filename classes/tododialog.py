@@ -7,6 +7,7 @@ from tkinter.ttk import Frame, Label, Treeview, Scrollbar, Button, OptionMenu
 from tkinter.messagebox import showerror
 from idlelib.tooltip import Hovertip
 from classes.path import Path
+from classes.messagedialog import prepare_message_parent
 if TYPE_CHECKING:
 	from classes.gui import Gui
 
@@ -63,6 +64,7 @@ class ToDoDialog(Toplevel):
 			todo for todo, cfg in self._destination.todos.items() if cfg.get("do_something")
 		)
 		if not todos:
+			self._prepare_dialog()
 			showerror(parent=self, title=self._labels.error, message=self._labels.todo_dialog_select)
 			self.after_idle(self.destroy)
 			return
@@ -80,6 +82,10 @@ class ToDoDialog(Toplevel):
 		Hovertip(element, tip)
 		Button(frame, text=self._labels.cancel, command=self.destroy).pack(side="right", padx=pad)
 		Button(frame, text=self._labels.launch, command=self._create).pack(side="right", padx=pad)
+
+	def _prepare_dialog(self) -> None:
+		"""Map this window so the next message box stays in front of it"""
+		prepare_message_parent(self)
 
 	def _selected_sub_dir(self) -> Path | None:
 		"""Resolve tree selection to a top-level destination sub directory"""
@@ -101,10 +107,12 @@ class ToDoDialog(Toplevel):
 		"""Write meta and trigger files"""
 		selected_path = self._selected_sub_dir()
 		if selected_path is None:
+			self._prepare_dialog()
 			showerror(parent=self, title=self._labels.error, message=self._labels.select_todo_dir)
 			return
 		todo = self._todo.get()
 		if todo not in self._destination.todos or not self._destination.todos[todo].get("do_something"):
+			self._prepare_dialog()
 			showerror(parent=self, title=self._labels.error, message=self._labels.todo_dialog_select)
 			return
 		self._root.create_todo(selected_path, todo)

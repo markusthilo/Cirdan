@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from os.path import normcase
 from sys import argv, exit
 from argparse import ArgumentParser
 from subprocess import Popen, PIPE, STARTUPINFO, STARTF_USESHOWWINDOW, run, CompletedProcess
@@ -48,7 +49,13 @@ class RoboCopyMirror:
 
 	@property
 	def cmd(self) -> list[str]:
-		return ["robocopy.exe", f"{self.source}", f"{self.destination}", "/mir"]
+		# /xd /xf skip __pycache__ and any name starting with a dot (.git, .gitignore, ...)
+		return [
+			"robocopy.exe", f"{self.source}", f"{self.destination}",
+			"/mir",
+			"/xd", ".*", "__pycache__",
+			"/xf", ".*",
+		]
 
 	def ensure_destination(self, echo: bool = True) -> None:
 		"""Create the destination directory (and parents) if missing"""
@@ -101,6 +108,54 @@ class DesktopShortcut:
 			raise FileNotFoundError(f"Shortcut target not found: {self.target}")
 
 	@staticmethod
+	def lnk_path(name: str = "Cirdan") -> Path:
+		"""Filesystem path of the shortcut on the user desktop"""
+		desktop = Path.home() / "Desktop"
+		try:
+			from ctypes import create_unicode_buffer, windll
+			buf = create_unicode_buffer(32767)
+			# CSIDL_DESKTOPDIRECTORY: the real folder, including a redirected desktop
+			if windll.shell32.SHGetFolderPathW(None, 0x10, None, 0, buf) == 0 and buf.value:
+				desktop = Path(buf.value)
+		except (AttributeError, ImportError, OSError):
+			pass
+		return desktop / f"{name}.lnk"
+
+	@staticmethod
+	def read_target(lnk: Path) -> Path | None:
+		"""Target path stored in an existing .lnk, if it can be read"""
+		if not lnk.is_file():
+			return None
+		script = f"""
+$shell = New-Object -ComObject WScript.Shell
+$shortcut = $shell.CreateShortcut({DesktopShortcut._ps_quote(str(lnk))})
+Write-Output $shortcut.TargetPath
+"""
+		result = run(
+			["powershell.exe", "-NoProfile", "-Command", script],
+			capture_output=True,
+			text=True,
+			encoding="utf-8",
+			errors="replace",
+			check=False,
+		)
+		if result.returncode != 0:
+			return None
+		target = (result.stdout or "").strip()
+		return Path(target) if target else None
+
+	@staticmethod
+	def points_to(target: Path, install_dir: Path) -> bool:
+		"""True when the shortcut target is cirdan.exe inside install_dir"""
+		try:
+			target_dir = target.resolve().parent
+			install = install_dir.resolve()
+		except OSError:
+			target_dir = target.parent
+			install = install_dir
+		return normcase(str(target_dir)) == normcase(str(install)) and target.name.lower() == "cirdan.exe"
+
+	@staticmethod
 	def _ps_quote(value: str) -> str:
 		"""Single-quote a string for PowerShell"""
 		return "'" + value.replace("'", "''") + "'"
@@ -147,7 +202,7 @@ Write-Output $lnkPath
 class WinInstaller:
 	"""Install by mirroring with robocopy, optionally create a desktop shortcut"""
 
-	DEFAULT_INSTALL_DIR = Path("C:/Programmes/Cirdan")
+	DEFAULT_INSTALL_DIR = Path("C:/Programm Files/Cirdan")
 
 	def __init__(self, source: Path | str, destination: Path | str) -> None:
 		self.source = Path(source)
@@ -185,11 +240,19 @@ class WinInstaller:
 		RoboCopyMirror(self.source, self.destination).run()
 
 	def offer_desktop_shortcut(self) -> Path | None:
-		"""Interactively offer a desktop shortcut to cirdan.exe"""
+		"""Ask for a desktop shortcut unless it already points at this install directory"""
+		lnk = DesktopShortcut.lnk_path()
+		install_dir = self.destination.resolve()
+		current = DesktopShortcut.read_target(lnk) if lnk.is_file() else None
+		if current is not None and DesktopShortcut.points_to(current, install_dir):
+			Console.info(f"Desktop shortcut already points to {install_dir}")
+			return lnk
 		if not self.cirdan_exe.is_file():
 			Console.info(f"Note: {self.cirdan_exe} not found — skipping desktop shortcut")
 			return None
-		if not Console.ask_yes_no("Create a desktop shortcut to cirdan.exe?"):
+		if lnk.is_file():
+			Console.info(f"Desktop shortcut points to {current or 'unknown'}")
+		if not Console.ask_yes_no("Create a desktop shortcut to cirdan.exe?", default=True):
 			return None
 		lnk = DesktopShortcut(self.cirdan_exe).create()
 		Console.info(f"Desktop shortcut created: {lnk}")
