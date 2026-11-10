@@ -202,7 +202,7 @@ Write-Output $lnkPath
 class WinInstaller:
 	"""Install by mirroring with robocopy, optionally create a desktop shortcut"""
 
-	DEFAULT_INSTALL_DIR = Path("C:/Programm Files/Cirdan")
+	DEFAULT_INSTALL_DIR = Path("C:/Program Files/Cirdan")
 
 	def __init__(self, source: Path | str, destination: Path | str) -> None:
 		self.source = Path(source)
