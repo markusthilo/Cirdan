@@ -131,7 +131,7 @@ class Gui(Tk):
 			self.title(f"{self.labels.title} v{self.settings.version}")
 			self.rowconfigure(0, weight=1)
 			self.columnconfigure(1, weight=1)
-			self.rowconfigure(7, weight=1)
+			self.rowconfigure(6, weight=1)
 			self.iconphoto(True, PhotoImage(file=self.settings.icon_path))
 			self.protocol("WM_DELETE_WINDOW", self._quit_app)
 			font = nametofont("TkTextFont").actual()
@@ -231,23 +231,34 @@ class Gui(Tk):
 				Hovertip(entry, self.labels.mail_subject_tip)
 			else:
 				self.send_mail = BooleanVar(value=False)
+			self._info_label = Label(self)
+			self._info_label.grid(row=5, column=0, sticky="sw", padx=self._pad, pady=(0, self._pad))
+			self._label_fg = self._info_label.cget("foreground")
+			self._label_bg = self._info_label.cget("background")
 			frame = Frame(self)
-			frame.grid(row=5, column=1, sticky="we", padx=self._pad)
+			frame.grid(row=5, column=1, sticky="nswe", padx=self._pad, pady=(0, self._pad))
+			frame.columnconfigure(1, weight=1)
 			self.write_log = BooleanVar(value=bool(self.settings.user_log))
 			button = Checkbutton(frame, text=self.labels.log_button, variable=self.write_log, command=self._select_log)
-			button.pack(side="right")
+			button.grid(row=0, column=0, sticky="nw", padx=(0, self._pad))
 			Hovertip(button, self.labels.log_tip)
-			frame = Frame(self)
-			frame.grid(row=6, column=1, sticky="we", padx=self._pad)
-			self._create_todo_button = Button(frame, text=self.labels.create_todo, command=self._open_todo_window)
-			self._create_todo_button.pack(side="left", padx=(0, self._pad))
-			Hovertip(self._create_todo_button, self.labels.create_todo_tip)
-			self._exec_button = Button(frame, text=self.labels.start_button, command=self._execute)
-			self._exec_button.pack(side="right")
+			style = Style(self)
+			style.configure("Execute.TButton", font=(font_family, font_size * 2))
+			self._exec_button = Button(frame,
+				text=self.labels.start_button,
+				style="Execute.TButton",
+				command=self._execute
+			)
+			self._exec_button.grid(
+				row=0,
+				column=1,
+				sticky="ew",
+				padx=(self._pad, 0)
+			)
 			Hovertip(self._exec_button, self.labels.start_tip)
 			self._info_text = ScrolledText(self, font=(font_family, font_size), padx=self._pad, pady=self._pad)
-			self._info_text.grid(row=7, column=0, columnspan=2, sticky="nsew",
-				ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
+			self._info_text.grid(row=6, column=0, columnspan=2, sticky="nsew",
+				ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=(0, self._pad))
 			self._info_text.bind("<Key>", lambda dummy: "break")
 			self._info_text.configure(state="disabled")
 			self._last_echo = 0
@@ -255,12 +266,13 @@ class Gui(Tk):
 			self._info_bg = self._info_text.cget("background")
 			self._info_newline = True
 			self.logger.set_echo(self.echo)
-			self._info_label = Label(self)
-			self._info_label.grid(row=8, column=0, sticky="w", padx=self._pad, pady=self._pad)
-			self._label_fg = self._info_label.cget("foreground")
-			self._label_bg = self._info_label.cget("background")
-			self._quit_button = Button(self, text=self.labels.quit, command=self._quit_app)
-			self._quit_button.grid(row=8, column=1, sticky="e", padx=self._pad, pady=self._pad)
+			frame = Frame(self)
+			frame.grid(row=7, column=0, columnspan=2, sticky="we", padx=self._pad, pady=(0, self._pad))
+			self._create_todo_button = Button(frame, text=self.labels.create_todo, command=self._open_todo_window)
+			self._create_todo_button.pack(side="left", padx=(self._pad))
+			Hovertip(self._create_todo_button, self.labels.create_todo_tip)
+			self._quit_button = Button(frame, text=self.labels.quit, command=self._quit_app, state="disabled")
+			self._quit_button.pack(side="right", padx=(0, self._pad))
 			update = Update(self.settings.version, self.settings.update_path, self.settings.app_path)
 			if update.new_version is not None:
 				msg = self.labels.update_info.replace("#1", f"{update.new_version}").replace("#2", f"{self.settings.update_path}")
@@ -365,6 +377,7 @@ class Gui(Tk):
 			showerror(parent=self, title=self.labels.error, message=self.logger.error())
 			return
 		self.echo(self.labels.todo_created.replace('#1', f'{todo}').replace('#2', selected_path.name))
+		self._quit_button.configure(state="normal")
 
 	def _select_source(self) -> None:
 		"""Select directory to add into field"""
@@ -492,6 +505,7 @@ class Gui(Tk):
 		self._source_button.configure(state="normal")
 		self._exec_button.configure(state="normal")
 		self._create_todo_button.configure(state="normal")
+		self._quit_button.configure(state="normal")
 
 	def _get_settings(self) -> None:
 		"""Get settings from GUI"""
@@ -552,7 +566,7 @@ class Gui(Tk):
 	def _warning(self) -> None:
 		"""Show flashing warning"""
 		if self._warning_state == "enable":
-			self._info_label.configure(text=self.labels.warning)
+			self._info_label.configure(text=f"\u26A0 {self.labels.warning}")
 			self._warning_state = "1"
 		if self._warning_state == "1":
 			self._info_label.configure(foreground=self.settings.gui["red_fg"], background=self.settings.gui["red_bg"])

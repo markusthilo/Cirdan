@@ -12,12 +12,12 @@ class Source:
 	"""Source directory"""
 
 	def __init__(self, path: Path, settings: Settings) -> None:
-		self.path = path
 		self._settings = settings
-		self._whitelist = RegEx(self._settings.source_whitelist) if self._settings.source_whitelist else None
-		self._blacklist = RegEx(self._settings.source_blacklist) if self._settings.source_blacklist else None
-		self._max_path_length = self._settings.max_path_length
-		self._countlist = RegEx(self._settings.count_paths) if self._settings.count_paths else None
+		self.top_whitelist = RegEx(self._settings.source_top_whitelist) if self._settings.source_top_whitelist else None
+		self.sub_whitelist = RegEx(self._settings.source_sub_whitelist) if self._settings.source_sub_whitelist else None
+		self.blacklist = RegEx(self._settings.source_blacklist) if self._settings.source_blacklist else None
+		self.max_path_length = self._settings.max_path_length
+		self.countlist = RegEx(self._settings.count_paths) if self._settings.count_paths else None
 		self.counted_paths: dict[str, int] | None = (
 			{pattern: 0 for pattern in self._countlist.get_patterns()} if self._countlist else None
 		)
@@ -29,11 +29,6 @@ class Source:
 	def name(self) -> str:
 		"""Directory name (used as destination subdir)"""
 		return self.path.name
-
-	@property
-	def whitelist(self) -> RegEx | None:
-		"""Configured source whitelist, if any"""
-		return self._whitelist
 
 	def __repr__(self) -> str:
 		"""Printable path"""
