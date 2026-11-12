@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = "Markus Thilo"
-__version__ = "2.1.0_2026-11-11"
+__version__ = "2.1.0_2026-11-12"
 __license__ = "GPL-3"
 __email__ = "markus.thilo@proton.me"
 __status__ = "Testing"
@@ -31,7 +31,7 @@ if __name__ == "__main__":  # start here when run as application
 	argparser.add_argument("-m", "--mail", type=str, metavar="STRING",
 		help="Send e-mail when copy process has finished, argument is mail address without domain (e.g. john.doe for john.doe@example.net)")
 	argparser.add_argument("-n", "--nocheck", action="store_true",
-		help="Disable checking source tree (blacklist, path length)")
+		help="Disable checking source tree (whitelist, blacklist, path length)")
 	argparser.add_argument("-p", "--path", type=Path, metavar="DIRECTORY",
 		help='Path of parent directory to copy to (overwrites "destinations"/"path" in config file, needs -d/--destination)')
 	argparser.add_argument("-s", "--subject", type=str, metavar="STRING",

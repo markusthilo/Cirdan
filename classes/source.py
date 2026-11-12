@@ -11,24 +11,21 @@ from classes.settings import Settings
 class Source:
 	"""Source directory"""
 
-	def __init__(self, path: Path, settings: Settings) -> None:
-		self._settings = settings
-		self.top_whitelist = RegEx(self._settings.source_top_whitelist) if self._settings.source_top_whitelist else None
-		self.sub_whitelist = RegEx(self._settings.source_sub_whitelist) if self._settings.source_sub_whitelist else None
-		self.blacklist = RegEx(self._settings.source_blacklist) if self._settings.source_blacklist else None
-		self.max_path_length = self._settings.max_path_length
-		self.countlist = RegEx(self._settings.count_paths) if self._settings.count_paths else None
-		self.counted_paths: dict[str, int] | None = (
-			{pattern: 0 for pattern in self._countlist.get_patterns()} if self._countlist else None
-		)
+	def __init__(self, settings: Settings) -> None:
+		self._labels = settings.labels
+		self.top_whitelist = RegEx(settings.source_top_whitelist) if settings.source_top_whitelist else None
+		self.sub_whitelist = RegEx(settings.source_sub_whitelist) if settings.source_sub_whitelist else None
+		self.sub_wishlist = RegEx(settings.source_sub_wishlist) if settings.source_sub_wishlist else None
+		self.blacklist = RegEx(settings.source_blacklist) if settings.source_blacklist else None
+		self.countlist = RegEx(settings.count_paths) if settings.count_paths else None
+		self.max_path_length = settings.max_path_length
+		self.top_path = None
+		self.sub_dirs = dict[str, tuple[int, Size, dict[str, int] | None]]()
+		self.sub_files = list[Path]()
+		self.wished_paths = list[Path]()
 		self.files = 0
 		self.size = Size(0)
 		self.whitelist_match: bool | None = None
-
-	@property
-	def name(self) -> str:
-		"""Directory name (used as destination subdir)"""
-		return self.path.name
 
 	def __repr__(self) -> str:
 		"""Printable path"""
@@ -39,38 +36,63 @@ class Source:
 			string += f", {self.size}"
 		return string
 
-	def disable_path_length_check(self) -> None:
-		"""Ignore max path length for the rest of this source check"""
-		self._max_path_length = None
+	def set_no_check(self) -> None:
+		"""Ignore black-/whitelists and path length"""
+		self.top_whitelist = None
+		self.sub_whitelist = None
+		self.sub_wishlist = None
+		self.blacklist = None
+		self.max_path_length = None
 
-	def disable_blacklist(self) -> None:
-		"""Ignore blacklist for the rest of this source check"""
-		self._blacklist = None
+	def is_top_dir(self, path: Path | str) -> bool:
+		"""Check if path is top path"""
+		return self.top_whitelist and self.top_whitelist.search(Path(path).name)
+	
+	def is_sub_dir(self, path: Path | str) -> bool:
+		"""Check if path is sub path"""
+		return self.sub_whitelist and self.sub_whitelist.search(Path(path).name)
 
-	def check(self, kill: Event | None = None) -> Generator[tuple[Path, int | str], None, None]:
+	def add_sub_dir(self, path: Path | str, kill: Event | None = None) -> Generator[tuple[Path, int | str], None, None]:
 		"""Check source directory tree; yield (path, length) or (path, blacklist pattern)"""
-		self.whitelist_match = False
-		self.files = 0
-		self.size = Size(0)
-		if self._countlist:
-			self.counted_paths = {pattern: 0 for pattern in self._countlist.get_patterns()}
-		for path, relative in self.path.rrglob("*"):
+		path = Path(path).resolve()
+		if not path.is_dir():
+			raise NotADirectoryError(self._labels.not_a_directory.replace("#", str(path)))
+		if not self.is_sub_path(path):
+			raise ValueError(self._labels.not_a_valid_directory.replace("#", str(path)))
+		file_cnt = 0
+		size = Size(0)
+		counted_paths = {pattern: 0 for pattern in self.countlist.get_patterns()} if self.countlist else None
+		for abs_path, rel_path in path.rrglob("*"):
 			if kill and kill.is_set():
 				break
-			if self._whitelist and self._whitelist.search(relative):
-				self.whitelist_match = True
-			if not self._settings.no_source_check:
-				if self._max_path_length and len(relative) > self._max_path_length:
-					yield path, len(relative)
-				if self._blacklist:
-					if pattern := self._blacklist.search(relative):
-						yield path, pattern
-			if path.is_file():
-				self.files += 1
-				try:
-					self.size += path.get_filesize()
-				except OSError:
-					pass
-				if self._countlist and self.counted_paths is not None:
-					if pattern := self._countlist.search(relative):
-						self.counted_paths[pattern] += 1
+			if self.blacklist:
+				if pattern := self.blacklist.search(rel_path):
+					yield abs_path, pattern
+			if self.max_path_length:
+				path_length = len(rel_path)
+				if path_length > self.max_path_length:
+					yield abs_path, path_length
+			if self.countlist:
+				if pattern := self.countlist.search(rel_path):
+					counted_paths[pattern] += 1
+			if abs_path.is_file():
+				file_cnt += 1
+				size += abs_path.get_filesize()
+				yield abs_path, None
+		self.sub_dirs[path.name] = file_cnt, size, counted_paths
+
+	def add_sub_file(self, path: Path | str) -> None:
+		"""Add sub file"""
+		path = Path(path).resolve()
+		if not path.is_file():
+			raise FileNotFoundError(self._labels.file_not_found.replace("#", str(path)))
+		self.sub_files.append(path)
+		if self.sub_wishlist and self.sub_wishlist.search(path.name):
+			self.wished_paths.append(path)
+
+	def set_top_dir(self, path: Path | str) -> None:
+		"""Set full top level dir"""
+		self.top_path = Path(path).resolve()
+		for path in self.top_path.iterdir():
+			for abs_path, value in self.add_sub_path(path):
+				yield abs_path, value

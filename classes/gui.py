@@ -170,7 +170,7 @@ class Gui(Tk):
 					*self.settings.accessible_destinations.keys(),
 					command=self._destination_selected
 				).grid(row=2, column=1, sticky="ew", padx=self._pad)
-			else:
+			if len(self.settings.accessible_destinations) == 1:
 				self.destination.set(
 					self.settings.destination.name if self.settings.destination else ""
 				)
@@ -178,6 +178,8 @@ class Gui(Tk):
 					self,
 					text=self.settings.destination.name if self.settings.destination else self.labels.select_destination,
 				).grid(row=2, column=1, columnspan=2, sticky="w", padx=self._pad)
+			else:
+				raise RuntimeError(self.labels.no_reachable_destination)
 			label = Label(self, text=f"{self.labels.todo}:")
 			label.grid(row=3, column=0, sticky="w", padx=(2*self._pad, 0), pady=(0, self._pad))
 			Hovertip(label, self.labels.todo_tip)

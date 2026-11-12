@@ -81,8 +81,9 @@
     "lastlog_name": "lastlog.txt",
     "crashlog_name": "crashlog.txt",
     "tsv_name": "%y%m%d_%H%M%S_md5.txt",
-    "source_top_whitelist": ["^[0-9]{6}-([0-9]{4}|[0-9]{6})-(([iZ0-9][0-9]{5})|(StA[0-9]{3}))"],
+    "source_top_whitelist": ["^[0-9]{6}-([0-9]{4}|[0-9]{6})-(([iZ0-9][0-9]{5})|(StA[0-9]{3}))$"],
     "source_sub_whitelist": ["^(EAV|MSD|VBA)[0-9]{2}[A-Z]{3}[0-9]{3}[0-9A-Z].*"],
+    "source_sub_whishlist": ["^.?Assignment.?\\.pdf$"],
     "max_path_length": 230,
     "source_blacklist": [
         "^(?!((EAV|MSD|VBA)[0-9]{2}[A-Z]{3}[0-9]{3}[0-9A-Z])|(.*\\.(txt|pdf)$))",

@@ -11,6 +11,7 @@
     "select_destination": "Select destination directory",
     "select_destination_first": "Select destination directory first",
     "select_todo": "What should happen after the upload?",
+    "no_reachable_destination": "No reachable destination directory, please contact Admin or Support.",
     "todo": "To do",
     "todo_tip": "Selection, what to do after the upload.\nIf a task is selected, a ready.txt and a metadata file will be created.",
     "create_todo": "Trigger further processing",
@@ -39,6 +40,10 @@
     "missing_name": "Missing user / missing email address",
 	"checking_source": "Checking source directory #",
     "missing_source": "Source directory missing",
+    "not_a_directory": "Path # is not a directory",
+    "not_a_valid_directory": "Path # is not a valid directory",
+    "file_not_found": "File # not found",
+
     "path_too_long": "Path\n\n#1\n\nis too long, #2 characters, max. #3 are allowed",
     "ignore_path_length": "Ignore path length check?\n\nAbort unless you know what you are doing!",
     "blacklisted": "Path is restricted by blacklist:\n\n#1\n\nregex pattern: \"#2\"",

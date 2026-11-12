@@ -10,6 +10,7 @@
     "destination_tip": "Zielverzeichnis für den Kopiervorgang\n(Unterverzeichnis des Importordners).",
     "select_destination": "Wähle das Zielverzeichnis aus",
     "select_destination_first": "Wähle zuerst das Zielverzeichnis",
+    "no_reachable_destination": "Kein erreichbares Zielverzeichnis, bitte Admin oderSupport kontaktieren.",
     "select_todo": "Was soll nach dem Upload erfolgen?",
     "todo": "Weiterverarbeitung",
     "todo_tip": "Auswahl, was nach dem Upload erfolgen soll.\nDie Weiterverarbeitung kann hiermit ausgelöst werden.\nDies bedeutet, dass eine fertig.txt und eine Metadaten-\nDatei im Importverzeichnis erstellt werden.",
@@ -39,6 +40,10 @@
     "missing_name": "Fehlender Bearbeiter / fehlende E-Mail-Adresse",
 	"checking_source": "Prüfe Quellverzeichnis #",
     "missing_source": "Quellverzeichnis fehlt",
+    "not_a_directory": "Pfad # ist kein Verzeichnis",
+    "not_a_valid_directory": "Pfad # ist kein gültiges Verzeichnis",
+    "file_not_found": "Datei # nicht gefunden",
+
     "path_too_long": "Pfad\n\n#1\n\nist zu lang, #2 Zeichen, max. #3 sind zulässig",
     "ignore_path_length": "Pfadlängenprüfung ausschalten?\n\nNur fortfahren, wenn Sie wissen, was Sie tun!",
     "blacklisted": "Unerlaubter Pfad (Blacklist):\n\n#1\n\nRegEx-Muster: \"#2\"",
