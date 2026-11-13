@@ -18,14 +18,14 @@ class Worker:
 
 	def __init__(
 		self,
-		sources: list[Source],
+		source: Source,
 		settings: Settings,
 		logger: Log,
 		user_log: Path | None = None,
 		kill: Event | None = None,
 		echo: Callable[..., None] = print,
 	) -> None:
-		self._sources = sources
+		self._source = source
 		self._settings = settings
 		self._labels = settings.labels
 		self._destination = settings.destination

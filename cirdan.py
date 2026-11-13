@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = "Markus Thilo"
-__version__ = "2.1.0_2026-11-12"
+__version__ = "2.1.0_2026-11-13"
 __license__ = "GPL-3"
 __email__ = "markus.thilo@proton.me"
 __status__ = "Testing"
@@ -78,7 +78,6 @@ if __name__ == "__main__":  # start here when run as application
 			Gui.startup_error(msg)
 		raise RuntimeError(msg) from None
 	try:	# now we have logging
-		source_path = args.source.resolve() if args.source else None
 		settings.set_todo(args.todo)
 	except Exception:
 		msg = logger.crash()
@@ -86,12 +85,29 @@ if __name__ == "__main__":  # start here when run as application
 			Gui.startup_error(msg)
 		raise RuntimeError(msg) from None
 	if  use_gui:	# gui mode
-		Gui(settings, logger, source_path).mainloop()	# launch gui window
+		Gui(settings, logger, args.source).mainloop()	# launch gui window
 	else:	# console mode
-		if not source_path.is_dir():
-			msg = logger.crash(f"Source is not a directory: {source_path}")
-			raise RuntimeError(msg) from None
-		if Worker([Source(source_path, settings)], settings, logger).run():
+		source = Source(settings)
+		if args.nocheck:
+			source.set_no_check()
+		for abs_path, error in source.set(args.source):
+			print(f"{settings.labels.checking} {abs_path}")
+			if isinstance(error, int):
+				raise OSError(
+					settings.labels.path_too_long.replace(
+						"#1", str(abs_path)).replace(
+						"#2", str(error)).replace(
+						"#3", str(settings.max_path_length)
+					)
+				) from None
+			elif isinstance(error, str):
+				raise OSError(
+					settings.labels.blacklisted.replace(
+						"#1", str(abs_path)).replace(
+						"#2", str(error)
+					)
+				) from None
+		if Worker(source, settings, logger).run():
 			exit(1)
 	exit(0)
 	

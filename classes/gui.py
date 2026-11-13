@@ -6,7 +6,7 @@ from threading import current_thread, main_thread
 from collections.abc import Callable
 from tkinter import Tk, PhotoImage, StringVar, BooleanVar, TclError
 from tkinter.font import nametofont
-from tkinter.ttk import Frame, Label, Entry, Button, Checkbutton, OptionMenu, Style
+from tkinter.ttk import Frame, Label, Entry, Button, Checkbutton, OptionMenu, Style, Treeview, Scrollbar
 from tkinter.scrolledtext import ScrolledText
 from tkinter.messagebox import askyesno, showerror, showinfo
 from tkinter.filedialog import askdirectory, asksaveasfilename
@@ -147,14 +147,30 @@ class Gui(Tk):
 			self._source_button = Button(self, text=self.labels.source_dir, command=self._select_source)
 			self._source_button.grid(row=0, column=0, sticky="nw", ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
 			Hovertip(self._source_button, self.labels.source_tip)
-			self.sources: list[Source] = list()
-			self._source_text = ScrolledText(self, font=(font_family, font_size), padx=self._pad, pady=self._pad)
-			self._source_text.grid(row=0, column=1, sticky="nswe", ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
-			self._source_text.configure(state="disabled")
-			self._source_text.bind("<Key>", lambda dummy: "break")
-			self._delete_button = Button(self, text=self.labels.delete_source, command=self._delete_source)
-			self._delete_button.grid(row=1, column=1, sticky="ne", padx=self._pad)
-			Hovertip(self._delete_button, self.labels.delete_source_tip)
+
+			#self.sources: list[Source] = list()
+			#self._source_text = ScrolledText(self, font=(font_family, font_size), padx=self._pad, pady=self._pad)
+			#self._source_text.grid(row=0, column=1, sticky="nswe", ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=self._pad)
+			#self._source_text.configure(state="disabled")
+			#self._source_text.bind("<Key>", lambda dummy: "break")
+			#self._delete_button = Button(self, text=self.labels.delete_source, command=self._delete_source)
+			#self._delete_button.grid(row=1, column=1, sticky="ne", padx=self._pad)
+			#Hovertip(self._delete_button, self.labels.delete_source_tip)
+
+			frame = Frame(self)
+			frame.grid(row=1, column=1, sticky='nswe', padx=self._pad, pady=self._pad)
+			self._source_tree = Treeview(frame, show='tree', selectmode='browse')
+			self._source_tree.bind('<Double-Button-1>', self._get_source_tree_item)
+			self._source_tree.pack(side='left', fill='both', expand=True)
+			vsb = Scrollbar(frame, orient='vertical', command=self._source_tree.yview)
+			vsb.pack(side='right', fill='y')
+			self._source_tree.configure(yscrollcommand=vsb.set)
+
+			self.source = Source(self.settings)
+			if source:
+				self.source.set(source)
+				self._gen_source_tree()
+
 			label = Label(self, text=f"{self.labels.destination}:")
 			label.grid(row=2, column=0, sticky="w", padx=(2*self._pad, 0), pady=self._pad)
 			Hovertip(label, self.labels.destination_tip)
@@ -170,7 +186,7 @@ class Gui(Tk):
 					*self.settings.accessible_destinations.keys(),
 					command=self._destination_selected
 				).grid(row=2, column=1, sticky="ew", padx=self._pad)
-			if len(self.settings.accessible_destinations) == 1:
+			elif len(self.settings.accessible_destinations) == 1:
 				self.destination.set(
 					self.settings.destination.name if self.settings.destination else ""
 				)
@@ -178,8 +194,6 @@ class Gui(Tk):
 					self,
 					text=self.settings.destination.name if self.settings.destination else self.labels.select_destination,
 				).grid(row=2, column=1, columnspan=2, sticky="w", padx=self._pad)
-			else:
-				raise RuntimeError(self.labels.no_reachable_destination)
 			label = Label(self, text=f"{self.labels.todo}:")
 			label.grid(row=3, column=0, sticky="w", padx=(2*self._pad, 0), pady=(0, self._pad))
 			Hovertip(label, self.labels.todo_tip)
@@ -297,14 +311,35 @@ class Gui(Tk):
 							self._prepare_dialog()
 							showerror(parent=self, title=self.labels.error, message=f"{self.labels.update_error}:\n{msg}")
 			self._init_warning()
-			if source:
-				self._check_source_thread = CheckSourceThread(self, source)
-				self._check_source_thread.start()
+			if len(self.settings.accessible_destinations) < 1:
+				raise RuntimeError(self.labels.no_reachable_destination)
 		except Exception:
 			msg = self.logger.crash()
 			self._prepare_dialog()
 			showerror(parent=self, title=self.labels.error, message=msg)
 			self.destroy()
+
+	def _gen_source_tree(self):
+		'''Generate Treeview for Source'''
+		self._source_tree.delete(*self._source_tree.get_children())
+		self._source_tree.insert("", 0,
+			text = self.labels.no_top_dir if self.source.file_cnt == 0 else self.source.top_dir_name,
+			open = True
+		)
+		for path, size, file_cnt in self.source.sub_dirs:
+			self._source_tree.insert("I001", "end",
+				text = f"\U0001F5C0 {path.name}",
+				iid = path.name
+			)
+		for path, size in self.source.sub_files:
+			self._source_tree.insert("I001", "end",
+				text = f"\U0001F5C5 {path.name}",
+				iid = path.name
+			)
+
+	def _get_source_tree_item(self, event):
+		'''Focus to directory'''
+		return self._source_tree.identify('item', event.x, event.y)
 
 	def _destination_selected(self, *_: object) -> None:
 		"""Set destination and change todo menu when changing destination"""
