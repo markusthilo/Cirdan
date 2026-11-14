@@ -9,7 +9,9 @@
     "add_sub_dir_tip": "Füge ein Unterverzeichnis (EAV-Nr.)hinzu",
     "add_sub_file": "Datei",
     "add_sub_file_tip": "Füge eine Datei auf EAV-Verzeichnisebene hinzu",
-    "source_tip": "Füge das zu kopierende Verzeichnis hinzu (POLIKS-Vorgangsnummer).\nHinweis: Nach der Auswahl erfolgt eine Prüfung, die ggf. etwas Zeit benötigt.",
+    "select_top_dir": "Wähle das POLIKS-Verzeichnis aus",
+
+
     "destination": "Zielverzeichnis",
     "delete_source": "Eintrag löschen",
     "delete_source_tip": "Lösche den markierten Eintrag aus der obigen Liste",

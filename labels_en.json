@@ -9,6 +9,9 @@
     "add_sub_dir_tip": "Add a directory at the 2nd level",
     "add_sub_file": "File",
     "add_sub_file_tip": "Add a file at the 2nd level",
+    "select_top_dir": "Select the top-directory",
+
+
     "delete_source": "Delete entry",
     "delete_source_tip": "Delete entry from the source list above",
     "destination": "Destination Directory",

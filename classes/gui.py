@@ -321,6 +321,63 @@ class Gui(Tk):
 			showerror(parent=self, title=self.labels.error, message=msg)
 			self.destroy()
 
+	def _select_top_dir(self) -> None:
+		"""Select top-directory to add"""
+		if src_dir := askdirectory(title=self.labels.select_top_dir, mustexist=True):
+			try:
+				for path, size, file_cnt in self.source.add_top_dir(src_dir):
+					self._source_tree.insert("", 0,
+						text = f"\U0001F5C0 {path.name}",
+						iid = path.name
+					)
+			except Exception:
+				self._prepare_dialog()
+				showerror(parent=self, title=self.labels.error, message=self.logger.error())
+				return
+			source = Path(source).resolve()
+			self.source.add_top_dir(source)
+			self._gen_source_tree()
+
+	def add_source(self, source: Source) -> None:
+		"""Run this after adding source (called from CheckSourceThread)"""
+		self._call_ui(self._add_source, source)
+
+	def _add_source(self, source: Source) -> None:
+		self._check_source_thread = None
+		self._clear_info()
+		self._source_text.configure(state="normal")
+		self._source_text.insert("end", f"{source}\n")
+		self._source_text.configure(state="disabled")
+		self._enable_buttons()
+		self.sources.append(source)
+		Log.info(self.labels.added_source.replace("#", f"{source}"))
+
+	def abort_source_check(self) -> None:
+		"""Run this after checking source and not adding it (called from CheckSourceThread)"""
+		self._call_ui(self._abort_source_check)
+
+	def _abort_source_check(self) -> None:
+		self._check_source_thread = None
+		self._enable_buttons()
+		Log.info(self.labels.aborted_source_check)
+
+	def _delete_source(self) -> None:
+		"""Delete last source directory from list"""
+		if self.sources:
+			self.sources.pop()
+			self._source_text.configure(state="normal")
+			self._source_text.delete("end-2l", "end-1l")
+			self._source_text.configure(state="disabled")
+
+	def _clear_source_text(self) -> None:
+		"""Clear source list"""
+		self._source_text.configure(state="normal")
+		self._source_text.delete("1.0", "end")
+		self._source_text.configure(state="disabled")
+		self.sources = list()
+
+
+
 	def _gen_source_tree(self):
 		'''Generate Treeview for Source'''
 		self._source_tree.delete(*self._source_tree.get_children())
@@ -417,56 +474,6 @@ class Gui(Tk):
 			return
 		self.echo(self.labels.todo_created.replace('#1', f'{todo}').replace('#2', selected_path.name))
 		self._quit_button.configure(state="normal")
-
-	def _select_source(self) -> None:
-		"""Select directory to add into field"""
-		if source := askdirectory(title=self.labels.select_dir, mustexist=True):
-			source = Path(source).resolve()
-			if any(source == item.path for item in self.sources):
-				self._prepare_dialog()
-				showerror(parent=self, title=self.labels.error, message=self.labels.already_added.replace("#", f"{source}"))
-				return
-			self._disable_buttons()
-			self._check_source_thread = CheckSourceThread(self, source)
-			self._check_source_thread.start()
-
-	def add_source(self, source: Source) -> None:
-		"""Run this after adding source (called from CheckSourceThread)"""
-		self._call_ui(self._add_source, source)
-
-	def _add_source(self, source: Source) -> None:
-		self._check_source_thread = None
-		self._clear_info()
-		self._source_text.configure(state="normal")
-		self._source_text.insert("end", f"{source}\n")
-		self._source_text.configure(state="disabled")
-		self._enable_buttons()
-		self.sources.append(source)
-		Log.info(self.labels.added_source.replace("#", f"{source}"))
-
-	def abort_source_check(self) -> None:
-		"""Run this after checking source and not adding it (called from CheckSourceThread)"""
-		self._call_ui(self._abort_source_check)
-
-	def _abort_source_check(self) -> None:
-		self._check_source_thread = None
-		self._enable_buttons()
-		Log.info(self.labels.aborted_source_check)
-
-	def _delete_source(self) -> None:
-		"""Delete last source directory from list"""
-		if self.sources:
-			self.sources.pop()
-			self._source_text.configure(state="normal")
-			self._source_text.delete("end-2l", "end-1l")
-			self._source_text.configure(state="disabled")
-
-	def _clear_source_text(self) -> None:
-		"""Clear source list"""
-		self._source_text.configure(state="normal")
-		self._source_text.delete("1.0", "end")
-		self._source_text.configure(state="disabled")
-		self.sources = list()
 
 	def _select_log(self) -> None:
 		"""Select directory"""

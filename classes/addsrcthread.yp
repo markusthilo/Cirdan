@@ -11,13 +11,13 @@ from classes.path import Path
 if TYPE_CHECKING:
 	from classes.gui import Gui
 
-class CheckSourceThread(Thread):
+class AddThread(Thread):
 	"""Thread that checks if a directory is a valid source"""
 
-	def __init__(self, gui: Gui, source_dir: Path) -> None:
+	def __init__(self, gui: Gui, top_src_dir) -> None:
 		"""Pass source directory to add to GUI"""
 		self._gui = gui
-		self._source = Source(source_dir, self._gui.settings)
+		self._source = gui.source
 		super().__init__(daemon=True)
 		self._kill_event = Event()
 
