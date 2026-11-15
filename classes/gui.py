@@ -15,7 +15,7 @@ from classes.logger import Logger as Log
 from classes.path import Path
 from classes.update import Update
 from classes.sendmail import SendMail
-from classes.checksourcethread import CheckSourceThread
+from classes.addsrcdirthread import AddSrcDirThread
 from classes.workthread import WorkThread
 from classes.tododialog import ToDoDialog
 from classes.messagedialog import prepare_message_parent
