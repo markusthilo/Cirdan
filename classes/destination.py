@@ -65,21 +65,10 @@ class Destination:
 		self.sub_dir_paths.sort(key=lambda path: path.name)
 		return self.sub_dir_paths
 
-	def delete_trigger(self, todo: str, sub_dir_path: Path) -> None:
+	def delete_trigger(self, todo: str, dir_name: str) -> None:
 		"""Delete trigger file if given"""
 		if filename := self.todos[todo].get("delete_name"):
-			sub_dir_path.joinpath(filename).unlink(missing_ok=True)
-
-	def count_paths(self, sub_dir_path: Path, echo: Callable[..., None] = print) -> dict[str, int]:
-		"""Count paths given by "count_paths" RegEx patterns in sub directory"""
-		if not self._countlist:
-			return {}
-		counted_paths = {pattern: 0 for pattern in self._countlist.get_patterns()}
-		for path, relative in sub_dir_path.rrglob("*"):
-			if pattern := self._countlist.search(relative):
-				counted_paths[pattern] += 1
-			echo(f"{self._settings.labels.checking} {relative}")
-		return counted_paths
+			self.path.joinpath(dir_name, filename).unlink(missing_ok=True)
 
 	def write_meta(self, todo: str, sub_dir_path: Path, counted_paths: dict[str, int] | None = None) -> None:
 		"""Write meta file if given"""

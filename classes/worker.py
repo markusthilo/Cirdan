@@ -7,7 +7,7 @@ from classes.logger import Logger as Log
 from classes.path import Path
 from classes.copymd5 import CopyMD5
 from classes.size import Size
-from classes.gimmicks import IndicatorThread
+from classes.gimmicks import Rotator
 from classes.regex import RegEx
 from classes.sendmail import SendMail
 from classes.source import Source
@@ -27,82 +27,88 @@ class Worker:
 	) -> None:
 		self._source = source
 		self._settings = settings
-		self._labels = settings.labels
-		self._destination = settings.destination
 		self._logger = logger
 		self._user_log = user_log
+		if user_log:
+			self._logger.add_user(user_log)
 		self._kill_switch = kill
 		self._echo = echo
-		self._mail_address = (
-			f"{self._settings.mail_to}@{self._settings.domain}"
-			if self._settings.mail_to else None
-		)
-		self.errors: list[str] = []
+		self._mail_address = f"{self._settings.mail_to}@{self._settings.domain}" if self._settings.mail_to else None
+		self._destination_path = self._settings.destination_path / source.name
+
+		self._tsv_path = None
+		self._processed_bytes = Size(0)
+		self._processed_files = 0
+		self._read_errors = 0
+		self._write_errors = 0
+		self._mismatches = 0
+		self._indicator = Rotator()
 
 	def _killed(self) -> bool:
 		"""True when the kill switch has been set"""
 		return bool(self._kill_switch and self._kill_switch.is_set())
 
-	def _error(self, message: str | None = None) -> None:
+	def _error(self, copymd5: CopyMD5) -> str:
 		"""Handle error"""
-		msg = Log.error(message=message)
-		self._echo(msg)
-		self.errors.append(msg)
-
-	def _check_sources(self, destination_root_path: Path) -> list[str] | None:
-		"""Validate sources (and existing destination trees); None means killed"""
-		for source in self._sources:
-			Log.info(self._labels.checking_source.replace("#", f"{source}"))
-			for path, bad in source.check(kill=self._kill_switch):
-				if self._killed():
-					return None
-				self._echo(f"{path}", end="\r")
-				if isinstance(bad, int):
-					self._echo()
-					self._error(
-						self._labels.path_too_long
-						.replace("#1", f"{path}")
-						.replace("#2", f"{bad}")
-						.replace("#3", f"{self._settings.max_path_length}")
-					)
-					return self.errors
-				if isinstance(bad, str):
-					self._echo()
-					self._error(
-						self._labels.blacklisted
-						.replace("#1", f"{path}")
-						.replace("#2", f"{bad}")
-					)
-					return self.errors
-			if self._killed():
-				return None
-			if source.whitelist and not source.whitelist_match:
-				self._echo()
-				self._error(self._labels.no_whitelist_match.replace("#", f"{source.path}"))
-				return self.errors
-			Log.info(
-				self._labels.found_files_in_source
-				.replace("#1", f"{source.files}")
-				.replace("#2", f"{source.path}")
-				.replace("#3", f"{source.size}")
+		stderr = copymd5.read_stderr().strip()
+		try:
+			read_errors, write_errors, mismatches = (int(p.split("(")[0]) for p in stderr.split(":")[1].split("/")[:3])
+			msg = Log.error(message=self._settings.labels.copy_error.replace(
+				"#1", f"{copymd5}").replace(
+				"#2", read_errors).replace(
+				"#3", write_errors).replace(
+				"#4", mismatches
 			)
-			if self._settings.destination_blacklist:
-				destination_path = destination_root_path / source.name
-				if destination_path.is_dir():
-					Log.info(self._labels.checking_destination.replace("#", f"{destination_path}"))
-					blacklist = RegEx(self._settings.destination_blacklist)
-					for path, relative in destination_path.rrglob("*"):
-						if self._killed():
-							return None
-						if pattern := blacklist.search(relative):
-							self._error(
-								self._labels.destination_blocked_by
-								.replace("#1", path.name)
-								.replace("#2", f"{pattern}")
-							)
-							self._echo()
-							return self.errors
-		return self.errors if self.errors else []
+			self._read_errors += read_errors
+			self._write_errors += write_errors
+			self._mismatches += mismatches
+		except ValueError, IndexError:
+			msg = stderr
+		Log.error(msg)
+		return msg
+
+	def _update_progress(self, line: str, old_processed_files: int) -> None:
+		"""Update progress"""
+		if not (stripped := line.strip()):
+			try:
+				splitted = stripped.split()
+				processed_files = int(splitted[1])
+				if processed_files > old_processed_files:
+					self._processed_bytes += Size(splitted[0])
+					self._processed_files += processed_files
+			except ValueError, IndexError:
+				pass
+		return self._settings.labels.copy_progress.replace(
+			"#1", f"{self._processed_bytes}").replace(
+			"#2", f"{self._source.size}").replace(
+			"#3", f"{self._processed_files}").replace(
+			"#4", f"{self._source.file_cnt}").replace(
+			"#5", f"{self._source.size % self._processed_bytes}"
+		) + f" {self._indicator.get()}"
+
+	def _copy_file(self, src_path: Path) -> bool:
+		"""Copy one file"""
+		copymd5 = CopyMD5(src_path, self._destination_path, self._tsv_path)
+		Log.info(self._settings.labels.running.replace("#", f"{copymd5}"))
+		if copymd5.wait() != 0:
+			self.echo(self._error(copymd5))
+
+	def _copy_directory(self, src_path: Path) -> bool:
+		"""Copy one directory"""
+		copymd5 = CopyMD5(src_path, self._destination_path, self._tsv_path)
+		Log.info(self._settings.labels.running.replace("#", f"{copymd5}"))
+		for line in copymd5.stdout:
+			if self._killed():
+				copymd5.terminate()
+				return None
+			if not (stripped := line.strip()):
+				continue
+			self._echo(self._update_progress(stripped, self._processed_files), end="\r")
+		if copymd5.wait() != 0:
+			self.echo(self._error(copymd5))
+		
+
+
 
 	def _copy_source(self, source: Source, destination_root_path: Path) -> bool | None:
 		"""
@@ -265,34 +271,25 @@ class Worker:
 	def run(self) -> list[str] | None:
 		"""Copy process; return error list, or None if killed"""
 		try:
-			if not self._sources:
-				self._error(self._labels.no_sources)
-				return self.errors
-			if not self._destination:
-				self._error(self._labels.bad_destination.replace("#", ""))
-				return self.errors
-			destination_root_path = self._destination.path
-			if not destination_root_path.is_accessible():
-				self._error(
-					self._labels.bad_destination.replace("#", f"{destination_root_path}")
-				)
-				return self.errors
-			if self._user_log:
-				self._logger.add_user(self._user_log)
+			self.self._source.name
+		try:
+			self._tsv_path = self._destination_path.write_text_file(
+				self._settings.tsv_name,
+				self._settings.tsv_header,
+				use_strftime=True,
+			)
+		except OSError:
+			return self._error(self._settings.labels.bad_destination.replace("#", f"{self._destination_path}"))
+		try:
 
-			checked = self._check_sources(destination_root_path)
-			if checked is None:
-				return None
-			if self.errors:
-				return self.errors
 
-			for source in self._sources:
+		 in self._sources:
 				result = self._copy_source(source, destination_root_path)
 				if result is None:
 					return None
 			return self.errors
-		finally:
-			try:
-				self._logger.close_user()
-			except Exception:
-				Log.warning()
+
+		try:
+			self._logger.close_user()
+		except Exception:
+			Log.warning()

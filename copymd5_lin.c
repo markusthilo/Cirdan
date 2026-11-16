@@ -1,17 +1,22 @@
-/* Recursively copy a source directory into a destination directory.
- * Several files are copied at once. Each file uses overlapped transfers
- * (512 MiB when that buffer can be allocated) and a direct MD5.
- * For each file, prints the relative path in quotes, a tab, the digest, a
- * tab, the size in bytes, a tab, and OK. A failed read prints FAILED, FAILED,
- * and ERROR. A failed write prints the digest, the size, and ERROR.
- * A size mismatch prints the digest, ERROR, and ERROR.
- * Stdout is flushed once a second. A blank line follows, then a summary of
- * the file count, byte count, and elapsed time.
+/* Copy one source file or directory into a destination directory.
+ * A directory is copied recursively. Several files are copied at once.
+ * Each file uses overlapped transfers (512 MiB when that buffer can be
+ * allocated) and a direct MD5.
+ * Each file appends one tab-separated line to the tsv file:
+ * "<relative_path>" <md5> <source_size> <destination_size> <result>.
+ * A failed read appends ERROR, the source size, ERROR, and READ_ERROR.
+ * A failed write appends the digest, both sizes, and WRITE_ERROR.
+ * A size mismatch appends the digest, both sizes, and SIZE_MISMATCH.
+ * A new tsv file starts with a header. An existing tsv file is appended to.
+ * Stdout prints the bytes written so far and the number of copied files,
+ * separated by a space, and is flushed once a second. When any file fails,
+ * stderr ends with the write, read, and size-mismatch counts. Stderr stays
+ * empty when the copy succeeds.
  *
  * gcc -O2 -o copymd5 copymd5_lin.c -pthread
  */
 
-#define VERSION "0.0.1-2026-10-06"
+#define VERSION "0.0.3-2026-11-16"
 
 #define _GNU_SOURCE
 #define _FILE_OFFSET_BITS 64
@@ -43,9 +48,14 @@ static pthread_mutex_t g_flush_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t g_flush_cond = PTHREAD_COND_INITIALIZER;
 static int g_flush_stop;
 static long long g_files;
-static long long g_bytes;
 static long long g_processed;
+static long long g_read_errors;
+static long long g_write_errors;
+static long long g_size_mismatches;
 static int g_io_error;
+static FILE *g_tsv;
+static const char *g_tsv_path;
+static const char g_tsv_header[] = "Path\tMD5\tSourceSize\tDestinationSize\tResult\n";
 
 struct md5 {
 	unsigned int s[4];
@@ -281,6 +291,43 @@ static char *full_path(const char *path)
 
 	if (out)
 		strip_dir_slash(out);
+	return out;
+}
+
+static char *resolve_tsv_path(const char *path)
+{
+	char *out, *dir, *dir_full;
+	const char *slash;
+	size_t dlen;
+
+	out = realpath(path, NULL);
+	if (out)
+		return out;
+	if (errno != ENOENT)
+		return NULL;
+	slash = strrchr(path, '/');
+	if (!slash) {
+		dir_full = realpath(".", NULL);
+		if (!dir_full)
+			return NULL;
+		out = join_dir_file(dir_full, path);
+		free(dir_full);
+		return out;
+	}
+	if (slash == path)
+		return strdup(path);
+	dlen = (size_t)(slash - path);
+	dir = malloc(dlen + 1);
+	if (!dir)
+		return NULL;
+	memcpy(dir, path, dlen);
+	dir[dlen] = 0;
+	dir_full = realpath(dir, NULL);
+	free(dir);
+	if (!dir_full)
+		return NULL;
+	out = join_dir_file(dir_full, slash + 1);
+	free(dir_full);
 	return out;
 }
 
@@ -692,28 +739,107 @@ static int same_size(const char *src, const char *dst)
 	return a.st_size == b.st_size;
 }
 
-static void print_result(const unsigned char md5[16], const char *rel, unsigned long long size, int kind)
+static void file_size(const char *path, unsigned long long *size)
 {
-	int i;
+	struct stat st;
 
-	pthread_mutex_lock(&g_out_lock);
-	fprintf(stdout, "\"%s\"\t", rel);
+	if (stat(path, &st) == 0)
+		*size = (unsigned long long)st.st_size;
+}
+
+static void tsv_write_error(void)
+{
+	int e = errno ? errno : EIO;
+
+	__sync_lock_test_and_set(&g_io_error, 1);
+	errno = e;
+	fail_path(g_tsv_path ? g_tsv_path : "tsv", "Write tsv");
+}
+
+static int open_tsv(const char *path)
+{
+	struct stat st;
+	size_t n;
+	int exists = 0;
+
+	g_tsv_path = path;
+	if (stat(path, &st) == 0) {
+		if (!S_ISREG(st.st_mode)) {
+			fprintf(stderr, "TSV path is not a file: %s\n", path);
+			return 1;
+		}
+		exists = 1;
+	} else if (errno != ENOENT) {
+		fail_path(path, "Open tsv");
+		return 1;
+	}
+	g_tsv = fopen(path, exists ? "ab" : "wb");
+	if (!g_tsv) {
+		fail_path(path, "Open tsv");
+		return 1;
+	}
+	if (exists)
+		return 0;
+	n = sizeof(g_tsv_header) - 1;
+	if (fwrite(g_tsv_header, 1, n, g_tsv) != n || fflush(g_tsv) != 0) {
+		fail_path(path, "Write tsv");
+		return 1;
+	}
+	return 0;
+}
+
+static void write_result(const unsigned char md5[16], const char *rel,
+	unsigned long long src_size, unsigned long long dst_size, int kind)
+{
+	size_t rel_len = strlen(rel);
+	size_t cap = rel_len + 128;
+	char *line = malloc(cap);
+	int pos, i;
+	size_t n;
+
+	if (kind == 1)
+		__sync_fetch_and_add(&g_read_errors, 1);
+	else if (kind == 2)
+		__sync_fetch_and_add(&g_write_errors, 1);
+	else if (kind == 3)
+		__sync_fetch_and_add(&g_size_mismatches, 1);
+	if (!line) {
+		tsv_write_error();
+		return;
+	}
+	pos = snprintf(line, cap, "\"%s\"\t", rel);
+	if (pos < 0 || (size_t)pos >= cap) {
+		free(line);
+		tsv_write_error();
+		return;
+	}
 	if (kind == 1) {
-		fprintf(stdout, "FAILED\tFAILED\tERROR\n");
-		pthread_mutex_unlock(&g_out_lock);
-		return;
-	}
-	if (md5) {
+		pos += snprintf(line + pos, cap - (size_t)pos, "ERROR\t%llu\tERROR\tREAD_ERROR\n", src_size);
+	} else {
 		for (i = 0; i < 16; i++)
-			fprintf(stdout, "%02x", md5[i]);
+			pos += snprintf(line + pos, cap - (size_t)pos, "%02x", md5[i]);
+		if (kind == 2)
+			pos += snprintf(line + pos, cap - (size_t)pos, "\t%llu\t%llu\tWRITE_ERROR\n", src_size, dst_size);
+		else if (kind == 3)
+			pos += snprintf(line + pos, cap - (size_t)pos, "\t%llu\t%llu\tSIZE_MISMATCH\n", src_size, dst_size);
+		else
+			pos += snprintf(line + pos, cap - (size_t)pos, "\t%llu\t%llu\tOK\n", src_size, dst_size);
 	}
-	if (kind == 3) {
-		fprintf(stdout, "\tERROR\tERROR\n");
-		pthread_mutex_unlock(&g_out_lock);
+	if (pos < 0 || (size_t)pos >= cap) {
+		free(line);
+		tsv_write_error();
 		return;
 	}
-	fprintf(stdout, "\t%llu\t%s\n", size, kind ? "ERROR" : "OK");
+	n = (size_t)pos;
+	pthread_mutex_lock(&g_out_lock);
+	if (!g_tsv || fwrite(line, 1, n, g_tsv) != n || fflush(g_tsv) != 0) {
+		pthread_mutex_unlock(&g_out_lock);
+		free(line);
+		tsv_write_error();
+		return;
+	}
 	pthread_mutex_unlock(&g_out_lock);
+	free(line);
 }
 
 struct job {
@@ -771,6 +897,30 @@ static int enqueue(struct job_queue *q, char *src, char *dst, char *rel)
 	return 0;
 }
 
+static int queue_file(const char *src, const char *dst_dir, struct job_queue *q)
+{
+	const char *name = basename_p(src);
+	char *src_dup = strdup(src);
+	char *dst = join_dir_file(dst_dir, name);
+	char *rel = strdup(name);
+
+	if (!src_dup || !dst || !rel) {
+		free(src_dup);
+		free(dst);
+		free(rel);
+		fail("Build path");
+		return 1;
+	}
+	if (enqueue(q, src_dup, dst, rel)) {
+		free(src_dup);
+		free(dst);
+		free(rel);
+		fail("Queue file");
+		return 1;
+	}
+	return 0;
+}
+
 static struct job *dequeue(struct job_queue *q)
 {
 	struct job *j;
@@ -808,7 +958,7 @@ static void *copy_task(void *param)
 	struct job_queue *q = param;
 	void *buf[2] = {NULL, NULL};
 	unsigned char md5[16];
-	unsigned long long copied;
+	unsigned long long copied = 0;
 	size_t xfer;
 
 	xfer = alloc_buffers(buf);
@@ -848,19 +998,29 @@ static void *copy_task(void *param)
 		if (!err) {
 			xfer = use;
 			if (!same_size(j->src, j->dst)) {
+				unsigned long long src_sz = copied, dst_sz = 0;
+
 				__sync_lock_test_and_set(&g_io_error, 1);
-				print_result(md5, j->rel, copied, 3);
+				file_size(j->src, &src_sz);
+				file_size(j->dst, &dst_sz);
+				write_result(md5, j->rel, src_sz, dst_sz, 3);
 			} else {
 				__sync_fetch_and_add(&g_files, 1);
-				__sync_fetch_and_add(&g_bytes, (long long)copied);
-				print_result(md5, j->rel, copied, 0);
+				write_result(md5, j->rel, copied, copied, 0);
 			}
 		} else {
 			__sync_lock_test_and_set(&g_io_error, 1);
-			if (write_fail && !hash_file(j->src, buf[0], xfer, md5, &copied))
-				print_result(md5, j->rel, copied, 2);
-			else
-				print_result(NULL, j->rel, 0, 1);
+			if (write_fail && !hash_file(j->src, buf[0], xfer, md5, &copied)) {
+				unsigned long long dst_sz = 0;
+
+				file_size(j->dst, &dst_sz);
+				write_result(md5, j->rel, copied, dst_sz, 2);
+			} else {
+				unsigned long long src_sz = 0;
+
+				file_size(j->src, &src_sz);
+				write_result(NULL, j->rel, src_sz, 0, 1);
+			}
 		}
 		free(j->src);
 		free(j->dst);
@@ -910,12 +1070,8 @@ static int copy_tree(const char *src, const char *dst, const char *rel, struct j
 			rc = 1;
 			goto next;
 		}
-		if (S_ISLNK(st.st_mode)) {
-			pthread_mutex_lock(&g_out_lock);
-			fprintf(stderr, "Skipping symbolic link: %s\n", child_src);
-			pthread_mutex_unlock(&g_out_lock);
+		if (S_ISLNK(st.st_mode))
 			goto next;
-		}
 		if (S_ISDIR(st.st_mode)) {
 			if (mkdir(child_dst, 0777) != 0 && errno != EEXIST) {
 				fail_path(child_dst, "Create directory");
@@ -940,10 +1096,6 @@ static int copy_tree(const char *src, const char *dst, const char *rel, struct j
 				child_dst = NULL;
 				child_rel = NULL;
 			}
-		} else {
-			pthread_mutex_lock(&g_out_lock);
-			fprintf(stderr, "Skipping special file: %s\n", child_src);
-			pthread_mutex_unlock(&g_out_lock);
 		}
 
 	next:
@@ -962,23 +1114,22 @@ static int copy_tree(const char *src, const char *dst, const char *rel, struct j
 	return rc;
 }
 
-static void *flush_stdout(void *arg)
+static void show_progress(void)
 {
-	(void)arg;
-	pthread_mutex_lock(&g_flush_lock);
-	while (!g_flush_stop) {
-		struct timespec ts;
+	pthread_mutex_lock(&g_out_lock);
+	fprintf(stdout, "%lld %lld\n", g_processed, g_files);
+	fflush(stdout);
+	pthread_mutex_unlock(&g_out_lock);
+}
 
-		clock_gettime(CLOCK_REALTIME, &ts);
-		ts.tv_sec += 1;
-		if (pthread_cond_timedwait(&g_flush_cond, &g_flush_lock, &ts) == ETIMEDOUT) {
-			pthread_mutex_lock(&g_out_lock);
-			fflush(stdout);
-			pthread_mutex_unlock(&g_out_lock);
-		}
-	}
-	pthread_mutex_unlock(&g_flush_lock);
-	return NULL;
+static void report_errors(void)
+{
+	if (!g_write_errors && !g_read_errors && !g_size_mismatches)
+		return;
+	pthread_mutex_lock(&g_out_lock);
+	fprintf(stderr, "ERRORS occurred: %lld / %lld / %lld (WRITE ERRORS / READ ERRORS / SIZE MISMATCHES)\n",
+		g_write_errors, g_read_errors, g_size_mismatches);
+	pthread_mutex_unlock(&g_out_lock);
 }
 
 static void *progress_stdout(void *arg)
@@ -990,11 +1141,8 @@ static void *progress_stdout(void *arg)
 
 		clock_gettime(CLOCK_REALTIME, &ts);
 		ts.tv_sec += 1;
-		if (pthread_cond_timedwait(&g_flush_cond, &g_flush_lock, &ts) == ETIMEDOUT) {
-			pthread_mutex_lock(&g_out_lock);
-			fprintf(stdout, "...processed %lld bytes\r", g_processed);
-			pthread_mutex_unlock(&g_out_lock);
-		}
+		if (pthread_cond_timedwait(&g_flush_cond, &g_flush_lock, &ts) == ETIMEDOUT)
+			show_progress();
 	}
 	pthread_mutex_unlock(&g_flush_lock);
 	return NULL;
@@ -1003,73 +1151,89 @@ static void *progress_stdout(void *arg)
 static void help(void)
 {
 	printf("copymd5 for Linux Version %s\n"
-		"Recursively copy a source directory into a destination directory.\n"
+		"Copy one file or directory into a destination directory.\n"
+		"A directory is copied recursively.\n"
 		"\n"
-		"Usage: copymd5_lin <source directory> <destination directory>\n"
-		"       copymd5_lin /?\n"
+		"Usage: copymd5 <source directory or file> <destination directory> <tsv file>\n"
+		"       copymd5 -h\n"
 		"\n"
-		"The source directory is created inside the destination under its own name.\n"
+		"A source directory is created inside the destination under its own name.\n"
+		"A source file is copied into the destination directory.\n"
 		"Paths may end with a slash.\n"
 		"\n"
-		"Each file prints one tab-separated line:\n"
-		"\"relative/path\"\t<md5>\t<size>\tOK\n"
+		"Each file appends one tab-separated line to the tsv file:\n"
+		"\"relative/path\"\t<md5>\t<source size>\t<destination size>\tOK\n"
 		"A failed read:\n"
-		"\"relative/path\"\tFAILED\tFAILED\tERROR\n"
+		"\"relative/path\"\tERROR\t<source size>\tERROR\tREAD_ERROR\n"
 		"A failed write:\n"
-		"\"relative/path\"\t<md5>\t<size>\tERROR\n"
+		"\"relative/path\"\t<md5>\t<source size>\t<destination size>\tWRITE_ERROR\n"
 		"A size mismatch:\n"
-		"\"relative/path\"\t<md5>\tERROR\tERROR\n"
+		"\"relative/path\"\t<md5>\t<source size>\t<destination size>\tSIZE_MISMATCH\n"
 		"\n"
-		"A blank line follows, then a summary that starts with ...finished:\n"
+		"A new tsv file starts with this header:\n"
+		"Path\tMD5\tSourceSize\tDestinationSize\tResult\n"
+		"An existing tsv file is appended to.\n"
+		"\n"
+		"Stdout prints <bytes> <files> and is flushed once a second.\n"
+		"When any file fails, stderr ends with:\n"
+		"ERRORS occurred: <write> / <read> / <size mismatch> (WRITE ERRORS / READ ERRORS / SIZE MISMATCHES)\n"
 		"The exit code is 0 when every file copies, and 1 when any read, write, or size check fails.\n",
 		VERSION);
 }
 
 static int is_help_arg(const char *arg)
 {
-	return strcmp(arg, "-h") == 0 || strcmp(arg, "--help") == 0;
+	return strcmp(arg, "-h") == 0 || strcmp(arg, "--help") == 0 || strcmp(arg, "/?") == 0;
 }
 
 int main(int argc, char **argv)
 {
-	int rc = 1, ntasks, started = 0, t, queue_ready = 0;
-	char *src_full = NULL, *dst_full = NULL, *dst_root = NULL;
+	int rc = 1, ntasks, started = 0, t, queue_ready = 0, src_is_dir = 0;
+	char *src_full = NULL, *dst_full = NULL, *dst_root = NULL, *tsv_full = NULL;
 	const char *src_name;
 	struct job_queue queue;
 	pthread_t threads[MAX_TASKS];
-	pthread_t flush_thread, progress_thread;
-	int flush_started = 0, progress_started = 0;
-	struct timespec t0, t1;
+	pthread_t progress_thread;
+	int progress_started = 0;
 	struct stat st;
-	unsigned long long elapsed_ms, hours, mins, secs, ms;
-	long nsec;
 
 	if (argc == 2 && is_help_arg(argv[1])) {
 		help();
 		return 0;
 	}
-	if (argc != 3) {
-		fprintf(stderr, "Usage: copymd5_lin <source directory> <destination directory>\n");
-		fprintf(stderr, "       copymd5_lin /?\n");
+	if (argc != 4) {
+		fprintf(stderr, "Usage: copymd5 <source directory or file> <destination directory> <tsv file>\n");
+		fprintf(stderr, "       copymd5 -h\n");
 		return 1;
 	}
 
 	src_full = full_path(argv[1]);
+	if (!src_full) {
+		fail("Resolve path");
+		goto done;
+	}
 	dst_full = full_path(argv[2]);
-	if (!src_full || !dst_full) {
+	if (!dst_full) {
+		fail("Resolve path");
+		goto done;
+	}
+	tsv_full = resolve_tsv_path(argv[3]);
+	if (!tsv_full) {
 		fail("Resolve path");
 		goto done;
 	}
 	if (stat(src_full, &st) != 0) {
-		fail("Source directory");
+		fail_path(src_full, "Source");
 		goto done;
 	}
-	if (!S_ISDIR(st.st_mode)) {
-		fprintf(stderr, "Source is not a directory\n");
+	if (S_ISDIR(st.st_mode))
+		src_is_dir = 1;
+	else if (!S_ISREG(st.st_mode)) {
+		fprintf(stderr, "Source is not a file or directory\n");
 		goto done;
 	}
 	if (stat(dst_full, &st) != 0) {
-		fail("Destination directory");
+		fail_path(dst_full, "Destination directory");
 		goto done;
 	}
 	if (!S_ISDIR(st.st_mode)) {
@@ -1077,28 +1241,50 @@ int main(int argc, char **argv)
 		goto done;
 	}
 
-	src_name = basename_p(src_full);
-	if (!src_name[0]) {
-		fprintf(stderr, "Source path has no directory name\n");
-		goto done;
+	if (src_is_dir) {
+		src_name = basename_p(src_full);
+		if (!src_name[0]) {
+			fprintf(stderr, "Source path has no directory name\n");
+			goto done;
+		}
+		dst_root = join_dir_file(dst_full, src_name);
+		if (!dst_root) {
+			fail("Build destination path");
+			goto done;
+		}
+		if (is_same_or_child(src_full, dst_root)) {
+			fprintf(stderr, "Destination is inside the source directory\n");
+			goto done;
+		}
+		if (mkdir(dst_root, 0777) != 0 && errno != EEXIST) {
+			fail_path(dst_root, "Create directory");
+			goto done;
+		}
+		if (stat(dst_root, &st) != 0 || !S_ISDIR(st.st_mode)) {
+			fprintf(stderr, "Destination is not a directory: %s\n", dst_root);
+			goto done;
+		}
+	} else {
+		char *dst_file = join_dir_file(dst_full, basename_p(src_full));
+
+		if (!dst_file) {
+			fail("Build destination path");
+			goto done;
+		}
+		if (strcmp(src_full, dst_file) == 0) {
+			fprintf(stderr, "Source and destination are the same file\n");
+			free(dst_file);
+			goto done;
+		}
+		free(dst_file);
+		dst_root = strdup(dst_full);
+		if (!dst_root) {
+			fail("Build destination path");
+			goto done;
+		}
 	}
-	dst_root = join_dir_file(dst_full, src_name);
-	if (!dst_root) {
-		fail("Build destination path");
+	if (open_tsv(tsv_full))
 		goto done;
-	}
-	if (is_same_or_child(src_full, dst_root)) {
-		fprintf(stderr, "Destination is inside the source directory\n");
-		goto done;
-	}
-	if (mkdir(dst_root, 0777) != 0 && errno != EEXIST) {
-		fail_path(dst_root, "Create directory");
-		goto done;
-	}
-	if (stat(dst_root, &st) != 0 || !S_ISDIR(st.st_mode)) {
-		fprintf(stderr, "Destination is not a directory: %s\n", dst_root);
-		goto done;
-	}
 
 	memset(&queue, 0, sizeof(queue));
 	if (pthread_mutex_init(&queue.lock, NULL) != 0
@@ -1129,64 +1315,38 @@ int main(int argc, char **argv)
 		goto done;
 	}
 
-	clock_gettime(CLOCK_MONOTONIC, &t0);
 	g_flush_stop = 0;
-	if (pthread_create(&flush_thread, NULL, flush_stdout, NULL) == 0)
-		flush_started = 1;
 	if (pthread_create(&progress_thread, NULL, progress_stdout, NULL) == 0)
 		progress_started = 1;
-	if (copy_tree(src_full, dst_root, "", &queue))
+	if (src_is_dir) {
+		if (copy_tree(src_full, dst_root, "", &queue))
+			queue.failed = 1;
+	} else if (queue_file(src_full, dst_root, &queue)) {
 		queue.failed = 1;
+	}
 	for (t = 0; t < queue.ready; t++)
 		enqueue(&queue, NULL, NULL, NULL);
 	for (t = 0; t < started; t++)
 		pthread_join(threads[t], NULL);
 	started = 0;
-	clock_gettime(CLOCK_MONOTONIC, &t1);
-	nsec = t1.tv_nsec - t0.tv_nsec;
-	elapsed_ms = (unsigned long long)(t1.tv_sec - t0.tv_sec) * 1000ULL;
-	if (nsec < 0) {
-		elapsed_ms -= 1000ULL;
-		nsec += 1000000000L;
-	}
-	elapsed_ms += (unsigned long long)nsec / 1000000ULL;
-	hours = elapsed_ms / 3600000ULL;
-	mins = (elapsed_ms / 60000ULL) % 60ULL;
-	secs = (elapsed_ms / 1000ULL) % 60ULL;
-	ms = elapsed_ms % 1000ULL;
 
 	pthread_mutex_lock(&g_flush_lock);
 	g_flush_stop = 1;
-	pthread_cond_signal(&g_flush_cond);
+	pthread_cond_broadcast(&g_flush_cond);
 	pthread_mutex_unlock(&g_flush_lock);
-	if (flush_started) {
-		pthread_join(flush_thread, NULL);
-		flush_started = 0;
-	}
 	if (progress_started) {
 		pthread_join(progress_thread, NULL);
 		progress_started = 0;
 	}
-	fflush(stdout);
-	printf("\n...finished, processed %llu file(s), %llu bytes, took %02llu:%02llu:%02llu.%03llu\n",
-		(unsigned long long)g_files,
-		(unsigned long long)g_bytes,
-		hours, mins, secs, ms);
-	fflush(stdout);
+	show_progress();
+	report_errors();
 	rc = (g_io_error || queue.failed) ? 1 : 0;
 
 done:
-	if (flush_started) {
-		pthread_mutex_lock(&g_flush_lock);
-		g_flush_stop = 1;
-		pthread_cond_signal(&g_flush_cond);
-		pthread_mutex_unlock(&g_flush_lock);
-		pthread_join(flush_thread, NULL);
-	}
 	if (progress_started) {
 		pthread_mutex_lock(&g_flush_lock);
 		g_flush_stop = 1;
-		pthread_cond_signal(&g_flush_cond);
+		pthread_cond_broadcast(&g_flush_cond);
 		pthread_mutex_unlock(&g_flush_lock);
 		pthread_join(progress_thread, NULL);
 	}
@@ -1202,8 +1362,15 @@ done:
 		sem_destroy(&queue.init_sem);
 		pthread_mutex_destroy(&queue.lock);
 	}
+	if (g_tsv && fclose(g_tsv) != 0) {
+		g_tsv = NULL;
+		tsv_write_error();
+		rc = 1;
+	}
+	g_tsv = NULL;
 	free(dst_root);
 	free(src_full);
 	free(dst_full);
+	free(tsv_full);
 	return rc;
 }

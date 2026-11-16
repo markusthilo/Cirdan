@@ -24,13 +24,14 @@ else:
 class CopyMD5(Popen):
 	"""Wrapper for the copymd5 binary"""
 
-	def __init__(self, source: Path, destination: Path) -> None:
-		self.source = Path(source).resolve()
-		self.destination = Path(destination).resolve()
-		binary = (__app_path__ / __binary_name__).resolve()
-		if not binary.is_file():
-			raise FileNotFoundError(f"copymd5 binary not found: {binary}")
-		self.cmd = [str(binary), str(self.source), str(self.destination)]
+	def __init__(self, source: Path, destination: Path, tsv: Path) -> None:
+		self.source = source
+		self.destination = destination
+		self.tsv = tsv
+		self.binary = (__app_path__ / __binary_name__).resolve()
+		if not self.binary.is_file():
+			raise FileNotFoundError(f"copymd5 binary not found: {self.binary}")
+		self.cmd = [str(self.binary), str(self.source), str(self.destination), str(self.tsv)]
 		kwargs: dict[str, object] = {
 			"stdout": PIPE,
 			"stderr": PIPE,
@@ -44,20 +45,7 @@ class CopyMD5(Popen):
 			startupinfo.dwFlags |= STARTF_USESHOWWINDOW
 			kwargs["startupinfo"] = startupinfo
 		super().__init__(self.cmd, **kwargs)
-		self._stderr_chunks: list[str] = []
-		self._stderr_thread = Thread(target=self._drain_stderr, daemon=True)
-		self._stderr_thread.start()
-
-	def _drain_stderr(self) -> None:
-		"""Read stderr in the background so a full pipe cannot deadlock stdout"""
-		if self.stderr is not None:
-			self._stderr_chunks.append(self.stderr.read())
-
-	def read_stderr(self) -> str:
-		"""Return stderr collected while stdout was consumed"""
-		self._stderr_thread.join(timeout=5)
-		return "".join(self._stderr_chunks)
 
 	def __repr__(self) -> str:
 		"""Return command line as string"""
-		return f'{self.cmd[0]} "{self.source}" "{self.destination}"'
+		return f'{self.binary.name} "{self.source}" "{self.destination}" "{self.tsv}"'

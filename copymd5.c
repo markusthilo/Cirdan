@@ -1,18 +1,23 @@
-/* Recursively copy a source directory into a destination directory.
- * Several files are copied at once. Each file uses overlapped, unbuffered
- * transfers (512 MiB when that buffer can be allocated) and a direct MD5.
- * For each file, prints the relative path in quotes, a tab, the digest, a
- * tab, the size in bytes, a tab, and OK. A failed read prints FAILED, FAILED,
- * and ERROR. A failed write prints the digest, the size, and ERROR.
- * A size mismatch prints the digest, ERROR, and ERROR.
- * Stdout and stderr are UTF-8. Stdout is flushed once a second. A blank line
- * follows, then a summary of the file count, byte count, and elapsed time.
+/* Copy one source file or directory into a destination directory.
+ * A directory is copied recursively. Several files are copied at once.
+ * Each file uses overlapped, unbuffered transfers (512 MiB when that buffer
+ * can be allocated) and a direct MD5.
+ * Each file appends one tab-separated line to the tsv file:
+ * "<relative_path>" <md5> <source_size> <destination_size> <result>.
+ * A failed read appends ERROR, the source size, ERROR, and READ_ERROR.
+ * A failed write appends the digest, both sizes, and WRITE_ERROR.
+ * A size mismatch appends the digest, both sizes, and SIZE_MISMATCH.
+ * A new tsv file starts with a header. An existing tsv file is appended to.
+ * Stdout and stderr are UTF-8. Stdout prints the bytes written so far and the
+ * number of copied files, separated by a space, and is flushed once a second.
+ * When any file fails, stderr ends with the write, read, and size-mismatch
+ * counts. Stderr stays empty when the copy succeeds.
  *
  * cl /O2 /utf-8 copymd5.c
  * x86_64-w64-mingw32-gcc -O2 -o copymd5.exe copymd5.c -lshell32
  */
 
-#define VERSION "0.0.1-2026-10-06"
+#define VERSION "0.0.3-2026-11-16"
 
 #define WIN32_LEAN_AND_MEAN
 #define _WIN32_WINNT 0x0601
@@ -42,9 +47,14 @@
 static CRITICAL_SECTION g_out_lock;
 static volatile LONG g_out_lock_ready;
 static LONG64 g_files;
-static LONG64 g_bytes;
 static LONG64 g_processed;
+static LONG64 g_read_errors;
+static LONG64 g_write_errors;
+static LONG64 g_size_mismatches;
 static volatile LONG g_io_error;
+static FILE *g_tsv;
+static LPCWSTR g_tsv_path;
+static const char g_tsv_header[] = "Path\tMD5\tSourceSize\tDestinationSize\tResult\n";
 
 static void out_lock(void)
 {
@@ -486,18 +496,23 @@ static int retry_end(HANDLE file, struct io_slot *op, int write, void *buf, DWOR
 	return 0;
 }
 
-static DWORD WINAPI flush_stdout(LPVOID param)
+static void show_progress(void)
 {
-	HANDLE stop = param;
+	out_lock();
+	fwprintf(stdout, L"%lld %lld\n", (long long)g_processed, (long long)g_files);
+	fflush(stdout);
+	out_unlock();
+}
 
-	for (;;) {
-		if (WaitForSingleObject(stop, 1000) == WAIT_OBJECT_0)
-			break;
-		out_lock();
-		fflush(stdout);
-		out_unlock();
-	}
-	return 0;
+static void report_errors(void)
+{
+	if (!g_write_errors && !g_read_errors && !g_size_mismatches)
+		return;
+	out_lock();
+	fwprintf(stderr,
+		L"ERRORS occurred: %lld / %lld / %lld (WRITE ERRORS / READ ERRORS / SIZE MISMATCHES)\n",
+		(long long)g_write_errors, (long long)g_read_errors, (long long)g_size_mismatches);
+	out_unlock();
 }
 
 static DWORD WINAPI progress_stdout(LPVOID param)
@@ -507,35 +522,137 @@ static DWORD WINAPI progress_stdout(LPVOID param)
 	for (;;) {
 		if (WaitForSingleObject(stop, 1000) == WAIT_OBJECT_0)
 			break;
-		out_lock();
-		fwprintf(stdout, L"...processed %lld bytes\r", (long long)g_processed);
-		out_unlock();
+		show_progress();
 	}
 	return 0;
 }
 
-static void print_result(const BYTE md5[16], LPCWSTR rel, ULONGLONG size, int kind)
+static void tsv_write_error(void)
 {
-	int i;
+	DWORD e = GetLastError();
 
-	out_lock();
-	fwprintf(stdout, L"\"%s\"\t", rel);
+	if (!e)
+		e = ERROR_GEN_FAILURE;
+	InterlockedExchange(&g_io_error, 1);
+	SetLastError(e);
+	if (g_tsv_path)
+		fail_path(g_tsv_path, L"Write tsv");
+	else
+		fail(L"Write tsv");
+}
+
+static int open_tsv(LPCWSTR path)
+{
+	DWORD attr = GetFileAttributesW(path);
+	size_t n;
+	int exists = 0;
+
+	g_tsv_path = path;
+	if (attr == INVALID_FILE_ATTRIBUTES) {
+		DWORD e = GetLastError();
+
+		if (e != ERROR_FILE_NOT_FOUND) {
+			SetLastError(e);
+			fail_path(path, L"Open tsv");
+			return 1;
+		}
+	} else if (attr & FILE_ATTRIBUTE_DIRECTORY) {
+		fwprintf(stderr, L"TSV path is not a file: %s\n", path);
+		return 1;
+	} else {
+		exists = 1;
+	}
+	g_tsv = _wfopen(path, exists ? L"ab" : L"wb");
+	if (!g_tsv) {
+		fail_path(path, L"Open tsv");
+		return 1;
+	}
+	if (exists)
+		return 0;
+	n = sizeof(g_tsv_header) - 1;
+	if (fwrite(g_tsv_header, 1, n, g_tsv) != n || fflush(g_tsv) != 0) {
+		fail_path(path, L"Write tsv");
+		return 1;
+	}
+	return 0;
+}
+
+static void write_result(const BYTE md5[16], LPCWSTR rel, ULONGLONG src_size, ULONGLONG dst_size, int kind)
+{
+	char *rel8 = NULL;
+	char *line = NULL;
+	int n, i, pos;
+	size_t len, cap;
+
+	if (kind == 1)
+		InterlockedIncrement64(&g_read_errors);
+	else if (kind == 2)
+		InterlockedIncrement64(&g_write_errors);
+	else if (kind == 3)
+		InterlockedIncrement64(&g_size_mismatches);
+	n = WideCharToMultiByte(CP_UTF8, 0, rel, -1, NULL, 0, NULL, NULL);
+	if (n <= 0) {
+		tsv_write_error();
+		return;
+	}
+	rel8 = (char *)LocalAlloc(LMEM_FIXED, (size_t)n);
+	if (!rel8) {
+		tsv_write_error();
+		return;
+	}
+	if (!WideCharToMultiByte(CP_UTF8, 0, rel, -1, rel8, n, NULL, NULL)) {
+		LocalFree(rel8);
+		tsv_write_error();
+		return;
+	}
+	len = strlen(rel8);
+	cap = len + 128;
+	line = (char *)LocalAlloc(LMEM_FIXED, cap);
+	if (!line) {
+		LocalFree(rel8);
+		tsv_write_error();
+		return;
+	}
+	pos = snprintf(line, cap, "\"%s\"\t", rel8);
+	if (pos < 0 || (size_t)pos >= cap) {
+		LocalFree(rel8);
+		LocalFree(line);
+		tsv_write_error();
+		return;
+	}
 	if (kind == 1) {
-		fwprintf(stdout, L"FAILED\tFAILED\tERROR\n");
-		out_unlock();
-		return;
-	}
-	if (md5) {
+		pos += snprintf(line + pos, cap - (size_t)pos, "ERROR\t%llu\tERROR\tREAD_ERROR\n",
+			(unsigned long long)src_size);
+	} else {
 		for (i = 0; i < 16; i++)
-			fwprintf(stdout, L"%02x", md5[i]);
+			pos += snprintf(line + pos, cap - (size_t)pos, "%02x", md5[i]);
+		if (kind == 2)
+			pos += snprintf(line + pos, cap - (size_t)pos, "\t%llu\t%llu\tWRITE_ERROR\n",
+				(unsigned long long)src_size, (unsigned long long)dst_size);
+		else if (kind == 3)
+			pos += snprintf(line + pos, cap - (size_t)pos, "\t%llu\t%llu\tSIZE_MISMATCH\n",
+				(unsigned long long)src_size, (unsigned long long)dst_size);
+		else
+			pos += snprintf(line + pos, cap - (size_t)pos, "\t%llu\t%llu\tOK\n",
+				(unsigned long long)src_size, (unsigned long long)dst_size);
 	}
-	if (kind == 3) {
-		fwprintf(stdout, L"\tERROR\tERROR\n");
-		out_unlock();
+	if (pos < 0 || (size_t)pos >= cap) {
+		LocalFree(rel8);
+		LocalFree(line);
+		tsv_write_error();
 		return;
 	}
-	fwprintf(stdout, L"\t%llu\t%s\n", (unsigned long long)size, kind ? L"ERROR" : L"OK");
+	out_lock();
+	if (!g_tsv || fwrite(line, 1, (size_t)pos, g_tsv) != (size_t)pos || fflush(g_tsv) != 0) {
+		out_unlock();
+		LocalFree(rel8);
+		LocalFree(line);
+		tsv_write_error();
+		return;
+	}
 	out_unlock();
+	LocalFree(rel8);
+	LocalFree(line);
 }
 
 static int same_size(LPCWSTR src, LPCWSTR dst)
@@ -550,6 +667,14 @@ static int same_size(LPCWSTR src, LPCWSTR dst)
 	asz = ((ULONGLONG)a.nFileSizeHigh << 32) | a.nFileSizeLow;
 	bsz = ((ULONGLONG)b.nFileSizeHigh << 32) | b.nFileSizeLow;
 	return asz == bsz;
+}
+
+static void file_size(LPCWSTR path, ULONGLONG *size)
+{
+	WIN32_FILE_ATTRIBUTE_DATA a;
+
+	if (GetFileAttributesExW(path, GetFileExInfoStandard, &a))
+		*size = ((ULONGLONG)a.nFileSizeHigh << 32) | a.nFileSizeLow;
 }
 
 static DWORD copy_tail(LPCWSTR src_path, LPCWSTR dst_path, ULONGLONG offset, DWORD len,
@@ -828,6 +953,33 @@ static int enqueue(struct job_queue *q, LPWSTR src, LPWSTR dst, LPWSTR rel)
 	return 0;
 }
 
+static int queue_file(LPCWSTR src, LPCWSTR dst_dir, struct job_queue *q)
+{
+	LPCWSTR name = basename_w(src);
+	LPWSTR src_dup = wcsdup_w(src);
+	LPWSTR dst = join_dir_file(dst_dir, name);
+	LPWSTR rel = wcsdup_w(name);
+
+	if (!src_dup || !dst || !rel) {
+		if (src_dup)
+			LocalFree(src_dup);
+		if (dst)
+			LocalFree(dst);
+		if (rel)
+			LocalFree(rel);
+		fail(L"Build path");
+		return 1;
+	}
+	if (enqueue(q, src_dup, dst, rel)) {
+		LocalFree(src_dup);
+		LocalFree(dst);
+		LocalFree(rel);
+		fail(L"Queue file");
+		return 1;
+	}
+	return 0;
+}
+
 static struct job *dequeue(struct job_queue *q)
 {
 	struct job *j;
@@ -918,7 +1070,7 @@ static DWORD WINAPI copy_task(LPVOID param)
 	struct job_queue *q = param;
 	LPVOID buf[2] = {NULL, NULL};
 	BYTE md5[16];
-	ULONGLONG copied;
+	ULONGLONG copied = 0;
 	DWORD xfer;
 
 	xfer = alloc_buffers(buf);
@@ -959,19 +1111,29 @@ static DWORD WINAPI copy_task(LPVOID param)
 		if (!err) {
 			xfer = use;
 			if (!same_size(j->src, j->dst)) {
+				ULONGLONG src_sz = copied, dst_sz = 0;
+
 				InterlockedExchange(&g_io_error, 1);
-				print_result(md5, j->rel, copied, 3);
+				file_size(j->src, &src_sz);
+				file_size(j->dst, &dst_sz);
+				write_result(md5, j->rel, src_sz, dst_sz, 3);
 			} else {
 				InterlockedIncrement64(&g_files);
-				InterlockedAdd64(&g_bytes, (LONG64)copied);
-				print_result(md5, j->rel, copied, 0);
+				write_result(md5, j->rel, copied, copied, 0);
 			}
 		} else {
 			InterlockedExchange(&g_io_error, 1);
-			if (write_fail && !hash_file(j->src, buf[0], xfer, md5, &copied))
-				print_result(md5, j->rel, copied, 2);
-			else
-				print_result(NULL, j->rel, 0, 1);
+			if (write_fail && !hash_file(j->src, buf[0], xfer, md5, &copied)) {
+				ULONGLONG dst_sz = 0;
+
+				file_size(j->dst, &dst_sz);
+				write_result(md5, j->rel, copied, dst_sz, 2);
+			} else {
+				ULONGLONG src_sz = 0;
+
+				file_size(j->src, &src_sz);
+				write_result(NULL, j->rel, src_sz, 0, 1);
+			}
 		}
 		LocalFree(j->src);
 		LocalFree(j->dst);
@@ -1032,12 +1194,8 @@ static int copy_tree(LPCWSTR src, LPCWSTR dst, LPCWSTR rel, struct job_queue *q)
 			goto next;
 		}
 
-		if (fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
-			out_lock();
-			fwprintf(stderr, L"Skipping reparse point: %s\n", child_src);
-			out_unlock();
+		if (fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
 			goto next;
-		}
 
 		if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
 			if (!CreateDirectoryW(child_dst, NULL)) {
@@ -1096,48 +1254,54 @@ static void help(void)
 {
 	fwprintf(stdout,
 		L"copymd5 for Windows Version %hs\n"
-		L"Recursively copy a source directory into a destination directory.\n"
+		L"Copy one file or directory into a destination directory.\n"
+		L"A directory is copied recursively.\n"
 		L"\n"
-		L"Usage: copymd5 <source directory> <destination directory>\n"
+		L"Usage: copymd5 <source directory or file> <destination directory> <tsv file>\n"
 		L"       copymd5 /?\n"
 		L"\n"
-		L"The source directory is created inside the destination under its own name.\n"
+		L"A source directory is created inside the destination under its own name.\n"
+		L"A source file is copied into the destination directory.\n"
 		L"Paths may use \\ or / and may end with a slash.\n"
 		L"\n"
-		L"Each file prints one tab-separated line:\n"
-		L"\"relative\\path\"\t<md5>\t<size>\tOK\n"
+		L"Each file appends one tab-separated line to the tsv file:\n"
+		L"\"relative\\path\"\t<md5>\t<source size>\t<destination size>\tOK\n"
 		L"A failed read:\n"
-		L"\"relative\\path\"\tFAILED\tFAILED\tERROR\n"
+		L"\"relative\\path\"\tERROR\t<source size>\tERROR\tREAD_ERROR\n"
 		L"A failed write:\n"
-		L"\"relative\\path\"\t<md5>\t<size>\tERROR\n"
+		L"\"relative\\path\"\t<md5>\t<source size>\t<destination size>\tWRITE_ERROR\n"
 		L"A size mismatch:\n"
-		L"\"relative\\path\"\t<md5>\tERROR\tERROR\n"
+		L"\"relative\\path\"\t<md5>\t<source size>\t<destination size>\tSIZE_MISMATCH\n"
 		L"\n"
-		L"A blank line follows, then a summary that starts with ...finished:\n"
+		L"A new tsv file starts with this header:\n"
+		L"Path\tMD5\tSourceSize\tDestinationSize\tResult\n"
+		L"An existing tsv file is appended to.\n"
+		L"\n"
+		L"Stdout prints <bytes> <files> and is flushed once a second.\n"
+		L"When any file fails, stderr ends with:\n"
+		L"ERRORS occurred: <write> / <read> / <size mismatch> (WRITE ERRORS / READ ERRORS / SIZE MISMATCHES)\n"
 		L"The exit code is 0 when every file copies, and 1 when any read, write, or size check fails.\n",
 		VERSION);
 }
 
 int main(void)
 {
-	int argc, rc = 1, ntasks, started = 0, t;
+	int argc, rc = 1, ntasks, started = 0, t, src_is_dir = 0;
 	LPWSTR *argv;
-	LPWSTR src_full = NULL, dst_full = NULL, dst_root = NULL;
+	LPWSTR src_full = NULL, dst_full = NULL, dst_root = NULL, tsv_full = NULL;
 	LPCWSTR src_name;
 	struct job_queue queue;
 	HANDLE threads[MAX_TASKS];
-	HANDLE flush_stop = NULL, flush_thread = NULL, progress_thread = NULL;
-	LARGE_INTEGER t0, t1, freq;
+	HANDLE progress_stop = NULL, progress_thread = NULL;
 	DWORD attr, err;
 	int queue_ready = 0;
-	ULONGLONG elapsed_ms, hours, mins, secs, ms;
 
 	_setmode(_fileno(stdout), _O_U8TEXT);
 	_setmode(_fileno(stderr), _O_U8TEXT);
 
 	argv = CommandLineToArgvW(GetCommandLineW(), &argc);
 	if (!argv) {
-		fwprintf(stderr, L"Usage: copymd5 <source directory> <destination directory>\n");
+		fwprintf(stderr, L"Usage: copymd5 <source directory or file> <destination directory> <tsv file>\n");
 		return 1;
 	}
 	if (argc == 2 && lstrcmpW(argv[1], L"/?") == 0) {
@@ -1145,33 +1309,39 @@ int main(void)
 		LocalFree(argv);
 		return 0;
 	}
-	if (argc != 3) {
-		fwprintf(stderr, L"Usage: copymd5 <source directory> <destination directory>\n");
+	if (argc != 4) {
+		fwprintf(stderr, L"Usage: copymd5 <source directory or file> <destination directory> <tsv file>\n");
 		fwprintf(stderr, L"       copymd5 /?\n");
 		LocalFree(argv);
 		return 1;
 	}
 
 	src_full = full_path(argv[1]);
+	if (!src_full) {
+		fail(L"Resolve path");
+		goto done;
+	}
 	dst_full = full_path(argv[2]);
-	if (!src_full || !dst_full) {
+	if (!dst_full) {
+		fail(L"Resolve path");
+		goto done;
+	}
+	tsv_full = full_path(argv[3]);
+	if (!tsv_full) {
 		fail(L"Resolve path");
 		goto done;
 	}
 
 	attr = GetFileAttributesW(src_full);
 	if (attr == INVALID_FILE_ATTRIBUTES) {
-		fail(L"Source directory");
+		fail_path(src_full, L"Source");
 		goto done;
 	}
-	if (!(attr & FILE_ATTRIBUTE_DIRECTORY)) {
-		fwprintf(stderr, L"Source is not a directory\n");
-		goto done;
-	}
+	src_is_dir = (attr & FILE_ATTRIBUTE_DIRECTORY) != 0;
 
 	attr = GetFileAttributesW(dst_full);
 	if (attr == INVALID_FILE_ATTRIBUTES) {
-		fail(L"Destination directory");
+		fail_path(dst_full, L"Destination directory");
 		goto done;
 	}
 	if (!(attr & FILE_ATTRIBUTE_DIRECTORY)) {
@@ -1179,34 +1349,55 @@ int main(void)
 		goto done;
 	}
 
-	src_name = basename_w(src_full);
-	if (!src_name[0]) {
-		fwprintf(stderr, L"Source path has no directory name\n");
-		goto done;
-	}
-	dst_root = join_dir_file(dst_full, src_name);
-	if (!dst_root) {
-		fail(L"Build destination path");
-		goto done;
-	}
-	if (is_same_or_child(src_full, dst_root)) {
-		fwprintf(stderr, L"Destination is inside the source directory\n");
-		goto done;
-	}
+	if (src_is_dir) {
+		src_name = basename_w(src_full);
+		if (!src_name[0]) {
+			fwprintf(stderr, L"Source path has no directory name\n");
+			goto done;
+		}
+		dst_root = join_dir_file(dst_full, src_name);
+		if (!dst_root) {
+			fail(L"Build destination path");
+			goto done;
+		}
+		if (is_same_or_child(src_full, dst_root)) {
+			fwprintf(stderr, L"Destination is inside the source directory\n");
+			goto done;
+		}
+		if (!CreateDirectoryW(dst_root, NULL)) {
+			err = GetLastError();
+			if (err != ERROR_ALREADY_EXISTS) {
+				SetLastError(err);
+				fail_path(dst_root, L"Create directory");
+				goto done;
+			}
+			attr = GetFileAttributesW(dst_root);
+			if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY)) {
+				fwprintf(stderr, L"Destination is not a directory: %s\n", dst_root);
+				goto done;
+			}
+		}
+	} else {
+		LPWSTR dst_file = join_dir_file(dst_full, basename_w(src_full));
 
-	if (!CreateDirectoryW(dst_root, NULL)) {
-		err = GetLastError();
-		if (err != ERROR_ALREADY_EXISTS) {
-			SetLastError(err);
-			fail_path(dst_root, L"Create directory");
+		if (!dst_file) {
+			fail(L"Build destination path");
 			goto done;
 		}
-		attr = GetFileAttributesW(dst_root);
-		if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY)) {
-			fwprintf(stderr, L"Destination is not a directory: %s\n", dst_root);
+		if (CompareStringOrdinal(src_full, -1, dst_file, -1, TRUE) == CSTR_EQUAL) {
+			fwprintf(stderr, L"Source and destination are the same file\n");
+			LocalFree(dst_file);
+			goto done;
+		}
+		LocalFree(dst_file);
+		dst_root = wcsdup_w(dst_full);
+		if (!dst_root) {
+			fail(L"Build destination path");
 			goto done;
 		}
 	}
+	if (open_tsv(tsv_full))
+		goto done;
 
 	ZeroMemory(&queue, sizeof(queue));
 	InitializeCriticalSection(&queue.lock);
@@ -1249,67 +1440,42 @@ int main(void)
 		goto done;
 	}
 
-	QueryPerformanceFrequency(&freq);
-	QueryPerformanceCounter(&t0);
-	if (!freq.QuadPart)
-		freq.QuadPart = 1;
-	flush_stop = CreateEventW(NULL, TRUE, FALSE, NULL);
-	if (flush_stop) {
-		flush_thread = CreateThread(NULL, 0, flush_stdout, flush_stop, 0, NULL);
-		progress_thread = CreateThread(NULL, 0, progress_stdout, flush_stop, 0, NULL);
-	}
-	if (copy_tree(src_full, dst_root, L"", &queue))
+	progress_stop = CreateEventW(NULL, TRUE, FALSE, NULL);
+	if (progress_stop)
+		progress_thread = CreateThread(NULL, 0, progress_stdout, progress_stop, 0, NULL);
+	if (src_is_dir) {
+		if (copy_tree(src_full, dst_root, L"", &queue))
+			InterlockedExchange(&queue.failed, 1);
+	} else if (queue_file(src_full, dst_root, &queue)) {
 		InterlockedExchange(&queue.failed, 1);
+	}
 	for (t = 0; t < queue.ready; t++)
 		enqueue(&queue, NULL, NULL, NULL);
 	for (t = 0; t < started; t++) {
 		WaitForSingleObject(threads[t], INFINITE);
 		CloseHandle(threads[t]);
 	}
-	QueryPerformanceCounter(&t1);
-	elapsed_ms = (ULONGLONG)((t1.QuadPart - t0.QuadPart) * 1000 / freq.QuadPart);
-	hours = elapsed_ms / 3600000ULL;
-	mins = (elapsed_ms / 60000ULL) % 60ULL;
-	secs = (elapsed_ms / 1000ULL) % 60ULL;
-	ms = elapsed_ms % 1000ULL;
-	if (flush_stop)
-		SetEvent(flush_stop);
-	if (flush_thread) {
-		WaitForSingleObject(flush_thread, INFINITE);
-		CloseHandle(flush_thread);
-		flush_thread = NULL;
-	}
+	started = 0;
+	if (progress_stop)
+		SetEvent(progress_stop);
 	if (progress_thread) {
 		WaitForSingleObject(progress_thread, INFINITE);
 		CloseHandle(progress_thread);
 		progress_thread = NULL;
 	}
-	fflush(stdout);
-	fwprintf(stdout, L"\n...finished, processed %llu file(s), %llu bytes, took %02llu:%02llu:%02llu.%03llu\n",
-		(unsigned long long)g_files,
-		(unsigned long long)g_bytes,
-		(unsigned long long)hours,
-		(unsigned long long)mins,
-		(unsigned long long)secs,
-		(unsigned long long)ms);
-	fflush(stdout);
+	show_progress();
+	report_errors();
 	rc = (g_io_error || queue.failed) ? 1 : 0;
 
 done:
-	if (flush_thread) {
-		if (flush_stop)
-			SetEvent(flush_stop);
-		WaitForSingleObject(flush_thread, INFINITE);
-		CloseHandle(flush_thread);
-	}
 	if (progress_thread) {
-		if (flush_stop)
-			SetEvent(flush_stop);
+		if (progress_stop)
+			SetEvent(progress_stop);
 		WaitForSingleObject(progress_thread, INFINITE);
 		CloseHandle(progress_thread);
 	}
-	if (flush_stop)
-		CloseHandle(flush_stop);
+	if (progress_stop)
+		CloseHandle(progress_stop);
 	if (queue_ready) {
 		if (!started)
 			free_jobs(&queue);
@@ -1321,12 +1487,20 @@ done:
 		DeleteCriticalSection(&g_out_lock);
 		g_out_lock_ready = 0;
 	}
+	if (g_tsv && fclose(g_tsv) != 0) {
+		g_tsv = NULL;
+		tsv_write_error();
+		rc = 1;
+	}
+	g_tsv = NULL;
 	if (dst_root)
 		LocalFree(dst_root);
 	if (src_full)
 		LocalFree(src_full);
 	if (dst_full)
 		LocalFree(dst_full);
+	if (tsv_full)
+		LocalFree(tsv_full);
 	if (argv)
 		LocalFree(argv);
 	return rc;

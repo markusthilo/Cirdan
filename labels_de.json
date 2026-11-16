@@ -76,6 +76,10 @@
     "allfiles": "Alle Dateien",
     "launched": "wurde gestartet",
     "of": "von",
+    "copy_error": "Fehler beim Kopieren der Datei #1: #2 Lesefehler, #3 Schreibfeehler, #4 Dateigrößenabweichungen",
+    "copy_progress": "Datei #1 von #2, #3 von #4, #5 kopiert",
+    "running": "Führe aus: #",
+
     "problems": "Es traten Probleme auf",
     "more_problems": "# weitere Probleme",
     "running_warning": "Soll der laufende Prozess abgebrochen werden?",

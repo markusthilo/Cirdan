@@ -20,7 +20,7 @@ class Source:
 		self.countlist = RegEx(settings.count_paths) if settings.count_paths else None
 		self.max_path_length = settings.max_path_length
 		self.sub_suffixes = settings.source_sub_filetypes.keys()
-		self.top_dir_name: str | None = None
+		self.name: str | None = None
 		self.top_dir_path: Path | None = None
 		self.sub_dirs = dict[str, dict[str, Path | Size | int]]()
 		self.sub_files = dict[str, dict[str, Path | Size]]()
@@ -31,7 +31,7 @@ class Source:
 
 	def __repr__(self) -> str | None:
 		"""Printable path"""
-		string = self.top_dir_name if self.top_dir_name else "Name not set"
+		string = self.name if self.name else "Name not set"
 		string += f" ({self.size}, {self.file_cnt} file(s))\n"
 		if self.top_dir_path:
 			string += f" -> {self.top_dir_path}\n"
@@ -116,7 +116,7 @@ class Source:
 				file_cnt += 1
 				self.file_cnt += 1
 				yield abs_path, None
-		self.sub_dirs[path.name] = {"size": size, "files": file_cnt}
+		self.sub_dirs[path.name] = {"path": path, "size": size, "files": file_cnt}
 		if self.countlist:
 			self.counted_paths[path.name] = counted_paths
 
@@ -136,7 +136,7 @@ class Source:
 		size = path.get_filesize()
 		self.file_cnt += 1
 		self.size += size
-		self.sub_files[path.name] = {"size": size}
+		self.sub_files[path.name] = {"path": path, "size": size}
 		if self.sub_wishlist and self.sub_wishlist.search(path.name):
 			self.wished_files[path.name] = path
 		return path.name
@@ -149,11 +149,11 @@ class Source:
 		if self.sub_wishlist and self.sub_wishlist.search(name):
 			self.wished_files.pop(name)
 
-	def set_top_dir_name(self, name: str) -> str:
+	def set_name(self, name: str) -> str:
 		"""Set top level dir"""
 		if self.top_dir_whitelist and not self.top_dir_whitelist.search(name):
 			raise ValueError(self._labels.not_a_valid_directory.replace("#", name))
-		self.top_dir_name = name
+		self.name = name
 		return name
 
 	def insert_top_dir(self, arg: Path | str, kill: Event | None = None) -> Generator[tuple[Path, int | str], None, None]:
@@ -161,7 +161,7 @@ class Source:
 		self.top_dir_path = self.top_dir(arg)
 		if not self.top_dir_path:
 			raise ValueError(self._labels.not_a_valid_directory.replace("#", str(path)))
-		self.top_dir_name = self.top_dir_path.name
+		self.name = self.top_dir_path.name
 		for path in self.top_dir_path.iterdir():
 			if path.is_dir():
 				for abs_path, value in self.add_sub_dir(path, kill):

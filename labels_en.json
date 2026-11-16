@@ -76,6 +76,10 @@
     "allfiles": "All Files",
     "launched": "has been launched",
     "of": "of",
+    "copy_error": "Error copying file #1: #2 read errors, #3 write errors, #4 file size mismatches",
+    "copy_progress": "File #1 of #2, #3 of #4, #5 copied",
+    "running": "Running: #",
+
     "problems": "Problems occurred",
     "more_problems": "# more problems",
     "running_warning": "Abort the running process?",
