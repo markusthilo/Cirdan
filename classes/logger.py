@@ -2,11 +2,16 @@
 # -*- coding: utf-8 -*-
 
 import logging
+from typing import TYPE_CHECKING
 from sys import exc_info
+from time import strftime
 from traceback import format_exc
 from collections.abc import Callable
 from classes.path import Path
 from classes.settings import Settings
+if TYPE_CHECKING:
+	from classes.source import Source
+	from classes.destination import Destination
 
 class Logger:
 	"""Configure Logging"""
@@ -149,36 +154,19 @@ class Logger:
 		self._user_path = None
 		self._user_messages = []
 
-	def add_remote(self, source: Path, destination: Path) -> str | None:
+	def add_remote(self, src: Source) -> str | None:
 		"""Add remote log file; return error message on failure"""
 		if self._remote_handler:
 			self.close_remote()
-		msg = f"{self.basic_info}, {self._labels.source_dir}: {source}, {self._labels.destination}: {destination}"
-		self._remote_path = self._settings.log_path.joinpath(source.name, self._settings.log_name).timed()
-		try:
-			self._remote_path.parent.mkdir(parents=True, exist_ok=True)
-			self._remote_handler = self.add_file(self._remote_path)
-			self.debug(msg)
-			return None
-		except Exception:
-			if self._remote_handler:
-				try:
-					self._logger.removeHandler(self._remote_handler)
-					self._remote_handler.close()
-				except Exception:
-					pass
-				self._remote_handler = None
-			self.error()
-			self._remote_path = self._settings.log_path.joinpath(f"{source.name}_{self._settings.log_name}").timed()
-			try:
-				self._remote_path.parent.mkdir(parents=True, exist_ok=True)
-				self._remote_handler = self.add_file(self._remote_path)
-				self.debug(msg)
-				return None
-			except Exception:
-				self._remote_path = None
-				self._remote_handler = None
-				return self.error()
+		remote_log_dir_path = self._settings.log_path / self._settings.destination_path.name / src.name
+		msg = (
+			f"{self.basic_info}, "
+			f"{self._labels.source_dir}: {src.top_dir_path}, "
+			f"{self._labels.target_dir}: {self._settings.destination_path / src.name}"
+			)
+		self._remote_path = remote_log_dir_path / strftime(self._settings.log_name)
+		remote_log_dir_path.mkdir(parents=True, exist_ok=True)
+		self._remote_handler = self.add_file(self._remote_path)
 
 	def get_remote_parent(self) -> Path | None:
 		"""Get parent of remote log file"""
@@ -208,8 +196,11 @@ class Logger:
 		self._lastlog_handler.close()
 		logging.shutdown()
 		try:
-			self._lastlog_path.copy(self._settings.log_path.joinpath(
-				f"{self._settings.username}_{self._settings.crashlog_name}").timed())
+			self._lastlog_path.copy(
+				self._settings.log_path.joinpath(
+					strftime(self._settings.crashlog_name.replace("%u", self._settings.username))
+				)
+			)
 		except Exception:
 			pass
 		return message

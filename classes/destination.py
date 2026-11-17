@@ -2,54 +2,30 @@
 # -*- coding: utf-8 -*-
 
 from typing import TYPE_CHECKING
-from collections.abc import Callable
 from json import load, dumps
-from classes.path import Path
-from classes.regex import RegEx
 if TYPE_CHECKING:
 	from classes.settings import Settings
+	from classes.path import Path
+	from classes.source import Source
 
 class Destination:
-	"""Class to check existing destination directory"""
+	"""The parent directory for every copy target directory"""
 
-	def __init__(
-		self,
-		settings: Settings,
-		name: str,
-		path: Path | str | None = None,
-	) -> None:
+	def __init__(self, settings: Settings) -> None:
 		self._settings = settings
-		self.name = name
-		if self.name not in self._settings.destinations:
-			raise ValueError(f"Destination {self.name} not found in config")
-		dst_cfg = self._settings.destinations[name]
-		path_key = dst_cfg["path"]
-		todo_key = dst_cfg["todo"]
-		if todo_key not in self._settings.todo:
-			raise ValueError(f"Todo set {todo_key!r} not found in config")
-		self.path = Path(path).resolve() if path else Path(getattr(self._settings, path_key)).resolve()
-		self.sub_dir_paths: list[Path] = []
-		self.todos = self._settings.todo[todo_key]
-		self.do_nothing: str | None = None
-		for key, value in self.todos.items():
-			if not value["do_something"]:
-				self.do_nothing = key
-				break
-		self._countlist = RegEx(self._settings.count_paths) if self._settings.count_paths else None
+		self.name = self._settings.destination_name
+		self.path = self._settings.destination_path
+		self.todos = self._settings.destination_todos
 
 	def __repr__(self) -> str:
 		"""Name"""
 		return f"{self.name}"
 
-	def is_accessible(self) -> bool:
-		"""Check if destination directory exists and is accessible"""
-		return self.path.is_accessible()
-
 	def check_sub_dirs(self, username: str) -> list[Path]:
 		"""Check destination directory and return list of subdirectories that might be triggered"""
-		self.sub_dir_paths = []
+		self.sub_dir_paths = list[Path]()
 		try:
-			entries = list(self.path.iterdir())
+			entries = list[Path](self.path.iterdir())
 		except OSError:
 			return self.sub_dir_paths
 		for sub_dir_path in entries:
@@ -65,29 +41,27 @@ class Destination:
 		self.sub_dir_paths.sort(key=lambda path: path.name)
 		return self.sub_dir_paths
 
-	def delete_trigger(self, todo: str, dir_name: str) -> None:
+	def delete_trigger(self, todo: str, source: Source) -> None:
 		"""Delete trigger file if given"""
 		if filename := self.todos[todo].get("delete_name"):
-			self.path.joinpath(dir_name, filename).unlink(missing_ok=True)
+			self.path.joinpath(source.name, filename).unlink(missing_ok=True)
 
-	def write_meta(self, todo: str, sub_dir_path: Path, counted_paths: dict[str, int] | None = None) -> None:
+	def write_meta(self, todo: str, source: Source) -> None:
 		"""Write meta file if given"""
-		todo_cfg = self.todos[todo]
-		meta_name = todo_cfg.get("meta_name")
-		meta_content = todo_cfg.get("meta_content")
-		if not meta_name or meta_content is None:
-			return
-		if "%p" in meta_content:
-			paths_json = dumps(
-				[{"pattern": pattern, "matches": n} for pattern, n in (counted_paths or {}).items()],
-				indent=8,
-			)
-			content = meta_content.replace("%p", paths_json)
-		else:
-			content = meta_content
-		sub_dir_path.write_text_file(meta_name, content, use_strftime=True)
+		if filename := self.todos[todo].get("meta_name"):
+			meta_content = self.todos[todo].get("meta_content")
+			if not meta_content:
+				return
+			if "%p" in meta_content and source.counted_paths:
+				paths_json = dumps(
+					{dir_name: {"pattern": pattern, "matches": n}
+						for dir_name , pattern, n in source.counted_paths.items()
+					}
+				)
+				meta_content = meta_content.replace("%p", paths_json)
+			self.path.joinpath(source.name).write_text_file(filename, meta_content, use_strftime=True)
 
-	def write_trigger(self, todo: str, sub_dir_path: Path) -> None:
+	def write_trigger(self, todo: str, source: Source) -> None:
 		"""Write trigger file if given"""
 		if filename := self.todos[todo].get("trigger_name"):
-			sub_dir_path.write_text_file(filename, self._settings.id)
+			self.path.joinpath(source.name).write_text_file(filename, self._settings.id)

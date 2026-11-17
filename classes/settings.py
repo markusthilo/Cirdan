@@ -9,7 +9,6 @@ from getpass import getuser
 from pprint import pformat
 from types import SimpleNamespace
 from classes.path import Path
-from classes.destination import Destination
 
 __executable__ = Path(executable)
 __app_path__ = (
@@ -63,7 +62,7 @@ class Settings(Config):
 	def __init__(self,
 		version: str = "2_Under_Construction",
 		config: Path | None = None,
-		destination: str | None = None,
+		destination_name: str | None = None,
 		destination_path: Path | str | None = None,
 		no_source_check: bool = False,
 		todo: str | None = None,
@@ -72,72 +71,71 @@ class Settings(Config):
 		mail_subject: str | None = None,
 		user_log: Path | None = None
 	) -> None:
-		if destination_path is not None and not destination:
-			raise ValueError("Destination path provided without destination name")
 		self.version = version
 		self.app_path = __app_path__
 		self.system = __system__
 		self._repr_name = "Settings"
 		self.hostname = node()
-		super().__init__(config)
-		with self.labels_path.open(encoding="utf-8") as fp:
-			self.labels = SimpleNamespace(**load(fp))
+		try:
+			super().__init__(config)
+		except:
+			raise ValueError(f"Failed to load configuration from {config}")
+		try:
+			with self.labels_path.open(encoding="utf-8") as fp:
+				self.labels = SimpleNamespace(**load(fp))
+		except:
+			raise ValueError(f"Failed to load labels from {self.labels_path}")
 		self._path = self.local_path / self.settings_name
-		self.accessible_destinations: dict[str, Destination] = {}
-		for dst_name in self.destinations:
-			dst = Destination(self, dst_name)
-			if dst.is_accessible():
-				self.accessible_destinations[dst_name] = dst
 		try:
 			with self._path.open(encoding="utf-8") as fp:
 				items: dict[str, Any] = load(fp)
-		except FileNotFoundError:
+		except:
 			items = {}
 			try:
 				self.local_path.mkdir(parents=True, exist_ok=True)
 			except OSError:
 				pass
-		self._init_destination(destination, destination_path, items)
-		self.selected_todo = todo
+		try:
+			if destination_path:
+				self.set_destination(destination_name)
+				self.destination_path = Path(destination_path).resolve()
+				if not self.destination_path.is_accessible():
+					raise ValueError(self.labels.destination_not_accessible.replace("#", destination_name))
+				self.accessible_destinations = {self.destination_name: self.destination_path}
+			else:
+				self.accessible_destinations = dict[str, Path]()
+				for dst_name, dst_values in self.destinations.items():
+					dst_path = self.__dict__.get(dst_values["path"]).resolve()
+					if dst_path.is_accessible():
+						self.accessible_destinations[dst_name] = dst_path
+				if not self.accessible_destinations:
+					raise ValueError(self.labels.no_accessible_destination)
+				if len(self.accessible_destinations) == 1:
+					self.set_destination(next(iter(self.accessible_destinations.keys())))
+				elif destination_name:
+					self.set_destination(destination_name)
+				elif items.get("destination") in self.accessible_destinations:
+					self.set_destination(items.get("destination"))
+				else:
+					self.destination_name = None
+					self.destination_path = None
+					self.destination_todos = None
+		except:
+			raise ValueError(self.labels.unable_to_set_destination)
+		self.selected_todo = todo if self.destination_todos and todo in self.destination_todos.keys() else None
 		self.no_source_check = no_source_check
 		self.username = username or items.get("username") or getuser()
-		self.sendmail = True if mail_to else bool(items.get("sendmail", False))
+		self.sendmail = bool(mail_to) or items.get("sendmail", False)
 		self.mail_to = mail_to or items.get("mail_to", "")
 		self.mail_subject = mail_subject or items.get("mail_subject") or self.mail["default-subject"]
 		self.user_log = user_log
 		self.id = f'{{\n  "hostname": "{self.hostname}",\n  "username": "{self.username}"\n}}'
 
-	def _init_destination(
-		self,
-		destination: str | None,
-		destination_path: Path | str | None,
-		items: dict[str, Any],
-	) -> None:
-		"""Resolve selected destination from CLI args, then saved settings, then auto-pick"""
-		if destination and destination_path:
-			self.destination = Destination(self, destination, destination_path)
-		elif destination:
-			self.destination = self.accessible_destinations.get(destination)
-		else:
-			saved_name = items.get("destination")
-			saved_path = items.get("destination_path")
-			if saved_name and saved_path:
-				try:
-					self.destination = Destination(self, saved_name, saved_path)
-				except ValueError:
-					self.destination = self.accessible_destinations.get(saved_name)
-			elif saved_name:
-				self.destination = self.accessible_destinations.get(saved_name)
-			elif len(self.accessible_destinations) == 1:
-				self.destination = next(iter(self.accessible_destinations.values()))
-			else:
-				self.destination = None
-		self.destination_path = self.destination.path if self.destination else None
-
-	def set_destination(self, destination: str) -> None:
+	def set_destination(self, destination_name: str | None) -> None:
 		"""Set selected destination"""
-		self.destination = self.accessible_destinations.get(destination)
-		self.destination_path = self.destination.path if self.destination else None
+		self.destination_name = destination_name
+		self.destination_path = self.accessible_destinations.get(destination_name) if destination_name else None
+		self.destination_todos = self.todo.get(self.destinations[destination_name]["todo"]) if destination_name else None
 
 	def set_todo(self, todo: str | None) -> None:
 		"""Set selected todo"""
@@ -146,13 +144,13 @@ class Settings(Config):
 	def save(self) -> None:
 		"""Save settings file"""
 		self.local_path.mkdir(parents=True, exist_ok=True)
-		data = {
-			"destination": self.destination.name if self.destination else None,
-			"destination_path": str(self.destination_path) if self.destination_path else None,
-			"username": self.username,
-			"sendmail": self.sendmail,
-			"mail_to": self.mail_to,
-			"mail_subject": self.mail_subject,
-		}
 		with self._path.open("w", encoding="utf-8") as fp:
-			dump(data, fp, indent=2)
+			dump(
+				{
+					"destination": self.destination_name,
+					"username": self.username,
+					"sendmail": self.sendmail,
+					"mail_to": self.mail_to,
+					"mail_subject": self.mail_subject,
+				}, fp, indent=2
+			)

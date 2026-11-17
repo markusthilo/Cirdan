@@ -2,6 +2,12 @@
     "title": "Copy to Import/Remote Directory Across Network",
     "hostname": "Hostname",
     "username": "Username",
+    "no_accessible_destination": "No accessible destination directory found, please contact Admin or Support",
+    "destination_path_required": "Destination path is required for destination #",
+    "destination_not_accessible": "Destination # is not accessible",
+    "unable_to_set_destination": "The destination could not be set",
+    "source_dir": "Source Directory",
+    "target_dir": "Target Directory",
     "add_files_tip": "Add a file at the 2nd level",
     "top_dir_already_set": "The top-level directory is already set",
     "sub_dir_already_set": "The subdirectory # is already added",
@@ -85,12 +91,6 @@
     "running_warning": "Abort the running process?",
     "worker_killed": "Worker process was terminated",
     "killing_running": "Abort the running process",
-    "tsv_header": "Path\tMD5\tBytes\tResult",
-    "copy_finished": "Finished - copied #1 files, total size: #2, took #3",
-    "read_error": "Read error(s): #",
-    "write_error": "Write error(s): #",
-    "mismatch": "File size mismatch: #",
-    "file_count_mismatch": "File count mismatch: #1 (source) != #2 (destination)",
-    "size_mismatch": "Size mismatch over all files: #1 (source) != #2 (destination)",
-    "mail_error": "Error sending mail to #"
+    "mail_error": "Error sending mail to #",
+    "copy_finished": "Copy finished: #1 / #2 files, write errors: #3, read errors: #4, file size mismatches: #5, other exceptions: #6, duration: #7"
 }

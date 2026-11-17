@@ -19,10 +19,6 @@ class Path(PathlibPath):
 		"""Readable representation with forward slashes (do not use as_posix: it calls str())"""
 		return PathlibPath.__str__(self).replace("\\", "/")
 
-	def timed(self, fmt: str = "%y%m%d_%H%M%S_%n") -> Path:
-		"""Return path with timestamp added to name (%n = original name)"""
-		return self.with_name(strftime(fmt.replace("%n", self.name)))
-
 	def append_name(self, name: str, use_strftime: bool = False) -> Path:
 		"""Append name to path; optionally expand strftime codes in name"""
 		return self.joinpath(strftime(name) if use_strftime else name)

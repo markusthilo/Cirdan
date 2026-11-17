@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = "Markus Thilo"
-__version__ = "2.1.0_2026-11-16"
+__version__ = "2.1.0_2026-11-17"
 __license__ = "GPL-3"
 __email__ = "markus.thilo@proton.me"
 __status__ = "Testing"
@@ -15,6 +15,7 @@ from classes.path import Path
 from classes.settings import Settings
 from classes.logger import Logger
 from classes.source import Source
+from classes.destination import Destination
 from classes.worker import Worker
 from classes.gui import Gui
 
@@ -83,7 +84,7 @@ if __name__ == "__main__":  # start here when run as application
 		settings = Settings(
 			__version__,
 			config = args.config,
-			destination = args.destination,
+			destination_name = args.destination,
 			destination_path = args.path,
 			todo = args.todo,
 			no_source_check = args.nocheck,
@@ -99,17 +100,8 @@ if __name__ == "__main__":  # start here when run as application
 			Gui.startup_error(msg)
 		raise RuntimeError(msg) from None
 	try:	# now we have logging
-		settings.set_todo(args.todo)
-	except Exception:
-		msg = logger.crash()
-		if use_gui:
-			Gui.startup_error(msg)
-		raise RuntimeError(msg) from None
-	if  use_gui:	# gui mode
-		Gui(settings, logger, args.source, args.top).mainloop()	# launch gui window
-	else:	# console mode
 		source = Source(settings)
-		if args.nocheck:
+		if settings.no_source_check:
 			source.set_no_check()
 		for arg in args.source:
 			if arg.is_dir():
@@ -132,11 +124,19 @@ if __name__ == "__main__":  # start here when run as application
 						print(f"{settings.labels.inserted} {arg}")
 		if args.top:
 			source.set_top_dir_name(args.top)
-
-		print(source)
-		exit(0)	# debug
-
-		if Worker(source, settings, logger).run():
-			exit(1)
-	exit(0)
-	
+		destination = Destination(settings)
+	except Exception:
+		msg = logger.crash()
+		if use_gui:
+			Gui.startup_error(msg)
+		raise RuntimeError(msg) from None
+	if  use_gui:	# gui mode
+		Gui(settings, logger, source, target).mainloop()	# launch gui window
+	else:	# console mode
+		logger.add_remote(source)
+		if settings.user_log:
+			logger.add_user(settings.user_log)
+		returncode = Worker(source, destination, settings).run()
+		logger.close_user()
+		logger.close_remote()
+		exit(returncode)
