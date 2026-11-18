@@ -97,12 +97,14 @@ class Settings(Config):
 				pass
 		try:
 			if destination_path:
+				self.destination_arg_set = True
 				self.set_destination(destination_name)
 				self.destination_path = Path(destination_path).resolve()
 				if not self.destination_path.is_accessible():
 					raise ValueError(self.labels.destination_not_accessible.replace("#", destination_name))
 				self.accessible_destinations = {self.destination_name: self.destination_path}
 			else:
+				self.destination_arg_set = False
 				self.accessible_destinations = dict[str, Path]()
 				for dst_name, dst_values in self.destinations.items():
 					dst_path = self.__dict__.get(dst_values["path"]).resolve()
@@ -140,6 +142,13 @@ class Settings(Config):
 	def set_todo(self, todo: str | None) -> None:
 		"""Set selected todo"""
 		self.selected_todo = todo
+
+	def get_todo(self) -> tuple[str | None, bool]:
+		"""Get selected todo and do_something"""
+		if self.destination_todos and self.selected_todo in self.destination_todos.keys():
+			return self.selected_todo, self.destination_todos[self.selected_todo]["do_something"]
+		else:
+			return None, False
 
 	def save(self) -> None:
 		"""Save settings file"""

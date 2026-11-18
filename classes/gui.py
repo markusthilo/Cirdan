@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from typing import TYPE_CHECKING
 from time import perf_counter
 from threading import current_thread, main_thread
 from collections.abc import Callable
@@ -9,7 +10,7 @@ from tkinter.font import nametofont
 from tkinter.ttk import Frame, Label, Entry, Button, Checkbutton, OptionMenu, Style, Treeview, Scrollbar
 from tkinter.scrolledtext import ScrolledText
 from tkinter.messagebox import askyesno, showerror, showinfo
-from tkinter.filedialog import askdirectory, asksaveasfilename
+from tkinter.filedialog import askdirectory, askopenfilename, asksaveasfilename
 from idlelib.tooltip import Hovertip
 from classes.logger import Logger as Log
 from classes.path import Path
@@ -19,8 +20,10 @@ from classes.addsrcdirthread import AddSrcDirThread
 from classes.workthread import WorkThread
 from classes.tododialog import ToDoDialog
 from classes.messagedialog import prepare_message_parent
-from classes.source import Source
+from classes.destination import Destination
 from classes.settings import Settings
+if TYPE_CHECKING:
+	from classes.source import Source
 
 class Gui(Tk):
 	"""GUI look and feel"""
@@ -117,12 +120,16 @@ class Gui(Tk):
 			},
 		)])
 
-	def __init__(self, settings: Settings, logger: Log, source: Path | None = None) -> None:
+	def __init__(self, settings: Settings, logger: Log, source: Path, destination: Path | None = None,
+		sources: list[Path] = list[Path]()
+	) -> None:
 		"""Open application window"""
 		super().__init__()
 		self.settings = settings
 		self.labels = self.settings.labels
 		self.logger = logger
+		self.source = source
+		self.destination = destination
 		self._todo_dialog: ToDoDialog | None = None
 		self._work_thread: WorkThread | None = None
 		self._check_source_thread: CheckSourceThread | None = None
@@ -144,20 +151,16 @@ class Gui(Tk):
 			self.resizable(True, True)
 			self._pad = int(font_size * self.settings.gui["pad_factor"])
 			self._style_option_menus()
-
+			### Source ###
 			frame = Frame(self)
 			frame.grid(row=0, column=0, sticky="nw", padx=self._pad, pady=(self._pad, 0))
 			Label(frame, text=self.labels.add).pack(pady=(0, self._pad))
-			self._add_top_dir_button = Button(frame, text=self.labels.add_top_dir, command=self._select_source)
-			self._add_top_dir_button.pack(fill="x", pady=(0, self._pad))
-			Hovertip(self._add_top_dir_button, self.labels.add_top_dir_tip)
-			self._add_sub_dir_button = Button(frame, text=self.labels.add_sub_dir, command=self._select_source)
-			self._add_sub_dir_button.pack(fill="x", pady=(0, self._pad))
-			Hovertip(self._add_sub_dir_button, self.labels.add_sub_dir_tip)
-			self._add_sub_file_button = Button(frame, text=self.labels.add_sub_file, command=self._select_source)
-			self._add_sub_file_button.pack(fill="x", pady=(0, self._pad))
-			Hovertip(self._add_sub_file_button, self.labels.add_sub_file_tip)
-
+			self._add_dir_button = Button(frame, text=self.labels.dir, command=self._add_dir)
+			self._add_dir_button.pack(fill="x", pady=(0, self._pad))
+			Hovertip(self._add_dir_button, self.labels.add_dir_tip)
+			self._add_file_button = Button(frame, text=self.labels.file, command=self._add_file)
+			self._add_file_button.pack(fill="x", pady=(0, self._pad))
+			Hovertip(self._add_file_button, self.labels.add_file_tip)
 			frame = Frame(self)
 			frame.grid(row=0, column=1, sticky='nswe', padx=self._pad, pady=self._pad)
 			self._source_tree = Treeview(frame, show='tree', selectmode='browse')
@@ -166,72 +169,67 @@ class Gui(Tk):
 			vsb = Scrollbar(frame, orient='vertical', command=self._source_tree.yview)
 			vsb.pack(side='right', fill='y')
 			self._source_tree.configure(yscrollcommand=vsb.set)
-			self.source = Source(self.settings)
-			if source:
-				self.source.set(source)
-				self._gen_source_tree()
+			self._gen_source_tree()
 			self._delete_button = Button(self, text=self.labels.delete_source, command=self._delete_source)
 			self._delete_button.grid(row=1, column=1, sticky="ne", padx=self._pad)
 			Hovertip(self._delete_button, self.labels.delete_source_tip)
+			### Destination ###
 			label = Label(self, text=f"{self.labels.destination}:")
 			label.grid(row=2, column=0, sticky="w", padx=(2*self._pad, 0), pady=self._pad)
 			Hovertip(label, self.labels.destination_tip)
-			self.destination = StringVar()
-			selected_destination = (
-				self.settings.destination.name if self.settings.destination else self.labels.select_destination
-			)
-			if len(self.settings.accessible_destinations) > 1:
+			self._destination_name = StringVar(value=self.destination.name if self.destination else None)
+			if self.settings.destination_arg_set:
+				Label(self, text=self.destination.name).grid(row=2, column=1, columnspan=2, sticky="w", padx=self._pad)
+			elif len(self.settings.accessible_destinations)== 1:
+				Label(self, text=self.destination.name).grid(row=2, column=1, columnspan=2, sticky="w", padx=self._pad)
+			elif self.destination:
 				OptionMenu(
 					self,
-					self.destination,
-					selected_destination,
+					self._destination_name,
+					self.destination.name,
 					*self.settings.accessible_destinations.keys(),
 					command=self._destination_selected
 				).grid(row=2, column=1, sticky="ew", padx=self._pad)
-			elif len(self.settings.accessible_destinations) == 1:
-				self.destination.set(
-					self.settings.destination.name if self.settings.destination else ""
-				)
-				Label(
+			else:
+				OptionMenu(
 					self,
-					text=self.settings.destination.name if self.settings.destination else self.labels.select_destination,
-				).grid(row=2, column=1, columnspan=2, sticky="w", padx=self._pad)
+					self._destination_name,
+					self.labels.select_destination,
+					*self.settings.accessible_destinations.keys(),
+					command=self._destination_selected
+				).grid(row=2, column=1, sticky="ew", padx=self._pad)
+			### Todo ###
 			label = Label(self, text=f"{self.labels.todo}:")
 			label.grid(row=3, column=0, sticky="w", padx=(2*self._pad, 0), pady=(0, self._pad))
 			Hovertip(label, self.labels.todo_tip)
 			frame = Frame(self)
 			frame.grid(row=3, column=1, sticky="ew", padx=self._pad)
-			self._todo = StringVar()
-			self._todo_boolean = BooleanVar()
+			todo, do_something = self.settings.get_todo()
+			self._todo_string = StringVar(value=todo)
+			self._todo_boolean = BooleanVar(value=do_something)
 			button = Checkbutton(frame, text="\u2194 ", variable=self._todo_boolean, command=self._toggle_todo)
 			button.pack(side="left")
-			self._todo_menu = OptionMenu(frame, self._todo, command=self._todo_selected)
+			self._todo_menu = OptionMenu(frame, self._todo_string, command=self._todo_selected)
 			self._todo_menu.pack(side="left", expand=True, fill="x")
 			Hovertip(frame, self.labels.todo_tip)
-			if self.settings.destination:
-				if self.settings.selected_todo:
-					self._todo.set(self.settings.selected_todo)
-					self._todo_menu.set_menu(self.settings.selected_todo, *self.settings.destination.todos.keys())
-					self._todo_boolean.set(bool(self.settings.destination.todos[self.settings.selected_todo]["do_something"]))
-				else:
-					self._todo.set(self.labels.select_todo)
-					self._todo_menu.set_menu(self.labels.select_todo, *self.settings.destination.todos.keys())
-					self._todo_boolean.set(False)
+			if todo:
+					self._todo_menu.set_menu(todo, *self.destination.todos.keys())
+			elif self.destination:
+					self._todo_menu.set_menu(self.labels.select_todo, *self.destination.todos.keys())
 			else:
-				self._todo.set(self.labels.select_destination_first)
 				self._todo_menu.set_menu(self.labels.select_destination_first)
-				self._todo_boolean.set(False)
+			### Mail ###
 			frame = Frame(self)
 			frame.grid(row=4, column=1, sticky="we", padx=self._pad)
 			frame.columnconfigure(1, weight=1)
-			self.mail_to = StringVar(value=self.settings.mail_to)
-			self.mail_subject = StringVar(value=self.settings.mail_subject)
+			self._mail_to = StringVar(value=self.settings.mail_to)
+			self._mail_subject = StringVar(value=self.settings.mail_subject)
 			try:
 				use_mail = SendMail(self.settings.mail).is_reachable()
 			except Exception:
 				use_mail = False
 			if use_mail:
-				self.send_mail = BooleanVar(value=self.settings.sendmail)
+				self._send_mail = BooleanVar(value=self.settings.sendmail)
 				button = Checkbutton(frame, text=f"{self.labels.sendmail_button}:", variable=self.send_mail)
 				button.grid(row=0, column=0, sticky="w", padx=(0, self._pad))
 				Hovertip(button, self.labels.sendmail_tip)
@@ -248,7 +246,8 @@ class Gui(Tk):
 				entry.grid(row=1, column=1, columnspan=2, sticky="we")
 				Hovertip(entry, self.labels.mail_subject_tip)
 			else:
-				self.send_mail = BooleanVar(value=False)
+				self._send_mail = BooleanVar(value=False)
+			### Start button and log checkbox ###
 			self._info_label = Label(self)
 			self._info_label.grid(row=5, column=0, sticky="sw", padx=self._pad, pady=(0, self._pad))
 			self._label_fg = self._info_label.cget("foreground")
@@ -267,13 +266,9 @@ class Gui(Tk):
 				style="Execute.TButton",
 				command=self._execute
 			)
-			self._exec_button.grid(
-				row=0,
-				column=1,
-				sticky="ew",
-				padx=(self._pad, 0)
-			)
+			self._exec_button.grid(row=0, column=1, sticky="ew", padx=(self._pad, 0))
 			Hovertip(self._exec_button, self.labels.start_tip)
+			### Info text ###
 			self._info_text = ScrolledText(self, font=(font_family, font_size), padx=self._pad, pady=self._pad)
 			self._info_text.grid(row=6, column=0, columnspan=2, sticky="nsew",
 				ipadx=self._pad, ipady=self._pad, padx=self._pad, pady=(0, self._pad))
@@ -284,6 +279,7 @@ class Gui(Tk):
 			self._info_bg = self._info_text.cget("background")
 			self._info_newline = True
 			self.logger.set_echo(self.echo)
+			### Todo button and quit button ###
 			frame = Frame(self)
 			frame.grid(row=7, column=0, columnspan=2, sticky="we", padx=self._pad, pady=(0, self._pad))
 			self._create_todo_button = Button(frame, text=self.labels.create_todo, command=self._open_todo_window)
@@ -292,6 +288,7 @@ class Gui(Tk):
 			self._quit_button = Button(frame, text=self.labels.quit, command=self._quit_app, state="disabled")
 			self._quit_button.pack(side="right", padx=(0, self._pad))
 			update = Update(self.settings.version, self.settings.update_path, self.settings.app_path)
+			### Update check ###
 			if update.new_version is not None:
 				msg = self.labels.update_info.replace("#1", f"{update.new_version}").replace("#2", f"{self.settings.update_path}")
 				self._prepare_dialog()
@@ -312,6 +309,7 @@ class Gui(Tk):
 							msg = Log.error()
 							self._prepare_dialog()
 							showerror(parent=self, title=self.labels.error, message=f"{self.labels.update_error}:\n{msg}")
+			########################################################
 			self._init_warning()
 			if len(self.settings.accessible_destinations) < 1:
 				raise RuntimeError(self.labels.no_reachable_destination)
@@ -320,6 +318,68 @@ class Gui(Tk):
 			self._prepare_dialog()
 			showerror(parent=self, title=self.labels.error, message=msg)
 			self.destroy()
+
+	def _gen_source_tree(self):
+		'''Generate Treeview for Source'''
+		self._source_tree.delete(*self._source_tree.get_children())
+		if self.source.is_empty():
+			return
+		self._source_tree.insert("", 0,
+			text = self.source.name or self.labels.no_top_dir,
+			open = True
+		)
+		for path, values in self.source.sub_dirs.items():
+			self._source_tree.insert("I001", "end",
+				text = f"\U0001F5C0 {path}",
+				iid = path
+			)
+		for path, values in self.source.sub_files.items():
+			self._source_tree.insert("I001", "end",
+				text = f"\U0001F5C5 {path}",
+				iid = path
+			)
+
+	def _get_source_tree_item(self, event):
+		'''Focus to directory'''
+		return self._source_tree.identify('item', event.x, event.y)
+
+	def _add_dir(self) -> None:
+		"""Add directory to source"""
+		if directory := askdirectory(title=self.labels.select_dir, mustexist=True):
+			if top_dir := self.source.top_dir(directory):
+				self._insert_top_dir(top_dir)
+			elif sub_dir := self.source.sub_dir(directory):
+				self._add_sub_dir(sub_dir)
+			else:
+				self._prepare_dialog()
+				showerror(parent=self, title=self.labels.error, message=self.labels.not_a_valid_directory.replace("#", directory))
+
+	def _add_file(self) -> None:
+		"""Add file to source"""
+		if filenames := askopenfilename(title=self.labels.select_file, multiple=True):
+			sub_files = list[Path]()
+			for filename in filenames:
+				if sub_file := self.source.sub_file(filename):
+					sub_files.append(sub_file)
+				else:
+					self._prepare_dialog()
+					showerror(parent=self, title=self.labels.error, message=self.labels.not_a_valid_file.replace("#", filename))
+					return
+
+	def _insert_top_dir(self, top_dir: Path) -> None:
+		"""Insert top-directory into source"""
+		self.source.add_top_dir(top_dir)
+		self._gen_source_tree()
+
+	def _add_sub_dir(self, sub_dir: Path) -> None:
+		"""Add sub-directory to source"""
+		self.source.add_sub_dir(sub_dir)
+		self._gen_source_tree()
+
+	def _add_sub_file(self, sub_file: Path) -> None:
+		"""Add sub-file to source"""
+		self.source.add_sub_file(sub_file)
+		self._gen_source_tree()
 
 	def _select_top_dir(self) -> None:
 		"""Select top-directory to add"""
@@ -369,73 +429,33 @@ class Gui(Tk):
 			self._source_text.delete("end-2l", "end-1l")
 			self._source_text.configure(state="disabled")
 
-	def _clear_source_text(self) -> None:
-		"""Clear source list"""
-		self._source_text.configure(state="normal")
-		self._source_text.delete("1.0", "end")
-		self._source_text.configure(state="disabled")
-		self.sources = list()
-
-
-
-	def _gen_source_tree(self):
-		'''Generate Treeview for Source'''
-		self._source_tree.delete(*self._source_tree.get_children())
-		self._source_tree.insert("", 0,
-			text = self.labels.no_top_dir if self.source.file_cnt == 0 else self.source.top_dir_name,
-			open = True
-		)
-		for path, size, file_cnt in self.source.sub_dirs:
-			self._source_tree.insert("I001", "end",
-				text = f"\U0001F5C0 {path.name}",
-				iid = path.name
-			)
-		for path, size in self.source.sub_files:
-			self._source_tree.insert("I001", "end",
-				text = f"\U0001F5C5 {path.name}",
-				iid = path.name
-			)
-
-	def _get_source_tree_item(self, event):
-		'''Focus to directory'''
-		return self._source_tree.identify('item', event.x, event.y)
-
 	def _destination_selected(self, *_: object) -> None:
 		"""Set destination and change todo menu when changing destination"""
-		destination = self.destination.get()
-		if destination in self.settings.accessible_destinations:
-			self.settings.set_destination(destination)
-			self._todo.set(self.labels.select_todo)
-			self._todo_menu.set_menu(self.labels.select_todo, *self.settings.destination.todos.keys())
-		else:
-			self.settings.set_destination(destination)
-			self._todo_menu.set_menu(self.labels.select_destination_first)
-		self._todo_boolean.set(False)
+		destination_name = self._destination_name.get()
+		if destination_name in self.settings.accessible_destinations:
+			self.settings.set_destination(destination_name)
+			self.destination = Destination(self.settings)
+			self._todo_boolean.set(False)
+			self._todo_menu.set_menu(self.labels.select_todo, *self.destination.todos.keys())
 
 	def _todo_selected(self, *_: object) -> None:
 		"""Set selected todo"""
-		if not self.settings.destination:
-			return
-		todo = self._todo.get()
-		if todo in self.settings.destination.todos:
-			self.settings.set_todo(todo)
-			self._todo_menu.set_menu(todo, *self.settings.destination.todos.keys())
-			self._todo_boolean.set(bool(self.settings.destination.todos[todo]["do_something"]))
-		else:
-			self.settings.set_todo(None)
-			self._todo_menu.set_menu(self.labels.select_todo, *self.settings.destination.todos.keys())
-			self._todo_boolean.set(False)
+		if self.destination:
+			self.settings.set_todo(self._todo_string.get())
+			todo, do_something = self.settings.get_todo()
+			self._todo_menu.set_menu(todo, *self.destination.todos.keys())
+			self._todo_boolean.set(do_something)
 
 	def _toggle_todo(self) -> None:
 		"""Toggle todo checkbox"""
-		todo_boolean = self._todo_boolean.get()
+		checked = self._todo_boolean.get()
 		self._todo_boolean.set(False)
-		if not self.settings.destination:
-			return
-		if todo_boolean:
-			self._todo_menu.tk.call("ttk::menubutton::Popdown", self._todo_menu)
-		else:
-			self._todo_menu.set_menu(self.settings.destination.do_nothing, *self.settings.destination.todos.keys())
+		if self.destination:
+			if checked:
+				self._todo_menu.tk.call("ttk::menubutton::Popdown", self._todo_menu)
+			else:
+				self.settings.set_todo(self.destination.do_nothing)
+				self._todo_menu.set_menu(self.destination.do_nothing, *self.destination.todos.keys())
 
 	def _open_todo_window(self) -> None:
 		"""Check destination to open todo dialog"""
@@ -555,10 +575,10 @@ class Gui(Tk):
 
 	def _get_settings(self) -> None:
 		"""Get settings from GUI"""
-		self.settings.set_destination(self.destination.get())
-		self.settings.sendmail = self.send_mail.get()
-		self.settings.mail_to = self.mail_to.get()
-		self.settings.mail_subject = self.mail_subject.get()
+		self.settings.destination_name = self._destination_name.get()
+		self.settings.sendmail = self._send_mail.get()
+		self.settings.mail_to = self._mail_to.get()
+		self.settings.mail_subject = self._mail_subject.get()
 
 	def _save_settings(self) -> None:
 		"""Get settings from GUI and save to JSON file"""

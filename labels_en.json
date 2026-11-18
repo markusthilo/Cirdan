@@ -17,8 +17,10 @@
     "add": "Add",
     "dir": "Directory",
     "add_dir_tip": "Add a directory at top or 2nd level",
-    "files": "File(s)",
+    "file": "File",
     "add_file_tip": "Add a file(s) at the 2nd level",
+    "select_dir": "Select the source directory",
+    "select_file": "Select the file(s)",
 
     "delete_source": "Delete entry",
     "delete_source_tip": "Delete entry from the source list above",
@@ -75,7 +77,6 @@
     "quit": "Exit",
     "warning": "Warning",
     "already_added": "# has already been added",
-    "select_dir": "Select the source directory",
     "added_source": "Source # has been added",
     "aborted_source_check": "Source directory check was aborted",
     "logfile": "Log File",
@@ -85,7 +86,6 @@
     "copy_error": "Error copying file #1: #2 read errors, #3 write errors, #4 file size mismatches",
     "copy_progress": "File #1 of #2, #3 of #4, #5 copied",
     "running": "Running: #",
-
     "problems": "Problems occurred",
     "more_problems": "# more problems",
     "running_warning": "Abort the running process?",

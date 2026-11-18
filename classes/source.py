@@ -49,6 +49,10 @@ class Source:
 			string += f"    {key}: {value}\n"
 		return string
 
+	def is_empty(self) -> bool:
+		"""Check if source is empty"""
+		return not (self.name or self.sub_dirs or self.sub_files)
+
 	def set_no_check(self) -> None:
 		"""Ignore black-/whitelists and path length"""
 		self.top_dir_whitelist = None

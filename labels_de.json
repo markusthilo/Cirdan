@@ -15,9 +15,11 @@
     "blacklisted": "Unerlaubter Pfad (Blacklist):\n\n#1\n\nRegEx-Muster: \"#2\"",
     "add": "Hinzufügen",
     "dir": "Verzeichnis",
-    "add_dir_tip": "Füge ein Zop-Level-Verzeichnis (POLIKS-Nr.)\noder eun Unterverzeichnis (EAV-Nr.)hinzu",
-    "files": "Datei(en)",
-    "add_files_tip": "Füge Datei(en) auf EAV-Verzeichnisebene hinzu",
+    "add_dir_tip": "Füge ein Zop-Level-Verzeichnis (POLIKS-Nr.)\noder ein Unterverzeichnis (EAV-Nr.)hinzu",
+    "file": "Datei",
+    "add_file_tip": "Füge Datei(en) auf EAV-Verzeichnisebene hinzu",
+    "select_dir": "Wähle das Quellverzeichnis aus",
+    "select_file": "Wähle die Datei(en) aus",
 
 
     "destination": "Zielverzeichnis",
@@ -74,7 +76,6 @@
     "quit": "Beenden",
     "warning": "Warnung",
     "already_added": "# wurde bereits hinzugefügt",
-    "select_dir": "Wähle das Quellverzeichnis aus",
     "added_source": "Quelle # wurde hinzugefügt",
     "aborted_source_check": "Quellverzeichnisprüfung wurde abgebrochen",
     "logfile": "Protokolldatei",
@@ -84,7 +85,6 @@
     "copy_error": "Fehler beim Kopieren der Datei #1: #2 Lesefehler, #3 Schreibfeehler, #4 Dateigrößenabweichungen",
     "copy_progress": "Datei #1 von #2, #3 von #4, #5 kopiert",
     "running": "Führe aus: #",
-
     "problems": "Es traten Probleme auf",
     "more_problems": "# weitere Probleme",
     "running_warning": "Soll der laufende Prozess abgebrochen werden?",
