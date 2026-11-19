@@ -81,6 +81,7 @@
     "warning": "Warning",
     "already_added": "# has already been added",
     "added_source": "Source # has been added",
+    "added_file": "File # has been added",
     "aborted_source_check": "Source directory check was aborted",
     "logfile": "Log File",
     "allfiles": "All Files",

@@ -3,31 +3,38 @@
 
 from typing import TYPE_CHECKING
 from threading import Thread, Event
+from copy import copy
 from tkinter.messagebox import askyesno
 from classes.logger import Logger as Log
+from classes.source import Source
 from classes.gimmicks import Cylon
 from traceback import format_exc
 if TYPE_CHECKING:
 	from classes.gui import Gui
 	from classes.path import Path
+	from typing import Callable
 
-class AddSubDirThread(Thread):
+class InsertSrcDirThread(Thread):
 	"""Thread to add a sub directory into source"""
 
-	def __init__(self, gui: Gui, arg: Path | str) -> None:
+	def __init__(self, gui: Gui, arg: Path | str, call_on_finish: Callable | None = None) -> None:
 		self._gui = gui
-		self._dir_path = self._gui.source.sub_dir(arg)
-		if not self._dir_path:
-			msg = self._gui.labels.not_a_valid_directory.replace("#", str(arg))
-			raise ValueError(msg) from None
-		if dir_name := self._gui.source.sub_dir_already_set(self._sub_dir):
-			msg = self._gui.labels.sub_dir_already_set.replace("#", dir_name)
-			raise ValueError(msg) from None
-		self._insert = self._gui.source.add_sub_dir
+		self._call_on_finish = call_on_finish
+		self._source = copy(self._gui.source) if self._gui.source else Source(self._gui.settings)
+		self._dir_path = self._source.top_dir(arg)
+		if self._dir_path:
+			self._insert = self._source.insert_top_dir
+		else:
+			self._dir_path = self._source.sub_dir(arg)
+			if self._dir_path:
+				if dir_name := self._source.sub_dir_already_set(self._sub_dir):
+					raise ValueError(self._gui.labels.sub_dir_already_set.replace("#", dir_name)) from None
+				self._insert = self._source.add_sub_dir
+			else:
+				raise ValueError(self._gui.labels.not_a_valid_directory.replace("#", str(arg))) from None
 		self._indicator = Cylon()
 		super().__init__(daemon=True)
 		self._kill_event = Event()
-		self.returncode = None
 
 	def _warning_yesno(self, message: str) -> bool:
 		"""Show askyesno on the Tk main thread and wait for the answer"""
@@ -35,7 +42,7 @@ class AddSubDirThread(Thread):
 		done = Event()
 		def ask() -> None:
 			try:
-				self._gui._prepare_dialog()
+				self._gui.prepare_dialog()
 				result.append(askyesno(parent=self._gui, title=self._labels.warning, message=message))
 			except Exception:
 				result.append(False)
@@ -50,7 +57,7 @@ class AddSubDirThread(Thread):
 
 	def run(self) -> None:
 		"""Run thread to check and add source"""
-		Log.debug(f"{self._labels.checking} {self._dir_path}")
+		Log.debug(f"{self._gui.labels.checking} {self._dir_path}")
 		for rel_path, error in self._insert(self._dir_path):
 			if self._kill_event.is_set():
 				return
@@ -75,27 +82,42 @@ class AddSubDirThread(Thread):
 					) and self._warning_yesno(self._labels.are_you_sure):
 						self._gui.source.blacklist = None
 						continue
-				self.returncode
+				self._gui.echo(self._gui.label.aborted_source_check)
+				return
+		self._gui.source = self._source
+		self._gui.echo(self._gui.labels.added_source.replace("#", str(self._dir_path)))
+		if self._call_on_finish:
+			self._call_on_finish()
 
 	def kill(self) -> None:
 		"""Kill thread"""
 		self._kill_event.set()
 
-class InsertTopDirThread(AddSubDirThread):
-	"""Thread to insert the top directory into source"""
+class InsertSourcesThread(Thread):
+	"""Thread to insert multiple sources"""
 
-	def __init__(self, gui: Gui, arg: Path | str) -> None:
+	def __init__(self, gui: Gui, sources: list[Path | str]) -> None:
 		self._gui = gui
-		self._dir_path = self._gui.source.top_dir(arg)
-		if not self._dir_path:
-			msg = self._gui.labels.not_a_valid_directory.replace("#", str(arg))
-			raise ValueError(msg) from None
-		self._insert = self._gui.source.insert_top_dir
-		self._indicator = Cylon()
+		self._sources = sources
 		super().__init__(daemon=True)
 		self._kill_event = Event()
 
-class WorkThread(AddSubDirThread):
+	def run(self) -> None:
+		"""Run thread to insert multiple sources"""
+		for source in self._sources:
+			if source.is_dir():
+				try:
+					self._gui._source_thread = InsertSrcDirThread(self._gui, source)
+				except ValueError as ex:
+					self._gui.echo(ex)
+					continue
+				self._gui._source_thread.start()
+				self._gui._source_thread.join()
+			elif source.is_file():
+				self._gui.source.add_sub_file(source)
+		self._gui.gen_source_tree()
+			
+class WorkThread(InsertSrcDirThread):
 	"""Thread that runs Worker while Tk keeps the GUI alive"""
 
 	def __init__(self, gui: Gui) -> None:

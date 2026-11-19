@@ -16,8 +16,7 @@ from classes.logger import Logger as Log
 from classes.path import Path
 from classes.update import Update
 from classes.sendmail import SendMail
-from classes.addsrcdirthread import AddSrcDirThread
-from classes.workthread import WorkThread
+from classes.threads import InsertSrcDirThread, InsertSourcesThread,WorkThread
 from classes.tododialog import ToDoDialog
 from classes.messagedialog import prepare_message_parent
 from classes.destination import Destination
@@ -36,7 +35,7 @@ class Gui(Tk):
 		except Exception:
 			pass
 
-	def _prepare_dialog(self) -> None:
+	def prepare_dialog(self) -> None:
 		"""Map this window so the next message box stays in front of it"""
 		prepare_message_parent(self)
 
@@ -131,7 +130,7 @@ class Gui(Tk):
 		self.destination = None
 		self._todo_dialog: ToDoDialog | None = None
 		self._work_thread: WorkThread | None = None
-		self._check_source_thread: CheckSrcDirThread  | None = None
+		self._source_thread: InsertSrcDirThread | None = None
 		self.log_path: Path | None = self.settings.user_log
 		try:
 			self.title(f"{self.labels.title} v{self.settings.version}")
@@ -168,7 +167,6 @@ class Gui(Tk):
 			vsb = Scrollbar(frame, orient='vertical', command=self._source_tree.yview)
 			vsb.pack(side='right', fill='y')
 			self._source_tree.configure(yscrollcommand=vsb.set)
-			self._gen_source_tree()
 			self._delete_button = Button(self, text=self.labels.delete_source, command=self._delete_source)
 			self._delete_button.grid(row=1, column=1, sticky="ne", padx=self._pad)
 			Hovertip(self._delete_button, self.labels.delete_source_tip)
@@ -290,7 +288,7 @@ class Gui(Tk):
 			### Update check ###
 			if update.new_version is not None:
 				msg = self.labels.update_info.replace("#1", f"{update.new_version}").replace("#2", f"{self.settings.update_path}")
-				self._prepare_dialog()
+				self.prepare_dialog()
 				if update.installer_cmd is None:
 					showinfo(parent=self, title=self.labels.update_title, message=msg)
 				else:
@@ -306,20 +304,24 @@ class Gui(Tk):
 							return
 						except Exception:
 							msg = Log.error()
-							self._prepare_dialog()
+							self.prepare_dialog()
 							showerror(parent=self, title=self.labels.error, message=f"{self.labels.update_error}:\n{msg}")
 			########################################################
-			self._init_warning()
 			if len(self.settings.accessible_destinations) < 1:
 				raise RuntimeError(self.labels.no_reachable_destination)
+			if sources:
+				InsertSourcesThread(self, sources).start()
+			self._init_warning()
 		except Exception:
 			msg = self.logger.crash()
-			self._prepare_dialog()
+			self.prepare_dialog()
 			showerror(parent=self, title=self.labels.error, message=msg)
 			self.destroy()
 
-	def _gen_source_tree(self):
+	def gen_source_tree(self):
 		'''Generate Treeview for Source'''
+		if not self.source:
+			return
 		self._source_tree.delete(*self._source_tree.get_children())
 		if self.source.is_empty():
 			return
@@ -344,14 +346,15 @@ class Gui(Tk):
 
 	def _add_dir(self) -> None:
 		"""Add directory to source"""
+		if self._source_thread and self._source_thread.is_alive():
+			return
 		if directory := askdirectory(title=self.labels.select_dir, mustexist=True):
-			if top_dir := self.source.top_dir(directory):
-				self._insert_top_dir(top_dir)
-			elif sub_dir := self.source.sub_dir(directory):
-				self._add_sub_dir(sub_dir)
-			else:
-				self._prepare_dialog()
-				showerror(parent=self, title=self.labels.error, message=self.labels.not_a_valid_directory.replace("#", directory))
+			try:
+				self._source_thread = InsertSrcDirThread(self, directory, self.gen_source_tree)
+			except ValueError as ex:
+				self.echo(ex)
+				return
+			self._source_thread.start()
 
 	def _add_file(self) -> None:
 		"""Add file to source"""
@@ -361,72 +364,20 @@ class Gui(Tk):
 				if sub_file := self.source.sub_file(filename):
 					sub_files.append(sub_file)
 				else:
-					self._prepare_dialog()
+					self.prepare_dialog()
 					showerror(parent=self, title=self.labels.error, message=self.labels.not_a_valid_file.replace("#", filename))
 					return
-
-	def _insert_top_dir(self, top_dir: Path) -> None:
-		"""Insert top-directory into source"""
-		self.source.add_top_dir(top_dir)
-		self._gen_source_tree()
-
-	def _add_sub_dir(self, sub_dir: Path) -> None:
-		"""Add sub-directory to source"""
-		self.source.add_sub_dir(sub_dir)
-		self._gen_source_tree()
-
-	def _add_sub_file(self, sub_file: Path) -> None:
-		"""Add sub-file to source"""
-		self.source.add_sub_file(sub_file)
-		self._gen_source_tree()
-
-	def _select_top_dir(self) -> None:
-		"""Select top-directory to add"""
-		if src_dir := askdirectory(title=self.labels.select_top_dir, mustexist=True):
-			try:
-				for path, size, file_cnt in self.source.add_top_dir(src_dir):
-					self._source_tree.insert("", 0,
-						text = f"\U0001F5C0 {path.name}",
-						iid = path.name
-					)
-			except Exception:
-				self._prepare_dialog()
-				showerror(parent=self, title=self.labels.error, message=self.logger.error())
-				return
-			source = Path(source).resolve()
-			self.source.add_top_dir(source)
-			self._gen_source_tree()
-
-	def add_source(self, source: Source) -> None:
-		"""Run this after adding source (called from CheckSourceThread)"""
-		self._call_ui(self._add_source, source)
-
-	def _add_source(self, source: Source) -> None:
-		self._check_source_thread = None
-		self._clear_info()
-		self._source_text.configure(state="normal")
-		self._source_text.insert("end", f"{source}\n")
-		self._source_text.configure(state="disabled")
-		self._enable_buttons()
-		self.sources.append(source)
-		Log.info(self.labels.added_source.replace("#", f"{source}"))
-
-	def abort_source_check(self) -> None:
-		"""Run this after checking source and not adding it (called from CheckSourceThread)"""
-		self._call_ui(self._abort_source_check)
-
-	def _abort_source_check(self) -> None:
-		self._check_source_thread = None
-		self._enable_buttons()
-		Log.info(self.labels.aborted_source_check)
+			if not self.source:
+				self.source = Source(self.settings)
+			for sub_file in sub_files:
+				self.source.add_sub_file(sub_file)
+				self.echo(self.labels.added_file.replace("#", str(sub_files)))
+			self.gen_source_tree()
 
 	def _delete_source(self) -> None:
 		"""Delete last source directory from list"""
-		if self.sources:
-			self.sources.pop()
-			self._source_text.configure(state="normal")
-			self._source_text.delete("end-2l", "end-1l")
-			self._source_text.configure(state="disabled")
+		if self.source:
+			print(f"FUTURE: Delete source, {self.source=}")
 
 	def _destination_selected(self, *_: object) -> None:
 		"""Set destination and change todo menu when changing destination"""
@@ -459,15 +410,15 @@ class Gui(Tk):
 	def _open_todo_window(self) -> None:
 		"""Check destination to open todo dialog"""
 		if not self.settings.destination:
-			self._prepare_dialog()
+			self.prepare_dialog()
 			showerror(parent=self, title=self.labels.error, message=self.labels.select_destination_first)
 			return
 		sub_dir_paths = self.settings.destination.check_sub_dirs(self.settings.username)
 		if not sub_dir_paths:
-			self._prepare_dialog()
+			self.prepare_dialog()
 			showerror(parent=self, title=self.labels.error, message=self.labels.no_sub_dirs_todo)
 			return
-		self._clear_info()
+		self.clear_info()
 		self._disable_buttons()
 		self._todo_dialog = ToDoDialog(self)
 		self._todo_dialog.wait_window()
@@ -488,7 +439,7 @@ class Gui(Tk):
 			self.settings.destination.write_meta(todo, selected_path, counted_paths)
 			self.settings.destination.write_trigger(todo, selected_path)
 		except Exception:
-			self._prepare_dialog()
+			self.prepare_dialog()
 			showerror(parent=self, title=self.labels.error, message=self.logger.error())
 			return
 		self.echo(self.labels.todo_created.replace('#1', f'{todo}').replace('#2', selected_path.name))
@@ -551,7 +502,7 @@ class Gui(Tk):
 		if not replace:
 			self._info_text.yview("end")
 
-	def _clear_info(self) -> None:
+	def clear_info(self) -> None:
 		"""Clear info text"""
 		self._info_text.configure(state="normal")
 		self._info_text.delete("1.0", "end")
@@ -594,15 +545,15 @@ class Gui(Tk):
 		if self._work_thread and self._work_thread.is_alive():
 			return
 		if not self.sources:
-			self._prepare_dialog()
+			self.prepare_dialog()
 			showerror(parent=self, title=self.labels.error, message=self.labels.missing_source)
 			return
 		if self.settings.sendmail and not self.settings.mail_to:
-			self._prepare_dialog()
+			self.prepare_dialog()
 			showerror(parent=self, title=self.labels.error, message=self.labels.missing_name)
 			return
 		if not self.settings.destination:
-			self._prepare_dialog()
+			self.prepare_dialog()
 			showerror(
 				parent=self,
 				title=self.labels.error,
@@ -611,7 +562,7 @@ class Gui(Tk):
 			return
 		todo = self._todo.get()
 		if not todo or todo == self.labels.select_todo:
-			self._prepare_dialog()
+			self.prepare_dialog()
 			showerror(parent=self, title=self.labels.error, message=self.labels.missing_todo_msg)
 			return
 		self.settings.set_todo(todo)
@@ -619,7 +570,7 @@ class Gui(Tk):
 			self.log_path = None
 		self._save_settings()
 		self._disable_buttons()
-		self._clear_info()
+		self.clear_info()
 		self._work_thread = WorkThread(self)
 		self._work_thread.start()
 
@@ -667,7 +618,7 @@ class Gui(Tk):
 			elif errors:
 				more = self.labels.more_problems.replace("#", f"{len(errors)-2}")
 				msg += f"\n\n{errors[0]}\n\n{errors[1]}\n\n{more}"
-			self._prepare_dialog()
+			self.prepare_dialog()
 			showerror(parent=self, title=self.labels.warning, message=msg)
 		else:
 			self._clear_source_text()
@@ -685,7 +636,7 @@ class Gui(Tk):
 	def _quit_app(self) -> None:
 		"""Quit app; abort running worker without quitting, kill source check then quit"""
 		if self._work_thread and self._work_thread.is_alive():
-			self._prepare_dialog()
+			self.prepare_dialog()
 			if askyesno(parent=self, title=self.labels.warning, message=self.labels.running_warning):
 				Log.info(self.labels.killing_running)
 				try:
@@ -693,15 +644,15 @@ class Gui(Tk):
 				except Exception:
 					pass
 			return
-		if self._check_source_thread and self._check_source_thread.is_alive():
-			self._prepare_dialog()
+		if self._source_thread and self._source_thread.is_alive():
+			self.prepare_dialog()
 			if not askyesno(parent=self, title=self.labels.warning, message=self.labels.running_warning):
 				return
 			Log.info(self.labels.killing_running)
 			try:
-				self._check_source_thread.kill()
-				self._check_source_thread.join(timeout=2)
+				self._source_thread.kill()
+				self._source_thread.join(timeout=2)
 			except Exception:
 				pass
-			self._check_source_thread = None
+			self._source_thread = None
 		self.quit_app()

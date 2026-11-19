@@ -80,6 +80,7 @@
     "warning": "Warnung",
     "already_added": "# wurde bereits hinzugefügt",
     "added_source": "Quelle # wurde hinzugefügt",
+    "added_file": "Datei # wurden hinzugefügt",
     "aborted_source_check": "Quellverzeichnisprüfung wurde abgebrochen",
     "logfile": "Protokolldatei",
     "allfiles": "Alle Dateien",
