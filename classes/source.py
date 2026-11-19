@@ -13,14 +13,22 @@ class Source:
 
 	def __init__(self, settings: Settings) -> None:
 		self._labels = settings.labels
-		self.top_dir_whitelist = RegEx(settings.source_top_dir_whitelist) if settings.source_top_dir_whitelist else None
-		self.sub_dir_whitelist = RegEx(settings.source_sub_dir_whitelist) if settings.source_sub_dir_whitelist else None
-		self.sub_wishlist = RegEx(settings.source_sub_wishlist) if settings.source_sub_wishlist else None
-		self.blacklist = RegEx(settings.source_blacklist) if settings.source_blacklist else None
-		self.countlist = RegEx(settings.count_paths) if settings.count_paths else None
-		self.max_path_length = settings.max_path_length
+		if settings.no_source_check:
+			self.top_dir_whitelist = None
+			self.sub_dir_whitelist = None
+			self.sub_wishlist = None
+			self.blacklist = None
+			self.sub_file_extensions = None
+			self.max_path_length = None
+		else:
+			self.top_dir_whitelist = RegEx(settings.source_top_dir_whitelist) if settings.source_top_dir_whitelist else None
+			self.sub_dir_whitelist = RegEx(settings.source_sub_dir_whitelist) if settings.source_sub_dir_whitelist else None
+			self.sub_wishlist = RegEx(settings.source_sub_wishlist) if settings.source_sub_wishlist else None
+			self.blacklist = RegEx(settings.source_blacklist) if settings.source_blacklist else None
+			self.countlist = RegEx(settings.count_paths) if settings.count_paths else None
+			self.max_path_length = settings.max_path_length
 		self.sub_suffixes = settings.source_sub_filetypes.keys()
-		self.name: str | None = None
+		self.name: str | None = settings.source_name
 		self.top_dir_path: Path | None = None
 		self.sub_dirs = dict[str, dict[str, Path | Size | int]]()
 		self.sub_files = dict[str, dict[str, Path | Size]]()
@@ -53,14 +61,9 @@ class Source:
 		"""Check if source is empty"""
 		return not (self.name or self.sub_dirs or self.sub_files)
 
-	def set_no_check(self) -> None:
-		"""Ignore black-/whitelists and path length"""
-		self.top_dir_whitelist = None
-		self.sub_dir_whitelist = None
-		self.sub_wishlist = None
-		self.blacklist = None
-		self.sub_file_extensions = None
-		self.max_path_length = None
+	def sub_dir_already_set(self, path: Path) -> str | None:
+		"""Check if sub directory is already set"""
+		return self.sub_dirs.keys().get(path.name, None)
 
 	def top_dir(self, arg: Path | str) -> str | None:
 		"""Check if path is an allowedtop path"""

@@ -4,26 +4,26 @@
 from typing import TYPE_CHECKING
 from threading import Thread, Event
 from tkinter.messagebox import askyesno
-from classes.source import Source
 from classes.logger import Logger as Log
 from classes.gimmicks import Cylon
-from classes.path import Path
 if TYPE_CHECKING:
 	from classes.gui import Gui
+	from classes.path import Path
 
-class AddSrcDirThread(Thread):
-	"""Thread to insert a directory into source, top or sub level"""
+class AddSubDirThread(Thread):
+	"""Thread to insert a sub directory into source, top or sub level"""
 
-	def __init__(self, gui: Gui, path: Path) -> None:
-		"""Pass source directory to add to GUI"""
+	def __init__(self, gui: Gui, arg: Path | str) -> None:
+		"""Pass source sub directory to add to GUI"""
 		self._gui = gui
-		self._top_dir_name: str | None = self._source.top_dir(path)
-		self._sub_dir_name: str | None = self._source.sub_dir(path)
-		if not self._top_dir_name and not self._sub_dir_name:
-			raise ValueError(self._labels.not_a_valid_directory.replace("#", str(path)))
-		self._path: Path = path
-		self._worker = self._source.insert_top_dir if self._top_dir_name else self._source.add_sub_dir
-		self._initial_indicator = Cylon()
+		self._sub_dir = self._gui.source.sub_dir(arg)
+		if not self._sub_dir:
+			msg = self._gui.labels.not_a_valid_directory.replace("#", str(arg))
+			raise ValueError(msg) from None
+		if dir_name := self._gui.source.sub_dir_already_set(self._sub_dir):
+			msg = self._gui.labels.sub_dir_already_set.replace("#", dir_name)
+			raise ValueError(msg) from None
+		self._indicator = Cylon()
 		super().__init__(daemon=True)
 		self._kill_event = Event()
 
@@ -53,24 +53,18 @@ class AddSrcDirThread(Thread):
 		done.wait()
 		return result[0] if result else False
 
-	def _check_for_error(self, rel_path: Path, error: int | str) -> None:
-		"""Add sub directory to source"""
-		if error:
-			if isinstance(error, int):
-				pass
-			elif isinstance(error, str):
-				pass
-
 	def run(self) -> None:
 		"""Run thread to check and add source"""
-		msg = self._labels.checking_source.replace("#", f"{self._source.name}")
-		Log.info(msg)
-		self._gui.echo(msg)
-		for rel_path, error in self._worker(self._path):
+		Log.debug(f"{self._labels.checking} {self._sub_dir}")
+		for rel_path, error in self._gui.source.add_sub_dir(self._sub_dir):
 			if self._kill_event.is_set():
 				return
 			self._gui.echo(self._indicator.get(), end="\r")
-			self._check_for_error(rel_path, error)
+			if error:
+				if isinstance(error, int):
+					pass
+				elif isinstance(error, str):
+					pass
 
 	def kill(self) -> None:
 		"""Kill thread"""

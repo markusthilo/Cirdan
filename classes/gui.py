@@ -120,19 +120,18 @@ class Gui(Tk):
 			},
 		)])
 
-	def __init__(self, settings: Settings, logger: Log, source: Path, destination: Path | None = None,
-		sources: list[Path] = list[Path]()
+	def __init__(self, settings: Settings, logger: Log, sources: list[Path] = list[Path]()
 	) -> None:
 		"""Open application window"""
 		super().__init__()
 		self.settings = settings
 		self.labels = self.settings.labels
 		self.logger = logger
-		self.source = source
-		self.destination = destination
+		self.source = None
+		self.destination = None
 		self._todo_dialog: ToDoDialog | None = None
 		self._work_thread: WorkThread | None = None
-		self._check_source_thread: CheckSourceThread | None = None
+		self._check_source_thread: CheckSrcDirThread  | None = None
 		self.log_path: Path | None = self.settings.user_log
 		try:
 			self.title(f"{self.labels.title} v{self.settings.version}")

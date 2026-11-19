@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __author__ = "Markus Thilo"
-__version__ = "2.1.0_2026-11-18"
+__version__ = "2.1.0_2026-11-19"
 __license__ = "GPL-3"
 __email__ = "markus.thilo@proton.me"
 __status__ = "Testing"
@@ -84,6 +84,7 @@ if __name__ == "__main__":  # start here when run as application
 		settings = Settings(
 			__version__,
 			config = args.config,
+			source_name = args.top,
 			destination_name = args.destination,
 			destination_path = args.path,
 			todo = args.todo,
@@ -99,45 +100,37 @@ if __name__ == "__main__":  # start here when run as application
 		if use_gui:
 			Gui.startup_error(msg)
 		raise RuntimeError(msg) from None
-	try:	# now we have logging
-		source = Source(settings)
-		if settings.no_source_check:
-			source.set_no_check()
-		if not use_gui:
+	if use_gui:
+		Gui(settings, logger, args.sources).mainloop()	# launch gui window
+	else:
+		try:
+			source = Source(settings)
+			logger.add_remote(source)
+			if settings.user_log:
+				logger.add_user(settings.user_log)
 			for arg in args.sources:
 				if arg.is_dir():
 					if top_dir := source.top_dir(arg):
 						if source.top_dir_path:
-							raise ValueError(settings.labels.top_dir_already_set)
+							raise ValueError(settings.labels.top_dir_already_set) from None
 						for rel_path, error in source.insert_top_dir(arg):
-							_check_for_error(rel_path,error)
+							_check_for_error(rel_path, error)
 							print(f"{settings.labels.inserted} {rel_path}")
-						continue
-					if sub_dir := source.sub_dir(arg):
-						if arg.name in source.sub_dirs.keys():
-							raise ValueError(settings.labels.sub_dir_already_set.replace("#", arg.name))
+					elif sub_dir := source.sub_dir(arg):
+						if dir_name := source.sub_dir_already_set(arg):
+							raise ValueError(settings.labels.sub_dir_already_set.replace("#", dir_name)) from None
 						for rel_path, error in source.add_sub_dir(arg):
-							_check_for_error(rel_path,error)
+							_check_for_error(rel_path, error)
 							print(f"{settings.labels.inserted} {rel_path}")
-						continue
-					if arg.is_file():
+					elif arg.is_file():
 						if source.add_sub_file(arg):
 							print(f"{settings.labels.inserted} {arg}")
-		if args.top:
-			source.set_top_dir_name(args.top)
-		destination = Destination(settings) if settings.destination_name else None
-	except Exception:
-		msg = logger.crash()
-		if use_gui:
-			Gui.startup_error(msg)
-		raise RuntimeError(msg) from None
-	if  use_gui:	# gui mode
-		Gui(settings, logger, source, destination, args.sources).mainloop()	# launch gui window
-	else:	# console mode
-		logger.add_remote(source)
-		if settings.user_log:
-			logger.add_user(settings.user_log)
-		returncode = Worker(source, destination, settings).run()
-		logger.close_user()
-		logger.close_remote()
-		exit(returncode)
+					else:
+						raise ValueError(settings.labels.not_a_valid_argument.replace("#", str(arg))) from None
+			destination = Destination(settings)
+			returncode = Worker(source, destination, settings).run()
+			logger.close_user()
+			logger.close_remote()
+			exit(returncode)
+		except Exception:
+			raise RuntimeError(logger.crash()) from None

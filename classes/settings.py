@@ -62,6 +62,7 @@ class Settings(Config):
 	def __init__(self,
 		version: str = "2_Under_Construction",
 		config: Path | None = None,
+		source_name: str | None = None,
 		destination_name: str | None = None,
 		destination_path: Path | str | None = None,
 		no_source_check: bool = False,
@@ -95,6 +96,7 @@ class Settings(Config):
 				self.local_path.mkdir(parents=True, exist_ok=True)
 			except OSError:
 				pass
+		self.source_name = source_name
 		try:
 			if destination_path:
 				self.destination_arg_set = True
