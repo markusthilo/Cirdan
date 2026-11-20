@@ -114,8 +114,8 @@
     },
     "gui": {
         "pad_factor": 1,
-        "x_factor": 64,
-        "y_factor": 48,
+        "x_factor": 80,
+        "y_factor": 80,
         "green_fg": "black",
         "green_bg": "pale green",
         "red_fg": "black",

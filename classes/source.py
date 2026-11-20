@@ -176,3 +176,11 @@ class Source:
 			elif path.is_file():
 				if self.add_sub_file(path):
 					yield path.relative_to(self.top_dir_path), None
+
+	def get_sub_dir_list(self) -> list[str]:
+		"""Get a list of sub directories"""
+		return sorted(self.sub_dirs.keys())
+
+	def get_sub_file_list(self) -> list[str, str]:
+		"""Get a list of sub files"""
+		return sorted(self.sub_files.keys())

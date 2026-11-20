@@ -136,9 +136,9 @@ class Gui(Tk):
 		self.log_path: Path | None = self.settings.user_log
 		try:
 			self.title(f"{self.labels.title} v{self.settings.version}")
-			#self.rowconfigure(0, weight=1)
-			self.rowconfigure(6, weight=1)
-			self.columnconfigure(0, weight=1)
+			self.rowconfigure(0, weight=1)
+			self.rowconfigure(6, weight=20)
+			self.columnconfigure(1, weight=1)
 			self.iconphoto(True, PhotoImage(file=self.settings.icon_path))
 			self.protocol("WM_DELETE_WINDOW", self._quit_app)
 			font = nametofont("TkTextFont").actual()
@@ -162,8 +162,12 @@ class Gui(Tk):
 			self._add_file_button.pack(fill="x", pady=(0, self._pad))
 			Hovertip(self._add_file_button, self.labels.add_file_tip)
 			frame = Frame(self)
-			frame.grid(row=0, column=1, sticky='nswe', padx=self._pad, pady=self._pad)
-			self._source_tree = Treeview(frame, show='tree', selectmode='browse')
+			frame.grid(row=0, column=1, sticky="nswe", padx=self._pad, pady=self._pad)
+			self._source_tree = Treeview(frame, show="tree headings", columns=("size", "files"), selectmode="browse")
+			self._source_tree.heading("size", text="Size", anchor="w")
+			self._source_tree.heading("files", text="Files", anchor="w")
+			self._source_tree.column("size", anchor="e", width=font_size * 16,stretch=False)
+			self._source_tree.column("files", anchor="e", width=font_size * 12, stretch=False)
 			self._source_tree.bind("<<TreeviewClose>>", lambda event: self._source_tree.item(self._source_tree.focus(), open=True))
 			self._source_tree.bind('<Button-2>', self._right_click)
 			self._source_tree.bind('<Button-3>', self._right_click)
@@ -329,30 +333,27 @@ class Gui(Tk):
 
 	def gen_source_tree(self):
 		'''Generate Treeview for Source'''
-		if not self.source:
-			return
 		self._source_tree.delete(*self._source_tree.get_children())
-		if self.source.is_empty():
+		if not self.source or self.source.is_empty():
 			return
 		self._source_tree.insert("", 0,
 			text = self.source.name or self.labels.no_top_dir,
+			#values = self.source.values(),
+			iid = "top",
 			open = True
 		)
-		for path, values in self.source.sub_dirs.items():
-			self._source_tree.insert("I001", "end",
-				text = f"\U0001F5C0 {path}",
-				iid = path
+		for name in self.source.get_sub_dir_list():
+			self._source_tree.insert("top", "end",
+				text = f"\U0001F5C0 {name}",
+				values = (self.source.sub_dirs[name]["size"], self.source.sub_dirs[name]["files"]),
+				iid = f"d{name}"
 			)
-		for path, values in self.source.sub_files.items():
-			self._source_tree.insert("I001", "end",
-				text = f"\U0001F5C5 {path}",
-				iid = path
+		for name in self.source.get_sub_file_list():
+			self._source_tree.insert("top", "end",
+				text = f"\U0001F5C5 {name}",
+				values = (self.source.sub_files[name]["size"]),
+				iid = f"f{name}"
 			)
-
-	def _get_source_tree_item(self, event):
-		'''Focus to directory'''
-		print(f"FUTURE: {self._source_tree.identify('item', event.x, event.y)}")
-		return self._source_tree.identify('item', event.x, event.y)
 
 	def _add_dir(self) -> None:
 		"""Add directory to source"""
