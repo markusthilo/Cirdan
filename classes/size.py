@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from typing import Self
+
 class Size(int):
 	"""Byte size with a human-readable representation"""
 
@@ -23,7 +25,7 @@ class Size(int):
 		},
 	}
 
-	def __new__(cls, arg: int | float | str) -> Size:
+	def __new__(cls, arg: int | float | str) -> Self:
 		"""Create Size from int, float, or a string like '1.5GiB' / '10MB' / '10k'"""
 		if isinstance(arg, str):
 			text = arg.strip().replace(",", ".").replace(" ", "")

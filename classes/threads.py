@@ -100,21 +100,22 @@ class InsertSourcesThread(Thread):
 		self._gui = gui
 		self._sources = sources
 		super().__init__(daemon=True)
-		self._kill_event = Event()
 
 	def run(self) -> None:
 		"""Run thread to insert multiple sources"""
 		for source in self._sources:
 			if source.is_dir():
 				try:
-					self._gui._source_thread = InsertSrcDirThread(self._gui, source)
+					self._gui.source_thread = InsertSrcDirThread(self._gui, source)
 				except ValueError as ex:
 					self._gui.echo(ex)
 					continue
-				self._gui._source_thread.start()
-				self._gui._source_thread.join()
+				self._gui.source_thread.start()
+				self._gui.source_thread.join()
 			elif source.is_file():
 				self._gui.source.add_sub_file(source)
+			else:
+				Log.error(self._gui.labels.error_inserting_source.replace("#", str(source)))
 		self._gui.gen_source_tree()
 			
 class WorkThread(InsertSrcDirThread):

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from typing import TYPE_CHECKING
 from time import perf_counter
 from threading import current_thread, main_thread
 from collections.abc import Callable
@@ -19,10 +18,9 @@ from classes.sendmail import SendMail
 from classes.threads import InsertSrcDirThread, InsertSourcesThread,WorkThread
 from classes.tododialog import ToDoDialog
 from classes.messagedialog import prepare_message_parent
+from classes.source import Source
 from classes.destination import Destination
 from classes.settings import Settings
-if TYPE_CHECKING:
-	from classes.source import Source
 
 class Gui(Tk):
 	"""GUI look and feel"""
@@ -128,9 +126,13 @@ class Gui(Tk):
 		self.logger = logger
 		self.source = None
 		self.destination = None
+		self._file_types = tuple[str, str]((tname, f"*{stem}") for stem, tname in (
+				self.settings.source_sub_filetypes | {".*": "All Files"}
+			).items()
+		)
 		self._todo_dialog: ToDoDialog | None = None
 		self._work_thread: WorkThread | None = None
-		self._source_thread: InsertSrcDirThread | None = None
+		self.source_thread: InsertSrcDirThread | None = None
 		self.log_path: Path | None = self.settings.user_log
 		try:
 			self.title(f"{self.labels.title} v{self.settings.version}")
@@ -162,7 +164,9 @@ class Gui(Tk):
 			frame = Frame(self)
 			frame.grid(row=0, column=1, sticky='nswe', padx=self._pad, pady=self._pad)
 			self._source_tree = Treeview(frame, show='tree', selectmode='browse')
-			self._source_tree.bind('<Double-Button-1>', self._get_source_tree_item)
+			self._source_tree.bind("<<TreeviewClose>>", lambda event: self._source_tree.item(self._source_tree.focus(), open=True))
+			self._source_tree.bind('<Button-2>', self._right_click)
+			self._source_tree.bind('<Button-3>', self._right_click)
 			self._source_tree.pack(side='left', fill='both', expand=True)
 			vsb = Scrollbar(frame, orient='vertical', command=self._source_tree.yview)
 			vsb.pack(side='right', fill='y')
@@ -310,7 +314,12 @@ class Gui(Tk):
 			if len(self.settings.accessible_destinations) < 1:
 				raise RuntimeError(self.labels.no_reachable_destination)
 			if sources:
-				InsertSourcesThread(self, sources).start()
+				try:
+					thread = InsertSourcesThread(self, sources)
+				except:
+					Log.error(self.labels.error_inserting_source.replace("#", "/".join(str(source) for source in sources)))
+				else:
+					thread.start()
 			self._init_warning()
 		except Exception:
 			msg = self.logger.crash()
@@ -342,40 +351,58 @@ class Gui(Tk):
 
 	def _get_source_tree_item(self, event):
 		'''Focus to directory'''
+		print(f"FUTURE: {self._source_tree.identify('item', event.x, event.y)}")
 		return self._source_tree.identify('item', event.x, event.y)
 
 	def _add_dir(self) -> None:
 		"""Add directory to source"""
-		if self._source_thread and self._source_thread.is_alive():
+		if self.source_thread and self.source_thread.is_alive():
 			return
+		self.prepare_dialog()
 		if directory := askdirectory(title=self.labels.select_dir, mustexist=True):
 			try:
-				self._source_thread = InsertSrcDirThread(self, directory, self.gen_source_tree)
+				self.source_thread = InsertSrcDirThread(self, directory, self.gen_source_tree)
 			except ValueError as ex:
 				self.echo(ex)
 				return
-			self._source_thread.start()
+			self.source_thread.start()
 
 	def _add_file(self) -> None:
 		"""Add file to source"""
-		if filenames := askopenfilename(title=self.labels.select_file, multiple=True):
-			sub_files = list[Path]()
-			for filename in filenames:
-				if sub_file := self.source.sub_file(filename):
-					sub_files.append(sub_file)
-				else:
-					self.prepare_dialog()
-					showerror(parent=self, title=self.labels.error, message=self.labels.not_a_valid_file.replace("#", filename))
-					return
+		self.prepare_dialog()
+		if filenames := askopenfilename(title=self.labels.select_file, multiple=True, filetypes=self._file_types):
 			if not self.source:
 				self.source = Source(self.settings)
-			for sub_file in sub_files:
-				self.source.add_sub_file(sub_file)
-				self.echo(self.labels.added_file.replace("#", str(sub_files)))
-			self.gen_source_tree()
+			for filename in filenames:
+				if sub_file := self.source.sub_file(filename):
+					self.source.add_sub_file(sub_file)
+				else:
+					self.prepare_dialog()
+					if askyesno(
+						parent=self, title=self.labels.warning, message=self.labels.bad_file.replace("#", filename)
+					) and askyesno(parent=self, title=self.labels.warning, message=self.labels.are_you_sure):
+						self.source.add_sub_file(filename)
+					else:
+						continue
+				self.echo(self.labels.added_file.replace("#", str(sub_file)))
+			if self.source.is_empty():
+				self.source = None
+			else:
+				self.gen_source_tree()
+
+	def _right_click(self, event) -> None:
+		"""Right click on source tree"""
+		row_id = self._source_tree.identify_row(event.y)
+		self._source_tree.selection_set(row_id)
+		self._source_tree.focus(row_id)
+		print(f"{row_id=}")
+		if self.source:
+			print(f"FUTURE: Delete source, {self.source=}")
 
 	def _delete_source(self) -> None:
 		"""Delete last source directory from list"""
+		row_id = self._source_tree.focus()
+		print(f"{row_id=}")
 		if self.source:
 			print(f"FUTURE: Delete source, {self.source=}")
 
@@ -644,15 +671,15 @@ class Gui(Tk):
 				except Exception:
 					pass
 			return
-		if self._source_thread and self._source_thread.is_alive():
+		if self.source_thread and self.source_thread.is_alive():
 			self.prepare_dialog()
 			if not askyesno(parent=self, title=self.labels.warning, message=self.labels.running_warning):
 				return
 			Log.info(self.labels.killing_running)
 			try:
-				self._source_thread.kill()
-				self._source_thread.join(timeout=2)
+				self.source_thread.kill()
+				self.source_thread.join(timeout=2)
 			except Exception:
 				pass
-			self._source_thread = None
+			self.source_thread = None
 		self.quit_app()
