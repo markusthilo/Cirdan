@@ -8,8 +8,9 @@ from tkinter import Tk, PhotoImage, StringVar, BooleanVar, TclError
 from tkinter.font import nametofont
 from tkinter.ttk import Frame, Label, Entry, Button, Checkbutton, OptionMenu, Style, Treeview, Scrollbar
 from tkinter.scrolledtext import ScrolledText
-from tkinter.messagebox import askyesno, showerror, showinfo
+from tkinter.messagebox import askyesno, showerror, showwarning, showinfo
 from tkinter.filedialog import askdirectory, askopenfilename, asksaveasfilename
+from tkinter.simpledialog import askstring
 from idlelib.tooltip import Hovertip
 from classes.logger import Logger as Log
 from classes.path import Path
@@ -164,6 +165,7 @@ class Gui(Tk):
 			frame = Frame(self)
 			frame.grid(row=0, column=1, sticky="nswe", padx=self._pad, pady=self._pad)
 			self._source_tree = Treeview(frame, show="tree headings", columns=("size", "files"), selectmode="browse")
+			self._source_tree.heading("#0", text=self.labels.source_dir, anchor="w")
 			self._source_tree.heading("size", text="Size", anchor="w")
 			self._source_tree.heading("files", text="Files", anchor="w")
 			self._source_tree.column("size", anchor="e", width=font_size * 16,stretch=False)
@@ -175,8 +177,13 @@ class Gui(Tk):
 			vsb = Scrollbar(frame, orient='vertical', command=self._source_tree.yview)
 			vsb.pack(side='right', fill='y')
 			self._source_tree.configure(yscrollcommand=vsb.set)
-			self._delete_button = Button(self, text=self.labels.delete_source, command=self._delete_source)
-			self._delete_button.grid(row=1, column=1, sticky="ne", padx=self._pad)
+			frame = Frame(self)
+			frame.grid(row=1, column=1, sticky="ne", padx=self._pad)
+			self._set_top_dir_name_button = Button(frame, text=self.labels.top_name, command=self._set_top_dir_name)
+			self._set_top_dir_name_button.pack(side="left", padx=self._pad)
+			Hovertip(self._set_top_dir_name_button, self.labels.set_top_dir_name_tip)
+			self._delete_button = Button(frame, text=self.labels.delete_source, command=self._delete_button_pressed, state="disabled")
+			self._delete_button.pack(side="right", padx=self._pad)
 			Hovertip(self._delete_button, self.labels.delete_source_tip)
 			### Destination ###
 			label = Label(self, text=f"{self.labels.destination}:")
@@ -266,11 +273,7 @@ class Gui(Tk):
 			Hovertip(button, self.labels.log_tip)
 			style = Style(self)
 			style.configure("Execute.TButton", font=(font_family, font_size * 2))
-			self._exec_button = Button(frame,
-				text=self.labels.start_button,
-				style="Execute.TButton",
-				command=self._execute
-			)
+			self._exec_button = Button(frame, text=self.labels.start_button, style="Execute.TButton", command=self._execute, state="disabled")
 			self._exec_button.grid(row=0, column=1, sticky="ew", padx=(self._pad, 0))
 			Hovertip(self._exec_button, self.labels.start_tip)
 			### Info text ###
@@ -335,10 +338,14 @@ class Gui(Tk):
 		'''Generate Treeview for Source'''
 		self._source_tree.delete(*self._source_tree.get_children())
 		if not self.source or self.source.is_empty():
+			self._delete_button.configure(state="disabled")
+			self._exec_button.configure(state="disabled")
 			return
+		self._delete_button.configure(state="normal")
+		self._exec_button.configure(state="normal")
 		self._source_tree.insert("", 0,
 			text = self.source.name or self.labels.no_top_dir,
-			#values = self.source.values(),
+			values = (self.source.size, self.source.file_cnt),
 			iid = "top",
 			open = True
 		)
@@ -346,13 +353,13 @@ class Gui(Tk):
 			self._source_tree.insert("top", "end",
 				text = f"\U0001F5C0 {name}",
 				values = (self.source.sub_dirs[name]["size"], self.source.sub_dirs[name]["files"]),
-				iid = f"d{name}"
+				iid = f"dir:{name}"
 			)
 		for name in self.source.get_sub_file_list():
 			self._source_tree.insert("top", "end",
 				text = f"\U0001F5C5 {name}",
 				values = (self.source.sub_files[name]["size"]),
-				iid = f"f{name}"
+				iid = f"file:{name}"
 			)
 
 	def _add_dir(self) -> None:
@@ -391,21 +398,59 @@ class Gui(Tk):
 			else:
 				self.gen_source_tree()
 
+	def _delete_sub_item(self, row_id: str) -> None:
+		"""Delete source"""
+		if row_id.startswith("dir:"):
+			self.prepare_dialog()
+			if not askyesno(parent=self, title=self.labels.warning, message=self.labels.confirm_delete_sub_dir):
+				return
+			del self.source.sub_dirs[row_id[4:]]
+			self.gen_source_tree()
+		elif row_id.startswith("file:"):
+			self.prepare_dialog()
+			if not askyesno(parent=self, title=self.labels.warning, message=self.labels.confirm_delete_sub_file):
+				return
+			del self.source.sub_files[row_id[5:]]
+			self.gen_source_tree()
+
+	def _set_top_dir_name(self) -> None:
+		"""Set top directory name"""
+		self.prepare_dialog()
+		if self.source and self.source.name:
+			if not askyesno(parent=self, title=self.labels.warning, message=self.labels.sure_to_change_top):
+				return
+		else:
+			self.source = Source(self.settings)
+		input_string = askstring(parent=self, title=self.labels.warning, prompt=self.labels.top_name)
+		if name := self.source.top_name(input_string):
+			self.source.set_name(name)
+		else:
+			showwarning(parent=self, title=self.labels.warning, message=self.labels.not_a_valid_directory.replace("#", input_string))
+			if not askyesno(parent=self, title=self.labels.warning, message=self.labels.ignore_warning):
+				return
+			self.source.set_name(input_string)
+		self.gen_source_tree()
+
 	def _right_click(self, event) -> None:
 		"""Right click on source tree"""
-		row_id = self._source_tree.identify_row(event.y)
-		self._source_tree.selection_set(row_id)
-		self._source_tree.focus(row_id)
-		print(f"{row_id=}")
-		if self.source:
-			print(f"FUTURE: Delete source, {self.source=}")
+		if row_id := self._source_tree.identify_row(event.y):
+			self._source_tree.selection_set(row_id)
+			self._source_tree.focus(row_id)
+			if row_id == "top":
+				self._set_top_dir_name()
+			else:
+				self._delete_sub_item(row_id)
 
-	def _delete_source(self) -> None:
+	def _delete_button_pressed(self) -> None:
 		"""Delete last source directory from list"""
 		row_id = self._source_tree.focus()
-		print(f"{row_id=}")
-		if self.source:
-			print(f"FUTURE: Delete source, {self.source=}")
+		if not row_id or row_id == "top":
+			self.prepare_dialog()
+			if askyesno(parent=self, title=self.labels.warning, message=self.labels.confirm_delete_full_source):
+				self.source = None
+				self.gen_source_tree()
+		else:
+			self._delete_sub_item(row_id)
 
 	def _destination_selected(self, *_: object) -> None:
 		"""Set destination and change todo menu when changing destination"""

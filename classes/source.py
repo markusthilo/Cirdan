@@ -65,6 +65,13 @@ class Source:
 		"""Check if sub directory is already set"""
 		return self.sub_dirs.keys().get(path.name, None)
 
+	def top_name(self, name: str) -> str:
+		"""Set top level dir"""
+		if not self.top_dir_whitelist:
+			return name
+		if self.top_dir_whitelist.search(name):
+			return name
+
 	def top_dir(self, arg: Path | str) -> str | None:
 		"""Check if path is an allowedtop path"""
 		path = Path(arg).resolve()
@@ -158,8 +165,6 @@ class Source:
 
 	def set_name(self, name: str) -> str:
 		"""Set top level dir"""
-		if self.top_dir_whitelist and not self.top_dir_whitelist.search(name):
-			raise ValueError(self._labels.not_a_valid_directory.replace("#", name))
 		self.name = name
 		return name
 

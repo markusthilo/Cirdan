@@ -22,7 +22,12 @@
     "add_file_tip": "Add a file(s) at the 2nd level",
     "select_dir": "Select the source directory",
     "select_file": "Select the file(s)",
-
+    "sure_to_change_top": "Are you sure you want to change the top-level directory",
+    "top_name": "Top-level directory name",
+    "set_top_dir_name_tip": "Changes or sets the name of the top-level directory",
+    "confirm_delete_full_source": "Are you sure you want to remove the entire source directory?",
+    "confirm_delete_sub_dir": "Are you sure you want to remove the subdirectory?",
+    "confirm_delete_sub_file": "Are you sure you want to remove the file?",
     "delete_source": "Delete entry",
     "delete_source_tip": "Delete entry from the source list above",
     "destination": "Destination Directory",
