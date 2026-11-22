@@ -169,8 +169,8 @@ class Worker:
 			"#6", f"{self._exceptions}").replace(
 			"#7", f"{duration}"
 		)
-		self.errors = self._write_errors + self._read_errors + self._mismatches + self._exceptions
 		if self.errors:
 			Log.error(log_msg)
 		else:
 			Log.info(log_msg)
+		return self._write_errors + self._read_errors + self._mismatches + self._exceptions

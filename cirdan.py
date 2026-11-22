@@ -46,7 +46,7 @@ if __name__ == "__main__":  # start here when run as application
 	try:
 		version = __app_path__.joinpath("version.txt").read_text(encoding="utf-8").strip()
 	except FileNotFoundError:
-		version = "Unknown"
+		version = "2"
 	argparser = ArgumentParser(description=__description__, epilog=f"Version: {version}, Author: {__author__}, Email: {__email__}, License: {__license__}")
 	argparser.add_argument("-c", "--config", type=Path, metavar="FILE",
 		help="Use the given config file instead of config.json in the application directory")

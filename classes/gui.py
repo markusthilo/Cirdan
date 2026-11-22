@@ -126,7 +126,6 @@ class Gui(Tk):
 		self.labels = self.settings.labels
 		self.logger = logger
 		self.source = None
-		self.destination = None
 		self._file_types = tuple[str, str]((tname, f"*{stem}") for stem, tname in (
 				self.settings.source_sub_filetypes | {".*": "All Files"}
 			).items()
@@ -190,14 +189,14 @@ class Gui(Tk):
 			label = Label(self, text=f"{self.labels.destination}:")
 			label.grid(row=2, column=0, sticky="w", padx=(2*self._pad, 0), pady=self._pad)
 			Hovertip(label, self.labels.destination_tip)
-			self._destination_name = StringVar(value=self.destination.name)
+			self._destination_name = StringVar(value=self.settings.destination_name)
 			if self.settings.destination_arg_set or len(self.settings.accessible_destinations)== 1:
-				Label(self, text=self.destination.name).grid(row=2, column=1, columnspan=2, sticky="w", padx=self._pad)
-			elif self.destination.name in self.settings.accessible_destinations:
+				Label(self, text=self.settings.destination_name).grid(row=2, column=1, columnspan=2, sticky="w", padx=self._pad)
+			elif self.settings.destination_name in self.settings.accessible_destinations:
 				OptionMenu(
 					self,
 					self._destination_name,
-					self.destination.name,
+					self.settings.destination_name,
 					*self.settings.accessible_destinations.keys(),
 					command=self._destination_selected
 				).grid(row=2, column=1, sticky="ew", padx=self._pad)
@@ -224,9 +223,9 @@ class Gui(Tk):
 			self._todo_menu.pack(side="left", expand=True, fill="x")
 			Hovertip(frame, self.labels.todo_tip)
 			if todo:
-					self._todo_menu.set_menu(todo, *self.destination.todos.keys())
-			elif self.destination:
-					self._todo_menu.set_menu(self.labels.select_todo, *self.destination.todos.keys())
+					self._todo_menu.set_menu(todo, *self.settings.destination_todos.keys())
+			elif self.settings.destination_name:
+					self._todo_menu.set_menu(self.labels.select_todo, *self.settings.destination_todos.keys())
 			else:
 				self._todo_menu.set_menu(self.labels.select_destination_first)
 			### Mail ###
@@ -459,31 +458,32 @@ class Gui(Tk):
 		destination_name = self._destination_name.get()
 		if destination_name in self.settings.accessible_destinations:
 			self.settings.set_destination(destination_name)
-			self.destination = Destination(self.settings)
 			self._todo_boolean.set(False)
-			self._todo_menu.set_menu(self.labels.select_todo, *self.destination.todos.keys())
+			self._todo_menu.set_menu(self.labels.select_todo, *self.settings.destination_todos.keys())
 
 	def _todo_selected(self, *_: object) -> None:
 		"""Set selected todo"""
-		if self.destination:
+		if self.settings.destination_name:
 			self.settings.set_todo(self._todo_string.get())
 			todo, do_something = self.settings.get_todo()
-			self._todo_menu.set_menu(todo, *self.destination.todos.keys())
+			self._todo_menu.set_menu(todo, *self.settings.destination_todos.keys())
 			self._todo_boolean.set(do_something)
 
 	def _toggle_todo(self) -> None:
 		"""Toggle todo checkbox"""
 		checked = self._todo_boolean.get()
 		self._todo_boolean.set(False)
-		if self.destination:
+		if self.settings.destination_name:
 			if checked:
 				self._todo_menu.tk.call("ttk::menubutton::Popdown", self._todo_menu)
 			else:
-				self.settings.set_todo(self.destination.do_nothing)
-				self._todo_menu.set_menu(self.destination.do_nothing, *self.destination.todos.keys())
+				self.settings.set_todo(self.settings.destination_do_nothing)
+				self._todo_menu.set_menu(self.settings.destination_do_nothing, *self.settings.destination_todos.keys())
 
 	def _open_todo_window(self) -> None:
 		"""Check destination to open todo dialog"""
+		if self._todo_dialog and self._todo_dialog.is_alive():
+			return
 		self.prepare_dialog()
 		if not self.settings.destination_name:
 			showerror(parent=self, title=self.labels.error, message=self.labels.select_destination_first)
@@ -495,6 +495,7 @@ class Gui(Tk):
 		self._disable_buttons()
 		self._todo_dialog = ToDoDialog(self)
 		self._todo_dialog.wait_window()
+		print("todo dialog closed")
 		self._todo_dialog = None
 		self._enable_buttons()
 

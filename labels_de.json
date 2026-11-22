@@ -5,6 +5,7 @@
     "no_accessible_destination": "Kein erreichbares Zielverzeichnis gefunden, bitte Admin oder Support kontaktieren!",
     "destination_path_required": "Zielverzeichnispfad fehlt für Zielverzeichnis #",
     "destination_not_accessible": "Zielverzeichnis # ist nicht erreichbar",
+    "destination_name_required": "Zielverzeichnisname ist erforderlich, wenn der Pfad per -p/--path gesetzt wird",
     "unable_to_set_destination": "Das Zielverzeichnis konnte nicht festgelegt werden",
     "source_dir": "Quellverzeichnis",
     "target_dir": "Zielverzeichnis",

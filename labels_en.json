@@ -5,6 +5,7 @@
     "no_accessible_destination": "No accessible destination directory found, please contact Admin or Support",
     "destination_path_required": "Destination path is required for destination #",
     "destination_not_accessible": "Destination # is not accessible",
+    "destination_name_required": "Destination name is required when the path is set with -p/--path",
     "unable_to_set_destination": "The destination could not be set",
     "source_dir": "Source Directory",
     "target_dir": "Target Directory",

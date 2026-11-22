@@ -97,35 +97,35 @@ class Settings(Config):
 			except OSError:
 				pass
 		self.source_name = source_name
-		try:
-			if destination_path:
-				self.destination_arg_set = True
-				self.set_destination(destination_name)
-				self.destination_path = Path(destination_path).resolve()
-				if not self.destination_path.is_accessible():
-					raise ValueError(self.labels.destination_not_accessible.replace("#", destination_name))
-				self.accessible_destinations = {self.destination_name: self.destination_path}
+		if destination_path:
+			if not destination_name:
+				raise ValueError(self.labels.destination_name_required)
+			self.destination_arg_set = True
+			self.set_destination(destination_name)
+			self.destination_path = Path(destination_path).resolve()
+			if not self.destination_path.is_accessible():
+				raise ValueError(self.labels.destination_not_accessible.replace("#", destination_name))
+			self.accessible_destinations = {self.destination_name: self.destination_path}
+		else:
+			self.destination_arg_set = False
+			self.accessible_destinations = dict[str, Path]()
+			for dst_name, dst_values in self.destinations.items():
+				dst_path = self.__dict__.get(dst_values["path"]).resolve()
+				if dst_path.is_accessible():
+					self.accessible_destinations[dst_name] = dst_path
+			if not self.accessible_destinations:
+				raise ValueError(self.labels.no_accessible_destination)
+			if len(self.accessible_destinations) == 1:
+				self.set_destination(next(iter(self.accessible_destinations.keys())))
 			else:
-				self.destination_arg_set = False
-				self.accessible_destinations = dict[str, Path]()
-				for dst_name, dst_values in self.destinations.items():
-					dst_path = self.__dict__.get(dst_values["path"]).resolve()
-					if dst_path.is_accessible():
-						self.accessible_destinations[dst_name] = dst_path
-				if not self.accessible_destinations:
-					raise ValueError(self.labels.no_accessible_destination)
-				if len(self.accessible_destinations) == 1:
-					self.set_destination(next(iter(self.accessible_destinations.keys())))
+				self.destination_name = items.get("destination")
+				if self.destination_name in self.accessible_destinations:
+					self.set_destination(self.destination_name)
 				else:
-					destination_name = destination_name if destination_name in self.accessible_destinations else items.get("destination")
-					if destination_name in self.accessible_destinations:
-						self.set_destination(destination_name)
-					else:
-						self.destination_name = None
-						self.destination_path = None
-						self.destination_todos = None
-		except:
-			raise ValueError(self.labels.unable_to_set_destination)
+					self.destination_name = None
+					self.destination_path = None
+					self.destination_todos = None
+					self.destination_do_nothing = None
 		self.selected_todo = todo if self.destination_todos and todo in self.destination_todos.keys() else None
 		self.no_source_check = no_source_check
 		self.username = username or items.get("username") or getuser()
@@ -141,6 +141,11 @@ class Settings(Config):
 		self.destination_name = destination_name
 		self.destination_path = self.accessible_destinations.get(destination_name) if destination_name else None
 		self.destination_todos = self.todo.get(self.destinations[destination_name]["todo"]) if destination_name else None
+		self.destination_do_nothing = None
+		for todo, values in self.destination_todos.items():
+			if values.get("do_something") == False:
+				self.destination_do_nothing = todo
+				break
 
 	def set_todo(self, todo: str | None) -> None:
 		"""Set selected todo"""

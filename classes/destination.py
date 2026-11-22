@@ -16,11 +16,6 @@ class Destination:
 		self.name = self._settings.destination_name
 		self.path = self._settings.destination_path
 		self.todos = self._settings.destination_todos
-		self.do_nothing = None
-		for todo, values in self.todos.items():
-			if values.get("do_something") == False:
-				self.do_nothing = todo
-				break
 
 	def __repr__(self) -> str:
 		"""Name"""
