@@ -93,13 +93,14 @@ class InsertSrcDirThread(Thread):
 		"""Kill thread"""
 		self._kill_event.set()
 
-class InsertSourcesThread(Thread):
+class InsertSourcesThread(InsertSrcDirThread):
 	"""Thread to insert multiple sources"""
 
 	def __init__(self, gui: Gui, sources: list[Path | str]) -> None:
 		self._gui = gui
 		self._sources = sources
 		super().__init__(daemon=True)
+		self._kill_event = Event()
 
 	def run(self) -> None:
 		"""Run thread to insert multiple sources"""

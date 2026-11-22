@@ -5,13 +5,13 @@ from typing import TYPE_CHECKING
 from time import perf_counter, strftime
 from datetime import timedelta
 from classes.logger import Logger as Log
+from classes.destination import Destination
 from classes.copymd5 import CopyMD5
 from classes.size import Size
 from classes.gimmicks import Rotator
 from classes.sendmail import SendMail
 if TYPE_CHECKING:
 	from classes.source import Source
-	from classes.destination import Destination
 	from classes.settings import Settings
 	from classes.path import Path
 	from threading import Event
@@ -23,16 +23,15 @@ class Worker:
 	def __init__(
 		self,
 		source: Source,
-		destination: Destination,
 		settings: Settings,
 		kill: Event | None = None,
 		echo: Callable[..., None] = print,
 	) -> None:
 		self._source = source
-		self._destination = destination
 		self._settings = settings
 		self._kill_switch = kill
 		self._echo = echo
+		self._destination = Destination(settings)
 		self._target_dir_path = self._destination.path / self._source.name
 		self._tsv_path = self._destination.path.joinpath(self._source.name, strftime(self._settings.tsv_name))
 		self._mail_address = f"{self._settings.mail_to}@{self._settings.domain}" if self._settings.mail_to else None
@@ -170,9 +169,8 @@ class Worker:
 			"#6", f"{self._exceptions}").replace(
 			"#7", f"{duration}"
 		)
-		errors = self._write_errors + self._read_errors + self._mismatches + self._exceptions
-		if errors:
+		self.errors = self._write_errors + self._read_errors + self._mismatches + self._exceptions
+		if self.errors:
 			Log.error(log_msg)
 		else:
 			Log.info(log_msg)
-		return errors

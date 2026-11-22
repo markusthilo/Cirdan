@@ -2,12 +2,11 @@
 # -*- coding: utf-8 -*-
 
 __author__ = "Markus Thilo"
-__version__ = "2.1.0_2026-11-20"
 __license__ = "GPL-3"
 __email__ = "markus.thilo@proton.me"
-__status__ = "Testing"
 __description__ = "Copy to Import/Remote Directory Across Network - a custom upload/copy tool"
 
+from sys import executable
 from sys import exit
 from traceback import format_exc
 from argparse import ArgumentParser
@@ -15,9 +14,14 @@ from classes.path import Path
 from classes.settings import Settings
 from classes.logger import Logger
 from classes.source import Source
-from classes.destination import Destination
 from classes.worker import Worker
 from classes.gui import Gui
+__executable__ = Path(executable)
+__app_path__ = (
+	Path(__file__).parent
+	if __executable__.name.startswith("python")
+	else __executable__.parent
+)
 
 if __name__ == "__main__":  # start here when run as application
 	### private functions for error handling ###
@@ -39,7 +43,11 @@ if __name__ == "__main__":  # start here when run as application
 				)
 			) from None
 	### end of private functions for error handling ###
-	argparser = ArgumentParser(description=__description__)
+	try:
+		version = __app_path__.joinpath("version.txt").read_text(encoding="utf-8").strip()
+	except FileNotFoundError:
+		version = "Unknown"
+	argparser = ArgumentParser(description=__description__, epilog=f"Version: {version}, Author: {__author__}, Email: {__email__}, License: {__license__}")
 	argparser.add_argument("-c", "--config", type=Path, metavar="FILE",
 		help="Use the given config file instead of config.json in the application directory")
 	argparser.add_argument("-d", "--destination", type=str, metavar="STRING",
@@ -67,7 +75,7 @@ if __name__ == "__main__":  # start here when run as application
 	argparser.add_argument("sources", nargs="*", help="Source directories or files", type=Path, metavar="DIRECTORY|FILE")
 	args = argparser.parse_args()
 	if args.version:
-		print(__version__)
+		print(version)
 		exit(0)
 	use_gui = args.gui or not args.sources
 	if args.path and not args.destination:
@@ -82,7 +90,7 @@ if __name__ == "__main__":  # start here when run as application
 		raise RuntimeError(msg) from None
 	try:	# handle startup error before logging
 		settings = Settings(
-			__version__,
+			version,
 			config = args.config,
 			source_name = args.top,
 			destination_name = args.destination,
@@ -127,8 +135,7 @@ if __name__ == "__main__":  # start here when run as application
 							print(f"{settings.labels.inserted} {arg}")
 					else:
 						raise ValueError(settings.labels.not_a_valid_argument.replace("#", str(arg))) from None
-			destination = Destination(settings)
-			returncode = Worker(source, destination, settings).run()
+			returncode = Worker(source, settings).run()
 			logger.close_user()
 			logger.close_remote()
 			exit(returncode)

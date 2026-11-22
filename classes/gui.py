@@ -148,7 +148,8 @@ class Gui(Tk):
 			self.min_size_x = font_size * self.settings.gui["x_factor"]
 			self.min_size_y = font_size * self.settings.gui["y_factor"]
 			self.minsize(self.min_size_x , self.min_size_y)
-			self.geometry(f"{self.min_size_x}x{self.min_size_y}")
+			self.settings.gui_geometry = self.settings.gui_geometry or f"{self.min_size_x}x{self.min_size_y}"
+			self.geometry(self.settings.gui_geometry)
 			self.resizable(True, True)
 			self._pad = int(font_size * self.settings.gui["pad_factor"])
 			self._style_option_menus()
@@ -189,12 +190,10 @@ class Gui(Tk):
 			label = Label(self, text=f"{self.labels.destination}:")
 			label.grid(row=2, column=0, sticky="w", padx=(2*self._pad, 0), pady=self._pad)
 			Hovertip(label, self.labels.destination_tip)
-			self._destination_name = StringVar(value=self.destination.name if self.destination else None)
-			if self.settings.destination_arg_set:
+			self._destination_name = StringVar(value=self.destination.name)
+			if self.settings.destination_arg_set or len(self.settings.accessible_destinations)== 1:
 				Label(self, text=self.destination.name).grid(row=2, column=1, columnspan=2, sticky="w", padx=self._pad)
-			elif len(self.settings.accessible_destinations)== 1:
-				Label(self, text=self.destination.name).grid(row=2, column=1, columnspan=2, sticky="w", padx=self._pad)
-			elif self.destination:
+			elif self.destination.name in self.settings.accessible_destinations:
 				OptionMenu(
 					self,
 					self._destination_name,
@@ -342,7 +341,10 @@ class Gui(Tk):
 			self._exec_button.configure(state="disabled")
 			return
 		self._delete_button.configure(state="normal")
-		self._exec_button.configure(state="normal")
+		if self.source.name and self.source.sub_dirs:
+			self._exec_button.configure(state="normal")
+		else:
+			self._exec_button.configure(state="disabled")
 		self._source_tree.insert("", 0,
 			text = self.source.name or self.labels.no_top_dir,
 			values = (self.source.size, self.source.file_cnt),
@@ -482,21 +484,19 @@ class Gui(Tk):
 
 	def _open_todo_window(self) -> None:
 		"""Check destination to open todo dialog"""
-		if not self.settings.destination:
-			self.prepare_dialog()
+		self.prepare_dialog()
+		if not self.settings.destination_name:
 			showerror(parent=self, title=self.labels.error, message=self.labels.select_destination_first)
 			return
-		sub_dir_paths = self.settings.destination.check_sub_dirs(self.settings.username)
-		if not sub_dir_paths:
-			self.prepare_dialog()
+		if not self.settings.accessible_destinations:
 			showerror(parent=self, title=self.labels.error, message=self.labels.no_sub_dirs_todo)
 			return
 		self.clear_info()
 		self._disable_buttons()
 		self._todo_dialog = ToDoDialog(self)
 		self._todo_dialog.wait_window()
-		self._enable_buttons()
 		self._todo_dialog = None
+		self._enable_buttons()
 
 	def create_todo(self, selected_path: Path, todo: str) -> None:
 		"""Create todo"""
@@ -585,16 +585,21 @@ class Gui(Tk):
 
 	def _disable_buttons(self) -> None:
 		"""Disable source selector and start button"""
-		self._source_button.configure(state="disabled")
+		self._add_dir_button.configure(state="disabled")
+		self._add_file_button.configure(state="disabled")
+		self._set_top_dir_name_button.configure(state="disabled")
 		self._exec_button.configure(state="disabled")
 		self._create_todo_button.configure(state="disabled")
 
 	def _enable_buttons(self) -> None:
 		"""Enable source selector and start button"""
-		self._source_button.configure(state="normal")
+		self._add_dir_button.configure(state="normal")
+		self._add_file_button.configure(state="normal")
+		self._set_top_dir_name_button.configure(state="normal")
 		self._exec_button.configure(state="normal")
 		self._create_todo_button.configure(state="normal")
 		self._quit_button.configure(state="normal")
+		self.gen_source_tree()
 
 	def _get_settings(self) -> None:
 		"""Get settings from GUI"""
@@ -607,7 +612,7 @@ class Gui(Tk):
 		"""Get settings from GUI and save to JSON file"""
 		self._get_settings()
 		try:
-			self.settings.save()
+			self.settings.save(gui_geometry=f"{self.winfo_width()}x{self.winfo_height()}")
 			Log.debug("Saved settings")
 		except Exception:
 			Log.error()

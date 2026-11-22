@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from typing import Any
-from sys import executable as executable
+from sys import executable
 from platform import node, system
 from json import load, dump
 from getpass import getuser
@@ -116,14 +116,14 @@ class Settings(Config):
 					raise ValueError(self.labels.no_accessible_destination)
 				if len(self.accessible_destinations) == 1:
 					self.set_destination(next(iter(self.accessible_destinations.keys())))
-				elif destination_name:
-					self.set_destination(destination_name)
-				elif items.get("destination") in self.accessible_destinations:
-					self.set_destination(items.get("destination"))
 				else:
-					self.destination_name = None
-					self.destination_path = None
-					self.destination_todos = None
+					destination_name = destination_name if destination_name in self.accessible_destinations else items.get("destination")
+					if destination_name in self.accessible_destinations:
+						self.set_destination(destination_name)
+					else:
+						self.destination_name = None
+						self.destination_path = None
+						self.destination_todos = None
 		except:
 			raise ValueError(self.labels.unable_to_set_destination)
 		self.selected_todo = todo if self.destination_todos and todo in self.destination_todos.keys() else None
@@ -132,6 +132,7 @@ class Settings(Config):
 		self.sendmail = bool(mail_to) or items.get("sendmail", False)
 		self.mail_to = mail_to or items.get("mail_to", "")
 		self.mail_subject = mail_subject or items.get("mail_subject") or self.mail["default-subject"]
+		self.gui_geometry = items.get("gui_geometry", "")
 		self.user_log = user_log
 		self.id = f'{{\n  "hostname": "{self.hostname}",\n  "username": "{self.username}"\n}}'
 
@@ -152,7 +153,7 @@ class Settings(Config):
 		else:
 			return None, False
 
-	def save(self) -> None:
+	def save(self, gui_geometry: str | None = None) -> None:
 		"""Save settings file"""
 		self.local_path.mkdir(parents=True, exist_ok=True)
 		with self._path.open("w", encoding="utf-8") as fp:
@@ -163,5 +164,6 @@ class Settings(Config):
 					"sendmail": self.sendmail,
 					"mail_to": self.mail_to,
 					"mail_subject": self.mail_subject,
+					"gui_geometry": gui_geometry or self.gui_geometry
 				}, fp, indent=2
 			)
