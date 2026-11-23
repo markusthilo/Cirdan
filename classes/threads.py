@@ -134,6 +134,7 @@ class WorkThread(InsertSrcDirThread):
 	def run(self) -> None:
 		"""Run worker and report back to the GUI"""
 		try:
-			self._gui.finished(self._worker.run())
+			returncode = self._worker.run()
 		except Exception as ex:
-			return ex
+			returncode = ex
+		self._gui.finished()

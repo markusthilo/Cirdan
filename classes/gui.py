@@ -491,13 +491,17 @@ class Gui(Tk):
 		if not self.settings.accessible_destinations:
 			showerror(parent=self, title=self.labels.error, message=self.labels.no_sub_dirs_todo)
 			return
-		self.clear_info()
-		self._disable_buttons()
-		self._todo_dialog = ToDoDialog(self)
-		self._todo_dialog.wait_window()
-		print("todo dialog closed")
-		self._todo_dialog = None
-		self._enable_buttons()
+		destination = Destination(self.settings)
+		if destination.check_sub_dirs():
+			self.clear_info()
+			self._disable_buttons()
+			self._todo_dialog = ToDoDialog(self)
+			self._todo_dialog.wait_window()
+			print("todo dialog closed")
+			self._todo_dialog = None
+			self._enable_buttons()
+		else:
+			showinfo(parent=self, title=self.labels.info, message=self.labels.no_sub_dirs_todo)
 
 	def create_todo(self, selected_path: Path, todo: str) -> None:
 		"""Create todo"""
@@ -647,10 +651,16 @@ class Gui(Tk):
 		self.settings.set_todo(todo)
 		if not self.write_log.get():
 			self.log_path = None
+		
+		try:
+			self._work_thread = WorkThread(self)
+		except:
+			self.prepare_dialog()
+			showerror(parent=self, title=self.labels.error, message=self.logger.error())
+			return
+		self.clear_info()
 		self._save_settings()
 		self._disable_buttons()
-		self.clear_info()
-		self._work_thread = WorkThread(self)
 		self._work_thread.start()
 
 	def _init_warning(self) -> None:
@@ -678,12 +688,11 @@ class Gui(Tk):
 		"""Run this when worker has finished (called from WorkThread)"""
 		self._call_ui(self._finished, errors)
 
-	def _finished(self, errors: list[str] | None) -> None:
+	def _finished(self, returncode: int | str | None) -> None:
 		self._work_thread = None
 		self._enable_buttons()
-		if errors is None:
+		if returncode == "killed":
 			Log.info(self.labels.worker_killed)
-			self._clear_source_text()
 			return
 		self.write_log.set(False)
 		self.log_path = None

@@ -7,6 +7,7 @@ from tkinter.ttk import Frame, Label, Treeview, Scrollbar, Button, OptionMenu
 from tkinter.messagebox import showerror
 from idlelib.tooltip import Hovertip
 from classes.path import Path
+from classes.destination import Destination
 from classes.messagedialog import prepare_message_parent
 if TYPE_CHECKING:
 	from classes.gui import Gui
@@ -15,10 +16,16 @@ class ToDoDialog(Toplevel):
 	"""ToDo dialog"""
 
 	def __init__(self, root: Gui) -> None:
-		super().__init__(root)
 		self._root = root
-		self._labels = self._root.settings.labels
-		self._destination = self._root.settings.destination
+		self._labels = self._root.labels
+		self._destination = Destination(self._root.settings)
+		self._sub_dir_paths = self._destination.check_sub_dirs()
+		if not self._sub_dir_paths:
+			self._prepare_dialog()
+			showerror(parent=self._root, title=self._labels.error, message=self._labels.no_sub_dirs_todo)
+			return
+		self._labels = self._root.labels
+		super().__init__(root)
 		self.title(self._labels.create_todo)
 		self.transient(root)
 		self.grab_set()
@@ -27,11 +34,11 @@ class ToDoDialog(Toplevel):
 		self.geometry(f"{self._root.min_size_x}x{self._root.min_size_y}")
 		self.resizable(True, True)
 		pad = self._root._pad
-
+		### Header ###
 		frame = Frame(self)
 		frame.pack(fill="x", padx=pad, pady=pad)
 		Label(frame, text=self._labels.select_todo_dir).pack(side="left", padx=pad)
-
+		### Tree ###
 		frame = Frame(self)
 		frame.pack(fill="both", expand=True, padx=pad, pady=(0, pad))
 		self._tree = Treeview(frame, show="tree", selectmode="browse")
@@ -85,7 +92,7 @@ class ToDoDialog(Toplevel):
 
 	def _prepare_dialog(self) -> None:
 		"""Map this window so the next message box stays in front of it"""
-		prepare_message_parent(self)
+		prepare_message_parent(self._root)
 
 	def _selected_sub_dir(self) -> Path | None:
 		"""Resolve tree selection to a top-level destination sub directory"""

@@ -61,6 +61,7 @@
     "update_info": "The version #1 can be downloaded from:\n#2",
     "update_question": "Download new version and exit this application?",
     "error": "Error",
+    "info": "Info",
     "checking": "Checking",
     "missing_name": "Missing user / missing email address",
 	"checking_source": "Checking source directory #",

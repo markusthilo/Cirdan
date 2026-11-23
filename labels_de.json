@@ -61,6 +61,7 @@
     "update_info": "Die Version #1 kann von dort heruntergeladen werden:\n#2",
     "update_question": "Neue Version herunterladen und diese Anwendung verlassen?",
     "error": "Fehler",
+    "info": "Info",
     "checking": "Prüfe",
     "missing_name": "Fehlender Bearbeiter / fehlende E-Mail-Adresse",
 	"checking_source": "Prüfe Quellverzeichnis #",

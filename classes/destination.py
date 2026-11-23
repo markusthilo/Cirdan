@@ -3,9 +3,9 @@
 
 from typing import TYPE_CHECKING
 from json import load, dumps
+from classes.path import Path
 if TYPE_CHECKING:
 	from classes.settings import Settings
-	from classes.path import Path
 	from classes.source import Source
 
 class Destination:
@@ -21,7 +21,7 @@ class Destination:
 		"""Name"""
 		return f"{self.name}"
 
-	def check_sub_dirs(self, username: str) -> list[Path]:
+	def check_sub_dirs(self) -> list[Path]:
 		"""Check destination directory and return list of subdirectories that might be triggered"""
 		self.sub_dir_paths = list[Path]()
 		try:
@@ -34,7 +34,7 @@ class Destination:
 			try:
 				with sub_dir_path.joinpath(self._settings.halted_name).open(encoding="utf-8") as fp:
 					items = load(fp)
-				if items.get("username") == username:
+				if items.get("username") == self._settings.username:
 					self.sub_dir_paths.append(sub_dir_path)
 			except (OSError, ValueError, TypeError, KeyError):
 				pass
