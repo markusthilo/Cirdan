@@ -63,12 +63,12 @@ class ToDoDialog(Toplevel):
 		vsb = Scrollbar(frame, orient="vertical", command=self._tree.yview)
 		vsb.pack(side="right", fill="y")
 		self._tree.configure(yscrollcommand=vsb.set)
-
+		### Todo ###
 		frame = Frame(self)
 		frame.pack(fill="x", pady=(0, pad))
 		self._todo = StringVar()
 		todos = tuple(
-			todo for todo, cfg in self._destination.todos.items() if cfg.get("do_something")
+			todo for todo, values in self._gui.settings.destination_todos.items() if values.get("do_something")
 		)
 		if not todos:
 			self._prepare_dialog()
@@ -118,10 +118,4 @@ class ToDoDialog(Toplevel):
 			showerror(parent=self, title=self._labels.error, message=self._labels.select_todo_dir)
 			return
 		todo = self._todo.get()
-		if todo not in self._destination.todos or not self._destination.todos[todo].get("do_something"):
-			self._prepare_dialog()
-			showerror(parent=self, title=self._labels.error, message=self._labels.todo_dialog_select)
-			return
-		print(f"{self._destination.todos=}")
-		print(f"{todo=}")
-		self._gui.create_todo(selected_path, self._destination.todos[todo])
+		self._gui.create_todo(selected_path, self._destination, todo)

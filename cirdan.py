@@ -113,9 +113,6 @@ if __name__ == "__main__":  # start here when run as application
 	else:
 		try:
 			source = Source(settings)
-			logger.add_remote(source)
-			if settings.user_log:
-				logger.add_user(settings.user_log)
 			for arg in args.sources:
 				if arg.is_dir():
 					if top_dir := source.top_dir(arg):
@@ -135,6 +132,9 @@ if __name__ == "__main__":  # start here when run as application
 							print(f"{settings.labels.inserted} {arg}")
 					else:
 						raise ValueError(settings.labels.not_a_valid_argument.replace("#", str(arg))) from None
+			logger.add_remote(source)
+			if settings.user_log:
+				logger.add_user(settings.user_log)
 			returncode = Worker(source, settings).run()
 			logger.close_user()
 			logger.close_remote()

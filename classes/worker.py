@@ -114,7 +114,6 @@ class Worker:
 			if returncode := self._copy_directory(values.get("path")):
 				return returncode
 		for values in self._source.sub_files.values():
-			print(f"copying file: {values.get('path')}")
 			if returncode := self._copy_file(values.get("path")):
 				return returncode
 		try:
@@ -123,25 +122,36 @@ class Worker:
 			Log.error()
 			self._exceptions += 1
 		if self._settings.selected_todo:
-			todo = self._destination.todos[self._settings.selected_todo]
+			todo = self._settings.destination_todos.get(self._settings.selected_todo)
 		else:
-			for todo, values in self._destination.todos.items():	# search for do_something == False
+			todo = None
+			for key, values in self._settings.destination_todos.items():	# search for do_something == False
 				if values["do_something"] == False:
+					todo = values
 					break
-		try:
-			self._destination.delete_trigger(todo, self._source.name)
-		except:
-			Log.warning()
-			self._exceptions += 1
-		try:
-			self._destination.write_meta(todo, self._source.name, self._source.counted_paths)
-		except:
-			Log.error()
-			self._exceptions += 1
-		try:
-			self._destination.write_trigger(todo, self._source.name)
-		except:
-			Log.error()
+		if todo:
+			try:
+				self._destination.delete_trigger(todo, self._source.name)
+			except:
+				Log.warning()
+				self._exceptions += 1
+			try:
+				self._destination.write_todo(todo, self._source.name)
+			except:
+				Log.error()
+				self._exceptions += 1
+			try:
+				self._destination.write_meta(todo, self._source)
+			except:
+				Log.error()
+				self._exceptions += 1
+			try:
+				self._destination.write_trigger(todo, self._source.name)
+			except:
+				Log.error()
+				self._exceptions += 1
+		else:
+			Log.error(self._settings.labels.no_valid_todo)
 			self._exceptions += 1
 		duration = timedelta(seconds=perf_counter() - start_time)
 		if self._settings.sendmail and self._mail_address:

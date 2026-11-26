@@ -33,7 +33,6 @@ class Source:
 		self.sub_dirs = dict[str, dict[str, Path | Size | int]]()
 		self.sub_files = dict[str, dict[str, Path | Size]]()
 		self.wished_files = dict[str, Path]()
-		self.counted_paths = dict[str, dict[str, int]]()
 		self.file_cnt = 0
 		self.size = Size(0)
 
@@ -51,9 +50,6 @@ class Source:
 			string += f"    {key}: {value}\n"
 		string += "wished_files\n"
 		for key, value in self.wished_files.items():
-			string += f"    {key}: {value}\n"
-		string += "counted_paths\n"
-		for key, value in self.counted_paths.items():
 			string += f"    {key}: {value}\n"
 		return string
 
@@ -131,8 +127,8 @@ class Source:
 				self.file_cnt += 1
 				yield abs_path, None
 		self.sub_dirs[path.name] = {"path": path, "size": size, "files": file_cnt}
-		if self.countlist:
-			self.counted_paths[path.name] = counted_paths
+		if counted_paths:
+			self.sub_dirs[path.name]["paths_count"] = counted_paths
 
 	def rm_sub_dir(self, name: str) -> None:
 		"""Remove sub directory"""

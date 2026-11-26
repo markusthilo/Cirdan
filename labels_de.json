@@ -47,7 +47,7 @@
     "todo_dialog_tip": "Was soll nach dem Upload erfolgen?",
     "launch": "Ausführen",
     "cancel": "Abbrechen",
-    "todo_created": "Die Weiterverarbeitungsoption #1 für #2 wurde gesetzt",
+    "todo_created": "Die Weiterverarbeitungsoption \"#1\" für #2 wurde gesetzt",
     "sendmail_button": "Sende Mail an",
     "sendmail_tip": "Angehakt wird nach beendetem Upload ins\nImport-Verzeichnis eine Benachrichtigungs-E-Mail versendet.",
 	"address_tip": "E-Mail-Adresse, an die nach erfolgtem Upload eine Benachrichtigung geschickt wird.\nÜblicherweise ist Ihre Adresse bzw. die des Bearbeiters, der den Upload veranlasst.",
@@ -103,5 +103,6 @@
     "killing_running": "Breche den laufenden Prozess ab",
     "worker_killed": "Arbeitsprozess/Worker wurde beendet",
     "mail_error": "Fehler beim Versenden der E-Mail an #",
+    "no_valid_todo": "Keine gültige Weiterverarbeitungsoption",
     "copy_finished": "Kopiervorgang abgeschlossen: #1 / #2 Datei(en), Schreibfehler: #3, Lesefehler: #4, Dateigrößenabweichungen: #5, sonstige Ausnahmen: #6, Dauer: #7"
 }

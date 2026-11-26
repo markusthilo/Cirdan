@@ -134,7 +134,7 @@ class WorkThread(BaseThread):
 		self._gui.logger.add_remote(self._gui.source)
 		if self._gui.settings.user_log:
 			self._gui.logger.add_user(self._gui.settings.user_log)
-		self._worker = Worker(self._gui.source, self._gui.settings, kill=self._kill_event)
+		self._worker = Worker(self._gui.source, self._gui.settings, kill=self._kill_event, echo=self._gui.echo)
 		super().__init__()
 
 	def run(self) -> None:

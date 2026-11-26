@@ -47,7 +47,7 @@
     "todo_dialog_tip": "What should happen?",
     "launch": "Launch",
     "cancel": "Cancel",
-    "todo_created": "The further processing #1 for #2 has been set",
+    "todo_created": "The further processing \"#1\" for #2 has been set",
     "sendmail_button": "send mail to",
     "sendmail_tip": "When checked, an email is sent after\nthe upload to the import directory is completed.",
 	"address_tip": "This email address is used to send the status mail after upload.\nThis should be your address for most use cases.",
@@ -105,5 +105,6 @@
     "worker_killed": "Worker process was terminated",
     "killing_running": "Abort the running process",
     "mail_error": "Error sending mail to #",
+    "no_valid_todo": "No valid further processing option",
     "copy_finished": "Copy finished: #1 / #2 files, write errors: #3, read errors: #4, file size mismatches: #5, other exceptions: #6, duration: #7"
 }

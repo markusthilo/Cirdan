@@ -518,24 +518,20 @@ class Gui(Tk):
 		except (RuntimeError, TclError):
 			pass
 
-	def create_todo(self, selected_path: Path, todo: dict) -> None:
+	def create_todo(self, selected_path: Path, destination: Destination, todo: str) -> None:
 		"""Create todo"""
-		self._call_ui(self._create_todo, selected_path, todo)
+		self._call_ui(self._create_todo, selected_path, destination, todo)
 
-	def _create_todo(self, selected_path: Path, todo: dict) -> None:
+	def _create_todo(self, selected_path: Path, destination: Destination, todo: str) -> None:
 		"""Create todo"""
 		self._todo_dialog.destroy()
 		self._todo_dialog = None
-		meta_content = todo.get("meta_content") or ""
-		if "%p" in meta_content:
-			counted_paths = self.settings.destination.count_paths(selected_path, self.echo) or {}
-		else:
-			counted_paths = {}
+		todo_params = self.settings.destination_todos.get(todo)
 		try:
-			self.settings.destination.delete_trigger(todo, selected_path)
-			self.settings.destination.write_meta(todo, selected_path, counted_paths)
-			self.settings.destination.write_trigger(todo, selected_path)
-		except Exception:
+			destination.delete_trigger(todo_params, selected_path.name)
+			destination.write_todo(todo_params, selected_path.name)
+			destination.write_trigger(todo_params, selected_path.name)
+		except:
 			self.prepare_dialog()
 			showerror(parent=self, title=self.labels.error, message=self.logger.error())
 			return

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from typing import TYPE_CHECKING
+from datetime import datetime
 from json import load, dumps
 from classes.path import Path
 if TYPE_CHECKING:
@@ -15,7 +16,6 @@ class Destination:
 		self._settings = settings
 		self.name = self._settings.destination_name
 		self.path = self._settings.destination_path
-		self.todos = self._settings.destination_todos
 
 	def __repr__(self) -> str:
 		"""Name"""
@@ -41,27 +41,39 @@ class Destination:
 		self.sub_dir_paths.sort(key=lambda path: path.name)
 		return self.sub_dir_paths
 
-	def delete_trigger(self, todo: str, source_name: str) -> None:
+	def delete_trigger(self, todo: dict, top_dir_name: str) -> None:
 		"""Delete trigger file if given"""
 		if filename := todo.get("delete_name"):
-			self.path.joinpath(source_name, filename).unlink(missing_ok=True)
+			self.path.joinpath(top_dir_name, filename).unlink(missing_ok=True)
 
-	def write_meta(self, todo: str, source_name: str, counted_paths: dict) -> None:
-		"""Write meta file if given"""
-		if filename := todo.get("meta_name"):
-			meta_content = todo.get("meta_content")
-			if not meta_content:
-				return
-			if "%p" in meta_content and counted_paths:
-				paths_json = dumps(
-					{dir_name: {"pattern": pattern, "matches": n}
-						for dir_name , pattern, n in counted_paths.items()
-					}
-				)
-				meta_content = meta_content.replace("%p", paths_json)
-			self.path.joinpath(source_name).write_text_file(filename, meta_content, use_strftime=True)
-
-	def write_trigger(self, todo: str, source_name: str) -> None:
+	def write_trigger(self, todo: dict, top_dir_name: str) -> None:
 		"""Write trigger file if given"""
 		if filename := todo.get("trigger_name"):
-			self.path.joinpath(source_name).write_text_file(filename, self._settings.id)
+			self.path.joinpath(top_dir_name).write_text_file(filename, self._settings.id)
+
+	def write_todo(self, todo: dict, top_dir_name: str) -> None:
+		"""Write todo file if given"""
+		if filename := todo.get("todo_name"):
+			if task := todo.get("task"):
+				self.path.joinpath(top_dir_name).write_text_file(filename, task)
+
+	def write_meta(self, todo: dict, source: Source) -> None:
+		"""Write meta file if given"""
+		if filename := todo.get("meta_name"):
+			directories = dict[str, dict[str, int]]()
+			for sub_dir_name, values in source.sub_dirs.items():
+				directories[sub_dir_name] = {
+					"bytes": values.get("size").integer(),
+					"files": values.get("files")
+				}
+				if "paths_count" in values:
+					directories[sub_dir_name]["paths_count"] = values.get("paths_count")
+			json = dumps({
+				source.name: {
+					"bytes": source.size.integer(),
+					"files": source.file_cnt,
+					"directories": directories,
+					"upload_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+				}
+			}, indent=4)
+			self.path.joinpath(source.name).write_text_file(filename, json, use_strftime=True)
