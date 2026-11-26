@@ -49,7 +49,7 @@ class Worker:
 
 	def _copy_error(self, copymd5: CopyMD5) -> str:
 		"""Handle error from copy process"""
-		stderr = copymd5.read_stderr().strip()
+		stderr = copymd5.stderr.read().strip()
 		try:
 			read_errors, write_errors, mismatches = (int(p.split("(")[0]) for p in stderr.split(":")[1].split("/")[:3])
 			error_msg = Log.error(message=self._settings.labels.copy_error.replace(
@@ -114,6 +114,7 @@ class Worker:
 			if returncode := self._copy_directory(values.get("path")):
 				return returncode
 		for values in self._source.sub_files.values():
+			print(f"copying file: {values.get('path')}")
 			if returncode := self._copy_file(values.get("path")):
 				return returncode
 		try:
@@ -128,17 +129,17 @@ class Worker:
 				if values["do_something"] == False:
 					break
 		try:
-			self._destination.delete_trigger(todo, self._source)
+			self._destination.delete_trigger(todo, self._source.name)
 		except:
 			Log.warning()
 			self._exceptions += 1
 		try:
-			self._destination.write_meta(todo, self._source)
+			self._destination.write_meta(todo, self._source.name, self._source.counted_paths)
 		except:
 			Log.error()
 			self._exceptions += 1
 		try:
-			self._destination.write_trigger(todo, self._source)
+			self._destination.write_trigger(todo, self._source.name)
 		except:
 			Log.error()
 			self._exceptions += 1
@@ -169,7 +170,7 @@ class Worker:
 			"#6", f"{self._exceptions}").replace(
 			"#7", f"{duration}"
 		)
-		if self.errors:
+		if self._exceptions:
 			Log.error(log_msg)
 		else:
 			Log.info(log_msg)

@@ -14,27 +14,17 @@ if TYPE_CHECKING:
 	from classes.path import Path
 	from typing import Callable
 
-class InsertSrcDirThread(Thread):
-	"""Thread to add a sub directory into source"""
 
-	def __init__(self, gui: Gui, arg: Path | str, call_on_finish: Callable | None = None) -> None:
-		self._gui = gui
-		self._call_on_finish = call_on_finish
-		self._source = copy(self._gui.source) if self._gui.source else Source(self._gui.settings)
-		self._dir_path = self._source.top_dir(arg)
-		if self._dir_path:
-			self._insert = self._source.insert_top_dir
-		else:
-			self._dir_path = self._source.sub_dir(arg)
-			if self._dir_path:
-				if dir_name := self._source.sub_dir_already_set(self._sub_dir):
-					raise ValueError(self._gui.labels.sub_dir_already_set.replace("#", dir_name)) from None
-				self._insert = self._source.add_sub_dir
-			else:
-				raise ValueError(self._gui.labels.not_a_valid_directory.replace("#", str(arg))) from None
-		self._indicator = Cylon()
+class BaseThread(Thread):
+	"""Base thread class"""
+
+	def __init__(self) -> None:
 		super().__init__(daemon=True)
 		self._kill_event = Event()
+
+	def kill(self) -> None:
+		"""Kill thread"""
+		self._kill_event.set()
 
 	def _warning_yesno(self, message: str) -> bool:
 		"""Show askyesno on the Tk main thread and wait for the answer"""
@@ -54,6 +44,27 @@ class InsertSrcDirThread(Thread):
 			return False
 		done.wait()
 		return result[0] if result else False
+
+class InsertSrcDirThread(BaseThread):
+	"""Thread to add a sub directory into source"""
+
+	def __init__(self, gui: Gui, arg: Path | str, call_on_finish: Callable | None = None) -> None:
+		self._gui = gui
+		self._call_on_finish = call_on_finish
+		self._source = copy(self._gui.source) if self._gui.source else Source(self._gui.settings)
+		self._dir_path = self._source.top_dir(arg)
+		if self._dir_path:
+			self._insert = self._source.insert_top_dir
+		else:
+			self._dir_path = self._source.sub_dir(arg)
+			if self._dir_path:
+				if dir_name := self._source.sub_dir_already_set(self._dir_path):
+					raise ValueError(self._gui.labels.sub_dir_already_set.replace("#", dir_name)) from None
+				self._insert = self._source.add_sub_dir
+			else:
+				raise ValueError(self._gui.labels.not_a_valid_directory.replace("#", str(arg))) from None
+		self._indicator = Cylon()
+		super().__init__()
 
 	def run(self) -> None:
 		"""Run thread to check and add source"""
@@ -89,18 +100,13 @@ class InsertSrcDirThread(Thread):
 		if self._call_on_finish:
 			self._call_on_finish()
 
-	def kill(self) -> None:
-		"""Kill thread"""
-		self._kill_event.set()
-
-class InsertSourcesThread(InsertSrcDirThread):
+class InsertSourcesThread(BaseThread):
 	"""Thread to insert multiple sources"""
 
 	def __init__(self, gui: Gui, sources: list[Path | str]) -> None:
 		self._gui = gui
 		self._sources = sources
-		super().__init__(daemon=True)
-		self._kill_event = Event()
+		super().__init__()
 
 	def run(self) -> None:
 		"""Run thread to insert multiple sources"""
@@ -119,22 +125,22 @@ class InsertSourcesThread(InsertSrcDirThread):
 				Log.error(self._gui.labels.error_inserting_source.replace("#", str(source)))
 		self._gui.gen_source_tree()
 			
-class WorkThread(InsertSrcDirThread):
+class WorkThread(BaseThread):
 	"""Thread that runs Worker while Tk keeps the GUI alive"""
 
 	def __init__(self, gui: Gui) -> None:
 		self._gui = gui
-		super().__init__(daemon=True)
 		self._kill_event = Event()
-		self._gui.logger.add_remote(self._source)
+		self._gui.logger.add_remote(self._gui.source)
 		if self._gui.settings.user_log:
 			self._gui.logger.add_user(self._gui.settings.user_log)
 		self._worker = Worker(self._gui.source, self._gui.settings, kill=self._kill_event)
+		super().__init__()
 
 	def run(self) -> None:
 		"""Run worker and report back to the GUI"""
 		try:
-			returncode = self._worker.run()
-		except Exception as ex:
-			returncode = ex
-		self._gui.finished()
+			self._gui.finished(self._worker.run())
+		except:
+			Log.error()
+			self._gui.finished(1)

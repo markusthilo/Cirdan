@@ -15,25 +15,25 @@ if TYPE_CHECKING:
 class ToDoDialog(Toplevel):
 	"""ToDo dialog"""
 
-	def __init__(self, root: Gui) -> None:
-		self._root = root
-		self._labels = self._root.labels
-		self._destination = Destination(self._root.settings)
+	def __init__(self, gui: Gui) -> None:
+		# Do not name this `_root` — that shadows tkinter.Misc._root()
+		self._gui = gui
+		self._labels = self._gui.labels
+		self._destination = Destination(self._gui.settings)
 		self._sub_dir_paths = self._destination.check_sub_dirs()
 		if not self._sub_dir_paths:
-			self._prepare_dialog()
-			showerror(parent=self._root, title=self._labels.error, message=self._labels.no_sub_dirs_todo)
+			prepare_message_parent(self._gui)
+			showerror(parent=self._gui, title=self._labels.error, message=self._labels.no_sub_dirs_todo)
 			return
-		self._labels = self._root.labels
-		super().__init__(root)
+		super().__init__(self._gui)
 		self.title(self._labels.create_todo)
-		self.transient(root)
+		self.transient(self._gui)
 		self.grab_set()
 		self.protocol("WM_DELETE_WINDOW", self.destroy)
-		self.minsize(self._root.min_size_x, self._root.min_size_y)
-		self.geometry(f"{self._root.min_size_x}x{self._root.min_size_y}")
+		self.minsize(self._gui.min_size_x, self._gui.min_size_y)
+		self.geometry(f"{self._gui.min_size_x}x{self._gui.min_size_y}")
 		self.resizable(True, True)
-		pad = self._root._pad
+		pad = self._gui._pad
 		### Header ###
 		frame = Frame(self)
 		frame.pack(fill="x", padx=pad, pady=pad)
@@ -92,7 +92,7 @@ class ToDoDialog(Toplevel):
 
 	def _prepare_dialog(self) -> None:
 		"""Map this window so the next message box stays in front of it"""
-		prepare_message_parent(self._root)
+		prepare_message_parent(self._gui)
 
 	def _selected_sub_dir(self) -> Path | None:
 		"""Resolve tree selection to a top-level destination sub directory"""
@@ -122,4 +122,6 @@ class ToDoDialog(Toplevel):
 			self._prepare_dialog()
 			showerror(parent=self, title=self._labels.error, message=self._labels.todo_dialog_select)
 			return
-		self._root.create_todo(selected_path, todo)
+		print(f"{self._destination.todos=}")
+		print(f"{todo=}")
+		self._gui.create_todo(selected_path, self._destination.todos[todo])

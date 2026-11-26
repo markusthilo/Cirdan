@@ -41,27 +41,27 @@ class Destination:
 		self.sub_dir_paths.sort(key=lambda path: path.name)
 		return self.sub_dir_paths
 
-	def delete_trigger(self, todo: str, source: Source) -> None:
+	def delete_trigger(self, todo: str, source_name: str) -> None:
 		"""Delete trigger file if given"""
-		if filename := self.todos[todo].get("delete_name"):
-			self.path.joinpath(source.name, filename).unlink(missing_ok=True)
+		if filename := todo.get("delete_name"):
+			self.path.joinpath(source_name, filename).unlink(missing_ok=True)
 
-	def write_meta(self, todo: str, source: Source) -> None:
+	def write_meta(self, todo: str, source_name: str, counted_paths: dict) -> None:
 		"""Write meta file if given"""
-		if filename := self.todos[todo].get("meta_name"):
-			meta_content = self.todos[todo].get("meta_content")
+		if filename := todo.get("meta_name"):
+			meta_content = todo.get("meta_content")
 			if not meta_content:
 				return
-			if "%p" in meta_content and source.counted_paths:
+			if "%p" in meta_content and counted_paths:
 				paths_json = dumps(
 					{dir_name: {"pattern": pattern, "matches": n}
-						for dir_name , pattern, n in source.counted_paths.items()
+						for dir_name , pattern, n in counted_paths.items()
 					}
 				)
 				meta_content = meta_content.replace("%p", paths_json)
-			self.path.joinpath(source.name).write_text_file(filename, meta_content, use_strftime=True)
+			self.path.joinpath(source_name).write_text_file(filename, meta_content, use_strftime=True)
 
-	def write_trigger(self, todo: str, source: Source) -> None:
+	def write_trigger(self, todo: str, source_name: str) -> None:
 		"""Write trigger file if given"""
-		if filename := self.todos[todo].get("trigger_name"):
-			self.path.joinpath(source.name).write_text_file(filename, self._settings.id)
+		if filename := todo.get("trigger_name"):
+			self.path.joinpath(source_name).write_text_file(filename, self._settings.id)

@@ -215,11 +215,11 @@ class Gui(Tk):
 			frame = Frame(self)
 			frame.grid(row=3, column=1, sticky="ew", padx=self._pad)
 			todo, do_something = self.settings.get_todo()
-			self._todo_string = StringVar(value=todo)
+			self._todo = StringVar(value=todo)
 			self._todo_boolean = BooleanVar(value=do_something)
 			button = Checkbutton(frame, text="\u2194 ", variable=self._todo_boolean, command=self._toggle_todo)
 			button.pack(side="left")
-			self._todo_menu = OptionMenu(frame, self._todo_string, command=self._todo_selected)
+			self._todo_menu = OptionMenu(frame, self._todo, command=self._todo_selected)
 			self._todo_menu.pack(side="left", expand=True, fill="x")
 			Hovertip(frame, self.labels.todo_tip)
 			if todo:
@@ -372,7 +372,7 @@ class Gui(Tk):
 			try:
 				self.source_thread = InsertSrcDirThread(self, directory, self.gen_source_tree)
 			except ValueError as ex:
-				self.echo(ex)
+				showerror(parent=self, title=self.labels.error, message=str(ex))
 				return
 			self.source_thread.start()
 
@@ -464,7 +464,7 @@ class Gui(Tk):
 	def _todo_selected(self, *_: object) -> None:
 		"""Set selected todo"""
 		if self.settings.destination_name:
-			self.settings.set_todo(self._todo_string.get())
+			self.settings.set_todo(self._todo.get())
 			todo, do_something = self.settings.get_todo()
 			self._todo_menu.set_menu(todo, *self.settings.destination_todos.keys())
 			self._todo_boolean.set(do_something)
@@ -503,11 +503,30 @@ class Gui(Tk):
 		else:
 			showinfo(parent=self, title=self.labels.info, message=self.labels.no_sub_dirs_todo)
 
-	def create_todo(self, selected_path: Path, todo: str) -> None:
+	def _call_ui(self, fn: Callable[..., None], *args: object, **kwargs: object) -> None:
+		"""Run a widget update on the Tk main thread"""
+		def run() -> None:
+			try:
+				fn(*args, **kwargs)
+			except TclError:
+				pass
+		try:
+			if current_thread() is main_thread():
+				run()
+			else:
+				self.after(0, run)
+		except (RuntimeError, TclError):
+			pass
+
+	def create_todo(self, selected_path: Path, todo: dict) -> None:
+		"""Create todo"""
+		self._call_ui(self._create_todo, selected_path, todo)
+
+	def _create_todo(self, selected_path: Path, todo: dict) -> None:
 		"""Create todo"""
 		self._todo_dialog.destroy()
 		self._todo_dialog = None
-		meta_content = self.settings.destination.todos[todo].get("meta_content") or ""
+		meta_content = todo.get("meta_content") or ""
 		if "%p" in meta_content:
 			counted_paths = self.settings.destination.count_paths(selected_path, self.echo) or {}
 		else:
@@ -543,21 +562,6 @@ class Gui(Tk):
 				self.log_path = None
 		else:
 			self.log_path = None
-
-	def _call_ui(self, fn: Callable[..., None], *args: object, **kwargs: object) -> None:
-		"""Run a widget update on the Tk main thread"""
-		def run() -> None:
-			try:
-				fn(*args, **kwargs)
-			except TclError:
-				pass
-		try:
-			if current_thread() is main_thread():
-				run()
-			else:
-				self.after(0, run)
-		except (RuntimeError, TclError):
-			pass
 
 	def echo(self, *args: object, end: str | None = None) -> None:
 		"""Write message to info field (ScrolledText)"""
@@ -627,21 +631,19 @@ class Gui(Tk):
 		self._get_settings()
 		if self._work_thread and self._work_thread.is_alive():
 			return
-		if not self.sources:
-			self.prepare_dialog()
+		self.prepare_dialog()
+		if not self.source or self.source.is_empty():
 			showerror(parent=self, title=self.labels.error, message=self.labels.missing_source)
 			return
-		if self.settings.sendmail and not self.settings.mail_to:
-			self.prepare_dialog()
-			showerror(parent=self, title=self.labels.error, message=self.labels.missing_name)
-			return
-		if not self.settings.destination:
-			self.prepare_dialog()
+		if not self.settings.destination_name:
 			showerror(
 				parent=self,
 				title=self.labels.error,
 				message=self.labels.bad_destination.replace("#", f"{self.destination.get()}")
 			)
+			return
+		if self.settings.sendmail and not self.settings.mail_to:
+			showerror(parent=self, title=self.labels.error, message=self.labels.missing_name)
 			return
 		todo = self._todo.get()
 		if not todo or todo == self.labels.select_todo:
@@ -651,7 +653,6 @@ class Gui(Tk):
 		self.settings.set_todo(todo)
 		if not self.write_log.get():
 			self.log_path = None
-		
 		try:
 			self._work_thread = WorkThread(self)
 		except:
@@ -684,11 +685,11 @@ class Gui(Tk):
 			self._warning_state = "disabled"
 		self.after(500, self._warning)
 
-	def finished(self, errors: list[str] | None) -> None:
+	def finished(self, returncode: int | str) -> None:
 		"""Run this when worker has finished (called from WorkThread)"""
-		self._call_ui(self._finished, errors)
+		self._call_ui(self._finished, returncode)
 
-	def _finished(self, returncode: int | str | None) -> None:
+	def _finished(self, returncode: int | str) -> None:
 		self._work_thread = None
 		self._enable_buttons()
 		if returncode == "killed":
@@ -696,20 +697,12 @@ class Gui(Tk):
 			return
 		self.write_log.set(False)
 		self.log_path = None
-		if errors:
+		if returncode:
 			self._info_text.configure(foreground=self.settings.gui["red_fg"], background=self.settings.gui["red_bg"])
 			self._warning_state = "enable"
-			msg = f"{self.labels.problems}:"
-			if len(errors) in (1, 2, 3):
-				for error in errors:
-					msg += f"\n\n{error}"
-			elif errors:
-				more = self.labels.more_problems.replace("#", f"{len(errors)-2}")
-				msg += f"\n\n{errors[0]}\n\n{errors[1]}\n\n{more}"
 			self.prepare_dialog()
-			showerror(parent=self, title=self.labels.warning, message=msg)
+			showerror(parent=self, title=self.labels.warning, message=f"{self.labels.problems}")
 		else:
-			self._clear_source_text()
 			self._info_text.configure(foreground=self.settings.gui["green_fg"], background=self.settings.gui["green_bg"])
 
 	def quit_app(self) -> None:
