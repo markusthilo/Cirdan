@@ -9,14 +9,16 @@
  * A size mismatch appends the digest, both sizes, and SIZE_MISMATCH.
  * A new tsv file starts with a header. An existing tsv file is appended to.
  * Stdout prints the bytes written so far and the number of copied files,
- * separated by a space, and is flushed once a second. When any file fails,
+ * separated by a space, and is flushed once a second. Read and write errors
+ * are tolerated up to 20 each; the run aborts only when either count goes past
+ * that. Size mismatches are recorded and never abort. When any file fails,
  * stderr ends with the write, read, and size-mismatch counts. Stderr stays
  * empty when the copy succeeds.
  *
  * gcc -O2 -o copymd5 copymd5_lin.c -pthread
  */
 
-#define VERSION "0.0.3-2026-11-16"
+#define VERSION "1.0.0-2026-11-28"
 
 #define _GNU_SOURCE
 #define _FILE_OFFSET_BITS 64
@@ -41,6 +43,7 @@
 #define BLOCK_SIZE (512u << 20)
 #define MIN_BLOCK (1u << 20)
 #define IO_ATTEMPTS 3
+#define MAX_IO_ERRORS 20
 #define MAX_TASKS 8
 
 static pthread_mutex_t g_out_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -52,7 +55,7 @@ static long long g_processed;
 static long long g_read_errors;
 static long long g_write_errors;
 static long long g_size_mismatches;
-static int g_io_error;
+static volatile int g_io_error;
 static FILE *g_tsv;
 static const char *g_tsv_path;
 static const char g_tsv_header[] = "Path\tMD5\tSourceSize\tDestinationSize\tResult\n";
@@ -747,6 +750,12 @@ static void file_size(const char *path, unsigned long long *size)
 		*size = (unsigned long long)st.st_size;
 }
 
+static void check_io_abort(void)
+{
+	if (g_read_errors > MAX_IO_ERRORS || g_write_errors > MAX_IO_ERRORS)
+		__sync_lock_test_and_set(&g_io_error, 1);
+}
+
 static void tsv_write_error(void)
 {
 	int e = errno ? errno : EIO;
@@ -797,11 +806,13 @@ static void write_result(const unsigned char md5[16], const char *rel,
 	int pos, i;
 	size_t n;
 
-	if (kind == 1)
+	if (kind == 1) {
 		__sync_fetch_and_add(&g_read_errors, 1);
-	else if (kind == 2)
+		check_io_abort();
+	} else if (kind == 2) {
 		__sync_fetch_and_add(&g_write_errors, 1);
-	else if (kind == 3)
+		check_io_abort();
+	} else if (kind == 3)
 		__sync_fetch_and_add(&g_size_mismatches, 1);
 	if (!line) {
 		tsv_write_error();
@@ -977,6 +988,13 @@ static void *copy_task(void *param)
 			free(j);
 			break;
 		}
+		if (g_io_error) {
+			free(j->src);
+			free(j->dst);
+			free(j->rel);
+			free(j);
+			continue;
+		}
 		use = xfer;
 		err = 0;
 		write_fail = 0;
@@ -1000,7 +1018,6 @@ static void *copy_task(void *param)
 			if (!same_size(j->src, j->dst)) {
 				unsigned long long src_sz = copied, dst_sz = 0;
 
-				__sync_lock_test_and_set(&g_io_error, 1);
 				file_size(j->src, &src_sz);
 				file_size(j->dst, &dst_sz);
 				write_result(md5, j->rel, src_sz, dst_sz, 3);
@@ -1008,19 +1025,16 @@ static void *copy_task(void *param)
 				__sync_fetch_and_add(&g_files, 1);
 				write_result(md5, j->rel, copied, copied, 0);
 			}
+		} else if (write_fail && !hash_file(j->src, buf[0], xfer, md5, &copied)) {
+			unsigned long long dst_sz = 0;
+
+			file_size(j->dst, &dst_sz);
+			write_result(md5, j->rel, copied, dst_sz, 2);
 		} else {
-			__sync_lock_test_and_set(&g_io_error, 1);
-			if (write_fail && !hash_file(j->src, buf[0], xfer, md5, &copied)) {
-				unsigned long long dst_sz = 0;
+			unsigned long long src_sz = 0;
 
-				file_size(j->dst, &dst_sz);
-				write_result(md5, j->rel, copied, dst_sz, 2);
-			} else {
-				unsigned long long src_sz = 0;
-
-				file_size(j->src, &src_sz);
-				write_result(NULL, j->rel, src_sz, 0, 1);
-			}
+			file_size(j->src, &src_sz);
+			write_result(NULL, j->rel, src_sz, 0, 1);
 		}
 		free(j->src);
 		free(j->dst);
@@ -1050,6 +1064,10 @@ static int copy_tree(const char *src, const char *dst, const char *rel, struct j
 		char *child_rel = NULL;
 		struct stat st;
 
+		if (g_io_error) {
+			rc = 1;
+			break;
+		}
 		if (de->d_name[0] == '.' && (de->d_name[1] == 0
 			|| (de->d_name[1] == '.' && de->d_name[2] == 0)))
 			continue;
@@ -1175,9 +1193,12 @@ static void help(void)
 		"An existing tsv file is appended to.\n"
 		"\n"
 		"Stdout prints <bytes> <files> and is flushed once a second.\n"
+		"Up to 20 read errors and 20 write errors are tolerated; the run aborts only when\n"
+		"either count goes past that. Size mismatches are recorded and never abort.\n"
 		"When any file fails, stderr ends with:\n"
 		"ERRORS occurred: <write> / <read> / <size mismatch> (WRITE ERRORS / READ ERRORS / SIZE MISMATCHES)\n"
-		"The exit code is 0 when every file copies, and 1 when any read, write, or size check fails.\n",
+		"The exit code is 0 when every file copies, and 1 when any read, write, size check,\n"
+		"or abort threshold is hit.\n",
 		VERSION);
 }
 
@@ -1340,7 +1361,7 @@ int main(int argc, char **argv)
 	}
 	show_progress();
 	report_errors();
-	rc = (g_io_error || queue.failed) ? 1 : 0;
+	rc = (g_io_error || queue.failed || g_read_errors || g_write_errors || g_size_mismatches) ? 1 : 0;
 
 done:
 	if (progress_started) {

@@ -4,7 +4,6 @@
 from shutil import move, rmtree
 import PyInstaller.__main__
 from classes.path import Path
-from cirdan import __version__
 
 if __name__ == "__main__":
 	print("Removing existing executables")
@@ -21,5 +20,4 @@ if __name__ == "__main__":
 		path = Path(name)
 		if path.is_dir():
 			rmtree(path)
-	Path("version.txt").write_text(f"{__version__}\n", encoding="utf-8")
 	print("Done!")

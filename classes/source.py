@@ -16,23 +16,21 @@ class Source:
 		if settings.no_source_check:
 			self.top_dir_whitelist = None
 			self.sub_dir_whitelist = None
-			self.sub_wishlist = None
 			self.blacklist = None
 			self.sub_file_extensions = None
 			self.max_path_length = None
 		else:
 			self.top_dir_whitelist = RegEx(settings.source_top_dir_whitelist) if settings.source_top_dir_whitelist else None
 			self.sub_dir_whitelist = RegEx(settings.source_sub_dir_whitelist) if settings.source_sub_dir_whitelist else None
-			self.sub_wishlist = RegEx(settings.source_sub_wishlist) if settings.source_sub_wishlist else None
 			self.blacklist = RegEx(settings.source_blacklist) if settings.source_blacklist else None
 			self.countlist = RegEx(settings.count_paths) if settings.count_paths else None
 			self.max_path_length = settings.max_path_length
+		self.sub_wishlist = RegEx(settings.source_sub_wishlist) if settings.source_sub_wishlist else None
 		self.sub_suffixes = settings.source_sub_filetypes.keys()
 		self.name: str | None = settings.source_name
 		self.top_dir_path: Path | None = None
 		self.sub_dirs = dict[str, dict[str, Path | Size | int]]()
 		self.sub_files = dict[str, dict[str, Path | Size]]()
-		self.wished_files = dict[str, Path]()
 		self.file_cnt = 0
 		self.size = Size(0)
 
@@ -47,9 +45,6 @@ class Source:
 			string += f"    {key}: {value}\n"
 		string += "sub_files\n"
 		for key, value in self.sub_files.items():
-			string += f"    {key}: {value}\n"
-		string += "wished_files\n"
-		for key, value in self.wished_files.items():
 			string += f"    {key}: {value}\n"
 		return string
 
@@ -138,7 +133,7 @@ class Source:
 		if self.countlist:
 			self.counted_paths.pop(name)
 
-	def add_sub_file(self, arg: Path | str) -> None:
+	def add_sub_file(self, arg: Path | str) -> str | None:
 		"""Add sub file"""
 		path = self.sub_file(arg)
 		if not path:
@@ -147,8 +142,6 @@ class Source:
 		self.file_cnt += 1
 		self.size += size
 		self.sub_files[path.name] = {"path": path, "size": size}
-		if self.sub_wishlist and self.sub_wishlist.search(path.name):
-			self.wished_files[path.name] = path
 		return path.name
 
 	def rm_sub_file(self, name: str) -> None:
@@ -156,8 +149,6 @@ class Source:
 		sub_file = self.sub_files.pop(name)
 		self.size -= sub_file["size"]
 		self.file_cnt -= 1
-		if self.sub_wishlist and self.sub_wishlist.search(name):
-			self.wished_files.pop(name)
 
 	def set_name(self, name: str) -> str:
 		"""Set top level dir"""
@@ -185,3 +176,15 @@ class Source:
 	def get_sub_file_list(self) -> list[str, str]:
 		"""Get a list of sub files"""
 		return sorted(self.sub_files.keys())
+
+	def get_wishes(self) -> tuple[list[str], list[str]] | tuple[None, None]:
+		"""Get a list of missing wished sub files"""
+		if not self.sub_wishlist:
+			return None, None
+		matches = list[str]()
+		patterns = list[str](self.sub_wishlist.get_patterns())
+		for filename in self.sub_files.keys():
+			if pattern := self.sub_wishlist.search(filename):
+				matches.append(filename)
+				patterns.remove(pattern)
+		return matches, patterns

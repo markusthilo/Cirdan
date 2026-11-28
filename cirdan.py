@@ -72,6 +72,8 @@ if __name__ == "__main__":  # start here when run as application
 		help="Use the given username instead of logon")
 	argparser.add_argument("-v", "--version", action="store_true",
 		help="Print version number")
+	argparser.add_argument("-w", "--wishlist", action="store_true",
+		help="Check wishlist (necessary files below top level directory)")
 	argparser.add_argument("sources", nargs="*", help="Source directories or files", type=Path, metavar="DIRECTORY|FILE")
 	args = argparser.parse_args()
 	if args.version:
@@ -132,6 +134,12 @@ if __name__ == "__main__":  # start here when run as application
 							print(f"{settings.labels.inserted} {arg}")
 					else:
 						raise ValueError(settings.labels.not_a_valid_argument.replace("#", str(arg))) from None
+			if args.wishlist:
+				matches, missing = source.get_wishes()
+				if matches:
+					print(settings.labels.found_wishes.replace("#", "\n".join(matches)))
+				if missing:
+					raise FileNotFoundError(settings.labels.missing_wishes.replace("#", "\n".join(missing))) from None
 			logger.add_remote(source)
 			if settings.user_log:
 				logger.add_user(settings.user_log)

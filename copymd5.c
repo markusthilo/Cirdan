@@ -10,6 +10,8 @@
  * A new tsv file starts with a header. An existing tsv file is appended to.
  * Stdout and stderr are UTF-8. Stdout prints the bytes written so far and the
  * number of copied files, separated by a space, and is flushed once a second.
+ * Read and write errors are tolerated up to 20 each; the run aborts only when
+ * either count goes past that. Size mismatches are recorded and never abort.
  * When any file fails, stderr ends with the write, read, and size-mismatch
  * counts. Stderr stays empty when the copy succeeds.
  *
@@ -17,7 +19,7 @@
  * x86_64-w64-mingw32-gcc -O2 -o copymd5.exe copymd5.c -lshell32
  */
 
-#define VERSION "0.0.3-2026-11-16"
+#define VERSION "1.0.0-2026-11-28"
 
 #define WIN32_LEAN_AND_MEAN
 #define _WIN32_WINNT 0x0601
@@ -42,6 +44,7 @@
 #define BLOCK_SIZE (512u << 20)
 #define MIN_BLOCK (1u << 20)
 #define IO_ATTEMPTS 3
+#define MAX_IO_ERRORS 20
 #define MAX_TASKS 8
 
 static CRITICAL_SECTION g_out_lock;
@@ -515,6 +518,12 @@ static void report_errors(void)
 	out_unlock();
 }
 
+static void check_io_abort(void)
+{
+	if (g_read_errors > MAX_IO_ERRORS || g_write_errors > MAX_IO_ERRORS)
+		InterlockedExchange(&g_io_error, 1);
+}
+
 static DWORD WINAPI progress_stdout(LPVOID param)
 {
 	HANDLE stop = param;
@@ -584,11 +593,13 @@ static void write_result(const BYTE md5[16], LPCWSTR rel, ULONGLONG src_size, UL
 	int n, i, pos;
 	size_t len, cap;
 
-	if (kind == 1)
+	if (kind == 1) {
 		InterlockedIncrement64(&g_read_errors);
-	else if (kind == 2)
+		check_io_abort();
+	} else if (kind == 2) {
 		InterlockedIncrement64(&g_write_errors);
-	else if (kind == 3)
+		check_io_abort();
+	} else if (kind == 3)
 		InterlockedIncrement64(&g_size_mismatches);
 	n = WideCharToMultiByte(CP_UTF8, 0, rel, -1, NULL, 0, NULL, NULL);
 	if (n <= 0) {
@@ -1090,6 +1101,13 @@ static DWORD WINAPI copy_task(LPVOID param)
 				LocalFree(j);
 			break;
 		}
+		if (g_io_error) {
+			LocalFree(j->src);
+			LocalFree(j->dst);
+			LocalFree(j->rel);
+			LocalFree(j);
+			continue;
+		}
 		use = xfer;
 		err = 0;
 		write_fail = 0;
@@ -1113,7 +1131,6 @@ static DWORD WINAPI copy_task(LPVOID param)
 			if (!same_size(j->src, j->dst)) {
 				ULONGLONG src_sz = copied, dst_sz = 0;
 
-				InterlockedExchange(&g_io_error, 1);
 				file_size(j->src, &src_sz);
 				file_size(j->dst, &dst_sz);
 				write_result(md5, j->rel, src_sz, dst_sz, 3);
@@ -1121,19 +1138,16 @@ static DWORD WINAPI copy_task(LPVOID param)
 				InterlockedIncrement64(&g_files);
 				write_result(md5, j->rel, copied, copied, 0);
 			}
+		} else if (write_fail && !hash_file(j->src, buf[0], xfer, md5, &copied)) {
+			ULONGLONG dst_sz = 0;
+
+			file_size(j->dst, &dst_sz);
+			write_result(md5, j->rel, copied, dst_sz, 2);
 		} else {
-			InterlockedExchange(&g_io_error, 1);
-			if (write_fail && !hash_file(j->src, buf[0], xfer, md5, &copied)) {
-				ULONGLONG dst_sz = 0;
+			ULONGLONG src_sz = 0;
 
-				file_size(j->dst, &dst_sz);
-				write_result(md5, j->rel, copied, dst_sz, 2);
-			} else {
-				ULONGLONG src_sz = 0;
-
-				file_size(j->src, &src_sz);
-				write_result(NULL, j->rel, src_sz, 0, 1);
-			}
+			file_size(j->src, &src_sz);
+			write_result(NULL, j->rel, src_sz, 0, 1);
 		}
 		LocalFree(j->src);
 		LocalFree(j->dst);
@@ -1178,6 +1192,10 @@ static int copy_tree(LPCWSTR src, LPCWSTR dst, LPCWSTR rel, struct job_queue *q)
 		LPWSTR child_rel = NULL;
 		DWORD e, attr;
 
+		if (g_io_error) {
+			rc = 1;
+			break;
+		}
 		if (fd.cFileName[0] == L'.' && (fd.cFileName[1] == 0
 			|| (fd.cFileName[1] == L'.' && fd.cFileName[2] == 0)))
 			continue;
@@ -1278,9 +1296,12 @@ static void help(void)
 		L"An existing tsv file is appended to.\n"
 		L"\n"
 		L"Stdout prints <bytes> <files> and is flushed once a second.\n"
+		L"Up to 20 read errors and 20 write errors are tolerated; the run aborts only when\n"
+		L"either count goes past that. Size mismatches are recorded and never abort.\n"
 		L"When any file fails, stderr ends with:\n"
 		L"ERRORS occurred: <write> / <read> / <size mismatch> (WRITE ERRORS / READ ERRORS / SIZE MISMATCHES)\n"
-		L"The exit code is 0 when every file copies, and 1 when any read, write, or size check fails.\n",
+		L"The exit code is 0 when every file copies, and 1 when any read, write, size check,\n"
+		L"or abort threshold is hit.\n",
 		VERSION);
 }
 
@@ -1465,7 +1486,7 @@ int main(void)
 	}
 	show_progress();
 	report_errors();
-	rc = (g_io_error || queue.failed) ? 1 : 0;
+	rc = (g_io_error || queue.failed || g_read_errors || g_write_errors || g_size_mismatches) ? 1 : 0;
 
 done:
 	if (progress_thread) {

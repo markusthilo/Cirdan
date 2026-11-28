@@ -624,13 +624,20 @@ class Gui(Tk):
 
 	def _execute(self) -> None:
 		"""Start copy process / worker"""
-		self._get_settings()
 		if self._work_thread and self._work_thread.is_alive():
 			return
 		self.prepare_dialog()
 		if not self.source or self.source.is_empty():
 			showerror(parent=self, title=self.labels.error, message=self.labels.missing_source)
 			return
+		matches, missing = self.source.get_wishes()
+		if missing:
+			msg = self.labels.found_wishes.replace("#", "\n".join(matches)) if matches else ""
+			msg += "\n\n" + self.labels.missing_wishes.replace("#", "\n".join(missing))
+			showwarning(parent=self, title=self.labels.warning, message=msg)
+			if not askyesno(parent=self, title=self.labels.warning, message=self.labels.ignore_warning):
+				return
+		self._get_settings()
 		if not self.settings.destination_name:
 			showerror(
 				parent=self,

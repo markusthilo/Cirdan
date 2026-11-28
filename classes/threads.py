@@ -76,7 +76,7 @@ class InsertSrcDirThread(BaseThread):
 			if error:
 				if isinstance(error, int):
 					if self._warning_yesno(
-						f"{(self._gui.labels.path_to_long.replace(
+						f"{(self._gui.labels.path_too_long.replace(
 								"#1", str(rel_path)).replace(
 								"#2", str(error)).replace(
 								"#3", str(self._gui.source.max_path_length))
@@ -93,7 +93,7 @@ class InsertSrcDirThread(BaseThread):
 					) and self._warning_yesno(self._labels.are_you_sure):
 						self._gui.source.blacklist = None
 						continue
-				self._gui.echo(self._gui.label.aborted_source_check)
+				self._gui.echo(self._gui.labels.aborted_source_check)
 				return
 		self._gui.source = self._source
 		self._gui.echo(self._gui.labels.added_source.replace("#", str(self._dir_path)))

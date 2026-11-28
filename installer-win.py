@@ -2,9 +2,11 @@
 # -*- coding: utf-8 -*-
 
 from os.path import normcase
-from sys import argv, exit
+from sys import argv, exit, executable
 from argparse import ArgumentParser
-from subprocess import Popen, PIPE, STARTUPINFO, STARTF_USESHOWWINDOW, run, CompletedProcess
+from subprocess import (
+	Popen, PIPE, STARTUPINFO, STARTF_USESHOWWINDOW, run, CompletedProcess, list2cmdline,
+)
 from classes.path import Path
 from classes.settings import Config
 
@@ -34,6 +36,52 @@ class Console:
 	@staticmethod
 	def error(message: str) -> None:
 		print(message)
+
+class Elevation:
+	"""Windows UAC elevation helpers"""
+
+	@staticmethod
+	def is_admin() -> bool:
+		"""True when the current process already has admin rights"""
+		try:
+			from ctypes import windll
+			return bool(windll.shell32.IsUserAnAdmin())
+		except (AttributeError, OSError):
+			return False
+
+	@staticmethod
+	def can_write(directory: Path) -> bool:
+		"""True when directory can be created and written without elevation"""
+		directory = Path(directory)
+		try:
+			directory.mkdir(parents=True, exist_ok=True)
+			probe = directory / ".cirdan_write_test"
+			probe.write_text("ok", encoding="utf-8")
+			probe.unlink(missing_ok=True)
+			return True
+		except OSError:
+			return False
+
+	@staticmethod
+	def relaunch(args: list[str]) -> None:
+		"""
+		Re-launch this installer elevated (UAC prompt) and exit the current process.
+		Works for python installer-win.py … and for a frozen installer-win.exe.
+		"""
+		from ctypes import windll
+		exe = Path(executable).resolve()
+		if exe.name.lower().startswith("python"):
+			# python.exe + script path + remaining args
+			script = Path(__file__).resolve()
+			params = list2cmdline([str(script), *args])
+		else:
+			params = list2cmdline(args)
+		Console.info("Requesting administrator rights…")
+		# ShellExecuteW returns > 32 on success
+		rc = int(windll.shell32.ShellExecuteW(None, "runas", str(exe), params, None, 1))
+		if rc <= 32:
+			raise RuntimeError(f"Could not elevate (ShellExecuteW returned {rc})")
+		raise SystemExit(0)
 
 class RoboCopyMirror:
 	"""Mirror a directory with robocopy.exe /mir"""
@@ -235,6 +283,21 @@ class WinInstaller:
 			Console.info(f"Creating {dest}")
 			dest.mkdir(parents=True, exist_ok=True)
 
+	def ensure_admin_if_needed(self, argv_args: list[str]) -> None:
+		"""If the target is not writable, re-launch elevated (UAC)"""
+		if Elevation.is_admin():
+			Console.info("Running with administrator rights")
+			return
+		if Elevation.can_write(self.destination):
+			return
+		Console.info(f"Install directory needs administrator rights: {self.destination}")
+		if not Console.ask_yes_no("Restart installer as administrator?", default=True):
+			raise PermissionError(
+				f"Cannot write to {self.destination} without administrator rights"
+			)
+		# Pass destination explicitly so the elevated process skips the prompt
+		Elevation.relaunch([str(self.destination.resolve())])
+
 	def mirror(self) -> None:
 		"""Mirror source into destination (creates destination if needed)"""
 		RoboCopyMirror(self.source, self.destination).run()
@@ -258,8 +321,9 @@ class WinInstaller:
 		Console.info(f"Desktop shortcut created: {lnk}")
 		return lnk
 
-	def run(self) -> None:
+	def run(self, argv_args: list[str] | None = None) -> None:
 		"""Full install flow"""
+		self.ensure_admin_if_needed(argv_args or [])
 		self.ensure_destination()
 		self.mirror()
 		try:
@@ -269,7 +333,8 @@ class WinInstaller:
 
 if __name__ == "__main__":
 	try:
-		WinInstaller.from_argv(argv[1:]).run()
+		args = argv[1:]
+		WinInstaller.from_argv(args).run(args)
 	except Exception as ex:
 		raise SystemExit(str(ex)) from ex
 	exit(0)
